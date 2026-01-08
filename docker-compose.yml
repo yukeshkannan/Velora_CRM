@@ -42,7 +42,7 @@ services:
     environment:
       - MONGO_URI=mongodb+srv://yukesh:yukesh1234@yukesh.5dylhhw.mongodb.net/companycrm?appName=Yukesh
       - JWT_SECRET=supersecretkey123
-      - BREVO_API_KEY=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
+      - BREVO_API_KEY=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
       - SENDER_EMAIL=yukesh785.in@gmail.com
     networks: [ aura-network ]
     restart: always
@@ -69,7 +69,7 @@ services:
     build: { context: ., dockerfile: apps/notification-service/Dockerfile }
     environment:
       - MONGO_URI=mongodb+srv://yukesh:yukesh1234@yukesh.5dylhhw.mongodb.net/companycrm?appName=Yukesh
-      - BREVO_API_KEY=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
+      - BREVO_API_KEY=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
       - SENDER_EMAIL=yukesh785.in@gmail.com
     networks: [ aura-network ]
     restart: always
