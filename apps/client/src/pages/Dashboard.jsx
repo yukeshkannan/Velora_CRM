@@ -20,8 +20,13 @@ const Dashboard = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    if (user?.role === 'Client') return <ClientDashboard />;
-    if (user?.role === 'Employee') return <EmployeeDashboard />;
+    const internalRoles = ['Admin', 'Employee', 'Sales', 'HR'];
+    if (!user || !user.role || !internalRoles.includes(user.role) || user.role === 'Client') {
+        return <ClientDashboard />;
+    }
+    if (user.role === 'Employee' || user.role === 'Sales' || user.role === 'HR') {
+        return <EmployeeDashboard />;
+    }
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -116,7 +121,7 @@ const Dashboard = () => {
                             <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Daily Sales Performance</p>
                         </div>
                         <div className="h-48 -mx-2">
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                 <BarChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                                     <XAxis 
@@ -149,7 +154,7 @@ const Dashboard = () => {
                     {/* Revenue - Deep Navy */}
                     <MetricCard 
                         title="Total Revenue" 
-                        value={`$${(overview.totalRevenuePotential / 1000).toFixed(1)}k`}
+                        value={`$${Math.round(overview.totalRevenuePotential).toLocaleString()}`}
                         label="Projected Income"
                         path="/app/sales"
                         theme="navy"
@@ -167,7 +172,7 @@ const Dashboard = () => {
                     {/* Collections - Amber */}
                     <MetricCard 
                         title="Cash Collected" 
-                        value={`$${(overview.totalCollected / 1000).toFixed(1)}k`}
+                        value={`$${Math.round(overview.totalCollected).toLocaleString()}`}
                         label="Realized Revenue"
                         path="/app/invoices"
                         theme="amber"
@@ -286,7 +291,7 @@ const SparkCard = ({ title, value, trend, chart, path }) => {
                 </div>
             </div>
             <div className="h-24 w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     {chart}
                 </ResponsiveContainer>
             </div>

@@ -1,16 +1,37 @@
 const Product = require('../models/Product');
+const { getCache, setCache, delCachePattern } = require('../../../packages/utils');
 
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
 exports.getProducts = async (req, res) => {
   try {
-    const products = await Product.find();
-    res.status(200).json({
+    const searchTerm = req.query.search || req.query.q || '';
+    const cacheKey = `products:all:${searchTerm}`;
+    
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
+    let query = {};
+    if (searchTerm) {
+      const regex = new RegExp(searchTerm, 'i');
+      query.$or = [
+        { name: regex },
+        { sku: regex },
+        { description: regex }
+      ];
+    }
+    const products = await Product.find(query);
+    const responseData = {
       success: true,
       count: products.length,
       data: products
-    });
+    };
+
+    await setCache(cacheKey, responseData, 3600); // Cache for 1 hour
+    res.status(200).json(responseData);
   } catch (err) {
     res.status(500).json({
       success: false,
@@ -51,6 +72,7 @@ exports.getProductById = async (req, res) => {
 exports.createProduct = async (req, res) => {
   try {
     const product = await Product.create(req.body);
+    await delCachePattern('products:*');
 
     res.status(201).json({
       success: true,
@@ -95,6 +117,7 @@ exports.updateProduct = async (req, res) => {
       new: true,
       runValidators: true
     });
+    await delCachePattern('products:*');
 
     res.status(200).json({
       success: true,
@@ -123,6 +146,7 @@ exports.deleteProduct = async (req, res) => {
     }
 
     await product.deleteOne();
+    await delCachePattern('products:*');
 
     res.status(200).json({
       success: true,

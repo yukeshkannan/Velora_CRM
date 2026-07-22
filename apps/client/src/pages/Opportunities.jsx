@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, DollarSign, Calendar, Filter, MoreHorizontal, X, User, TrendingUp, LayoutGrid, List, Trash2, Download } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { Plus, Search, DollarSign, Calendar, Filter, Pencil, X, User, TrendingUp, LayoutGrid, List, Trash2, Download } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -33,13 +34,15 @@ const Opportunities = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('kanban'); // 'kanban' or 'list'
     const [formData, setFormData] = useState({
-
         title: '',
         amount: '',
         stage: 'New',
         contactId: '',
         assignedTo: '',
         expectedCloseDate: '',
+        expectedCloseHour: '09',
+        expectedCloseMinute: '00',
+        expectedClosePeriod: 'AM',
         modules: []
     });
     const [error, setError] = useState('');
@@ -204,7 +207,7 @@ const Opportunities = () => {
             // BUT, if the names match, we should TRUST definitions in the DB (which might have 'Completed' status).
             const dbModules = opp.modules || [];
             const looksValid = dbModules.length > 0 && dbModules.some(m => 
-                matchedProduct.modules.some(pm => pm.name.trim().toLowerCase() === m.name.trim().toLowerCase())
+                matchedProduct.modules && matchedProduct.modules.some(pm => pm.name.trim().toLowerCase() === m.name.trim().toLowerCase())
             );
 
             if (looksValid) {
@@ -213,12 +216,12 @@ const Opportunities = () => {
             } else {
                 console.log("Generating fresh modules from Product. Reason: Validation Failed.");
                 console.log("DB Modules Length:", dbModules.length);
-                if (dbModules.length > 0) {
+                if (dbModules.length > 0 && matchedProduct.modules) {
                      console.log("First DB Module:", dbModules[0].name);
                      console.log("Matches Product?", matchedProduct.modules.some(pm => pm.name.trim().toLowerCase() === dbModules[0].name.trim().toLowerCase()));
                 }
 
-                initialModules = matchedProduct.modules.map(m => ({
+                initialModules = (matchedProduct.modules || []).map(m => ({
                     name: m.name,
                     status: 'Pending',
                     clientStatus: 'Pending'
@@ -230,9 +233,29 @@ const Opportunities = () => {
             // If saved data has no modules but we have a productId, maybe fetch from that?
             if (initialModules.length === 0 && opp.productId) {
                  const savedProd = products.find(p => p._id === opp.productId);
-                 if (savedProd) {
+                 if (savedProd && savedProd.modules) {
                      initialModules = savedProd.modules.map(m => ({ name: m.name, status: 'Pending', clientStatus: 'Pending' }));
                  }
+            }
+        }
+
+        let hour = '09';
+        let minute = '00';
+        let period = 'AM';
+        if (opp.expectedCloseDate && opp.expectedCloseDate.includes('T')) {
+            const timePart = opp.expectedCloseDate.split('T')[1];
+            let hh = parseInt(timePart.substring(0, 2));
+            minute = timePart.substring(3, 5);
+            if (hh >= 12) {
+                period = 'PM';
+                if (hh > 12) hh -= 12;
+            } else {
+                period = 'AM';
+                if (hh === 0) hh = 12;
+            }
+            hour = String(hh).padStart(2, '0');
+            if (!['00', '15', '30', '45'].includes(minute)) {
+                minute = '00';
             }
         }
 
@@ -242,8 +265,11 @@ const Opportunities = () => {
             stage: opp.stage,
             contactId: contactId,
             assignedTo: assignedTo,
-            productId: productId, // Ensure we have a productId field in state if we want the select to reflect it
+            productId: productId,
             expectedCloseDate: opp.expectedCloseDate ? opp.expectedCloseDate.split('T')[0] : '',
+            expectedCloseHour: hour,
+            expectedCloseMinute: minute,
+            expectedClosePeriod: period,
             modules: initialModules
         });
         setIsDrawerOpen(true);
@@ -263,30 +289,47 @@ const Opportunities = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            // Fix: Strip _id from modules to ensure clean update (prevent conflict)
             const cleanModules = (formData.modules || []).map(({ _id, ...rest }) => rest);
             const payload = { ...formData, modules: cleanModules };
 
+            // Format expectedCloseDate if present
+            if (payload.expectedCloseDate) {
+                let hh = parseInt(payload.expectedCloseHour || '9');
+                if (payload.expectedClosePeriod === 'PM' && hh < 12) hh += 12;
+                if (payload.expectedClosePeriod === 'AM' && hh === 12) hh = 0;
+                const hhStr = String(hh).padStart(2, '0');
+                payload.expectedCloseDate = `${payload.expectedCloseDate}T${hhStr}:${payload.expectedCloseMinute || '00'}:00`;
+            }
+            delete payload.expectedCloseHour;
+            delete payload.expectedCloseMinute;
+            delete payload.expectedClosePeriod;
+
+            // Clean up empty strings to prevent Mongoose CastErrors
+            if (!payload.assignedTo) delete payload.assignedTo;
+            if (!payload.expectedCloseDate) delete payload.expectedCloseDate;
+            if (!payload.productId) delete payload.productId;
+
             if (editingOpportunity) {
                 await axios.put(`/api/opportunities/${editingOpportunity._id}`, payload);
+                toast.success('Opportunity updated successfully');
             } else {
                 await axios.post('/api/opportunities', payload);
+                toast.success('Opportunity created successfully');
             }
             
-            setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [] });
+            setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', expectedCloseHour: '09', expectedCloseMinute: '00', expectedClosePeriod: 'AM', modules: [] });
             setIsDrawerOpen(false);
             setEditingOpportunity(null);
             fetchData(); 
         } catch (err) {
             console.error(err);
-            // setError('Failed to save opportunity'); // setError might not be defined in this scope? Using console/alert
-            alert("Failed to save. Check inputs.");
+            toast.error(err.response?.data?.message || "Failed to save. Check inputs.");
         }
     };
 
     const openCreateDrawer = () => {
         setEditingOpportunity(null);
-        setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [] });
+        setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', expectedCloseHour: '09', expectedCloseMinute: '00', expectedClosePeriod: 'AM', modules: [] });
         setIsDrawerOpen(true);
     };
 
@@ -344,17 +387,17 @@ const Opportunities = () => {
                      <button 
                         className="btn btn-primary" 
                         onClick={openCreateDrawer}
-                        style={{ padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' }}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: 600, boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)' }}
                     >
-                        <Plus size={18} style={{ marginRight: '6px' }} />
+                        <Plus size={18} />
                         New Deal
                     </button>
                      <button 
                         className="btn btn-ghost" 
                         onClick={() => exportToCSV(opportunities, 'opportunities')}
-                        style={{ padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: 600, border: '1px solid #e2e8f0', backgroundColor: 'white' }}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '0.75rem 1.25rem', borderRadius: '8px', fontWeight: 600, border: '1px solid #e2e8f0', backgroundColor: 'white' }}
                     >
-                        <Download size={18} style={{ marginRight: '6px' }} />
+                        <Download size={18} />
                         Export
                     </button>
 
@@ -611,7 +654,7 @@ const Opportunities = () => {
                                                             style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', color: '#3b82f6' }}
                                                             title="Edit Deal"
                                                         >
-                                                            <MoreHorizontal size={16} />
+                                                            <Pencil size={16} />
                                                         </button>
                                                         <button 
                                                             onClick={() => setShowDeleteConfirm(opp)}
@@ -738,7 +781,40 @@ const Opportunities = () => {
                                 </div>
 
                                  <div>
-                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem', color: '#334155' }}>Target Close Date</label>
+                                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600, fontSize: '0.875rem', color: '#334155' }}>Target Close Date & Time</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input 
+                                            type="date" 
+                                            name="expectedCloseDate" 
+                                            value={formData.expectedCloseDate || ''} 
+                                            onChange={handleChange}
+                                            style={{ flex: 2, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem' }} 
+                                        />
+                                        <select 
+                                            name="expectedCloseHour"
+                                            value={formData.expectedCloseHour || '09'} 
+                                            onChange={(e) => setFormData(prev => ({ ...prev, expectedCloseHour: e.target.value }))}
+                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', backgroundColor: 'white' }} 
+                                        >
+                                            {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(h => <option key={h} value={h}>{h}</option>)}
+                                        </select>
+                                        <select 
+                                            name="expectedCloseMinute"
+                                            value={formData.expectedCloseMinute || '00'} 
+                                            onChange={(e) => setFormData(prev => ({ ...prev, expectedCloseMinute: e.target.value }))}
+                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', backgroundColor: 'white' }} 
+                                        >
+                                            {['00', '15', '30', '45'].map(m => <option key={m} value={m}>{m}</option>)}
+                                        </select>
+                                        <select 
+                                            name="expectedClosePeriod"
+                                            value={formData.expectedClosePeriod || 'AM'} 
+                                            onChange={(e) => setFormData(prev => ({ ...prev, expectedClosePeriod: e.target.value }))}
+                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', backgroundColor: 'white' }} 
+                                        >
+                                            {['AM', 'PM'].map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {/* Project Modules Section */}
@@ -755,7 +831,20 @@ const Opportunities = () => {
                                         {(formData.modules || []).map((mod, idx) => (
                                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>{mod.name}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={() => {
+                                                                const newModules = (formData.modules || []).filter((_, i) => i !== idx);
+                                                                setFormData({ ...formData, modules: newModules });
+                                                            }}
+                                                            style={{ padding: '4px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            title="Remove Module"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                        <span style={{ fontWeight: 600, fontSize: '0.85rem', color: '#334155' }}>{mod.name}</span>
+                                                    </div>
                                                     {/* Internal Status - Editable by Assigned User & Admin */}
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>INTERNAL:</span>
@@ -811,6 +900,42 @@ const Opportunities = () => {
                                                 )}
                                             </div>
                                         ))}
+
+                                        {/* Add Custom Module Row */}
+                                        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', borderTop: '1px dashed #e2e8f0', paddingTop: '1rem' }}>
+                                            <input 
+                                                type="text" 
+                                                id="newModuleName" 
+                                                placeholder="Add custom module..." 
+                                                style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} 
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        const name = e.target.value.trim();
+                                                        if (name) {
+                                                            const newModules = [...(formData.modules || []), { name, status: 'Pending', clientStatus: 'Pending' }];
+                                                            setFormData({ ...formData, modules: newModules });
+                                                            e.target.value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <button 
+                                                type="button"
+                                                onClick={() => {
+                                                    const input = document.getElementById('newModuleName');
+                                                    const name = input ? input.value.trim() : '';
+                                                    if (name) {
+                                                        const newModules = [...(formData.modules || []), { name, status: 'Pending', clientStatus: 'Pending' }];
+                                                        setFormData({ ...formData, modules: newModules });
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                                            >
+                                                Add Module
+                                            </button>
+                                        </div>
                                     </div>
                                     )}
                                 </div>

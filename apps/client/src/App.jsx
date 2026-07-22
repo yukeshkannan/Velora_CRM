@@ -23,9 +23,39 @@ import Payroll from './pages/Payroll';
 import Settings from './pages/Settings';
 import Explore from './pages/Explore';
 
+import { Toaster } from 'react-hot-toast';
+
 function App() {
   return (
     <AuthProvider>
+      <Toaster 
+        position="top-right" 
+        reverseOrder={false}
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: '#0f172a',
+            color: '#f8fafc',
+            borderRadius: '14px',
+            fontSize: '13px',
+            fontWeight: '600',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            padding: '12px 16px'
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff',
+            },
+          },
+        }} 
+      />
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -62,8 +92,8 @@ function App() {
                <Route path="invoices" element={<Invoices />} />
             </Route>
 
-            {/* Admin Only Routes */}
-            <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+            {/* Admin & HR Only Routes */}
+            <Route element={<ProtectedRoute allowedRoles={['Admin', 'HR']} />}>
               <Route path="users" element={<Users />} />
             </Route>
           </Route>

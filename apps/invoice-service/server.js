@@ -4,6 +4,8 @@ const cors = require('cors');
 const { connectDB } = require('../../packages/database');
 const invoiceRoutes = require('./routes/invoiceRoutes');
 
+const { correlationLogger } = require('../../packages/utils');
+
 // Load env vars
 dotenv.config();
 
@@ -13,6 +15,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors());
+app.use(correlationLogger('Invoice-Service'));
 
 // Mount routers
 app.get('/', (req, res) => res.send("Invoice Service Running"));

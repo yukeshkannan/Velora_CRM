@@ -54,6 +54,22 @@ const Invoices = () => {
         }
     };
 
+    useEffect(() => {
+        if (!loading && invoices.length > 0) {
+            const params = new URLSearchParams(window.location.search);
+            const downloadId = params.get('download');
+            if (downloadId) {
+                const targetInvoice = invoices.find(inv => inv._id === downloadId);
+                if (targetInvoice) {
+                    handleDownloadPDF(targetInvoice);
+                    // Remove query parameter from URL without page reload
+                    const newUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, newUrl);
+                }
+            }
+        }
+    }, [invoices, loading]);
+
     const handleCustomerChange = (e) => {
         const contactId = e.target.value;
         const contact = contacts.find(c => c._id === contactId);
@@ -125,6 +141,136 @@ const Invoices = () => {
             toast.error("Payment failed. Please try again.");
         }
     }
+
+    const handleSendEmail = async (invoice) => {
+        const loadingToast = toast.loading("Sending invoice email...");
+        try {
+            const res = await axios.post(`/api/invoices/${invoice._id}/send`);
+            if (res.data.success) {
+                toast.success("Invoice email sent successfully!", { id: loadingToast });
+                fetchData();
+            } else {
+                toast.error(res.data.message || "Failed to send invoice email.", { id: loadingToast });
+            }
+        } catch (err) {
+            console.error("Send email error:", err);
+            toast.error(err.response?.data?.error || "Error dispatching invoice email.", { id: loadingToast });
+        }
+    };
+
+    const handleDownloadPDF = (invoice) => {
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            toast.error("Popup blocked! Please allow popups to download PDF.");
+            return;
+        }
+        
+        const itemsHtml = invoice.items.map(item => `
+            <tr>
+                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155;">${item.description}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155; text-align: center;">${item.quantity}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155; text-align: right;">$${item.price.toFixed(2)}</td>
+                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #0f172a; text-align: right; font-weight: bold;">$${(item.price * item.quantity).toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+        const printContent = `
+            <html>
+            <head>
+                <title>Invoice - #${invoice._id.slice(-6).toUpperCase()}</title>
+                <style>
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; }
+                    }
+                    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: #0f172a; padding: 40px; margin: 0; }
+                    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 30px; }
+                    .logo { font-size: 24px; font-weight: 800; color: #0f172a; }
+                    .logo span { color: #d97706; }
+                    .invoice-details { text-align: right; }
+                    .invoice-title { font-size: 32px; font-weight: 900; color: #0f172a; margin: 0 0 10px 0; }
+                    .metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+                    .bill-section h3 { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; letter-spacing: 1px; }
+                    .bill-section p { font-size: 14px; margin: 4px 0; color: #0f172a; font-weight: 600; }
+                    table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+                    th { background-color: #f8fafc; padding: 12px; text-transform: uppercase; font-size: 11px; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+                    .total-card { margin-left: auto; width: 300px; border-top: 2px solid #e2e8f0; padding-top: 20px; }
+                    .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+                    .grand-total { font-size: 20px; font-weight: 900; color: #0f172a; border-top: 1px dashed #e2e8f0; padding-top: 10px; margin-top: 10px; }
+                    .footer { margin-top: 80px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div>
+                        <div class="logo">Velora<span>.</span></div>
+                        <p style="font-size: 13px; color: #64748b; margin: 5px 0 0 0;">Enterprise CRM Solutions</p>
+                    </div>
+                    <div class="invoice-details">
+                        <h1 class="invoice-title">INVOICE</h1>
+                        <p style="margin: 0; font-size: 14px; font-weight: 700; color: #64748b;">Ref: #${invoice._id.slice(-6).toUpperCase()}</p>
+                    </div>
+                </div>
+
+                <div class="metadata-grid">
+                    <div class="bill-section">
+                        <h3>Billed To:</h3>
+                        <p>${invoice.customerName}</p>
+                        <p style="font-weight: 500; color: #64748b;">${invoice.customerEmail}</p>
+                    </div>
+                     <div class="bill-section" style="text-align: right;">
+                         <h3>Invoice Information:</h3>
+                         <p>Date Issued: ${new Date(invoice.createdAt || Date.now()).toLocaleDateString()}</p>
+                         <p>Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+                     </div>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Description</th>
+                            <th style="text-align: center; width: 80px;">Qty</th>
+                            <th style="text-align: right; width: 120px;">Unit Price</th>
+                            <th style="text-align: right; width: 120px;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+
+                <div class="total-card">
+                    <div class="total-row" style="font-size: 14px; color: #64748b;">
+                        <span>Subtotal</span>
+                        <span>$${invoice.totalAmount.toFixed(2)}</span>
+                    </div>
+                    <div class="total-row" style="font-size: 14px; color: #64748b;">
+                        <span>Tax (0.00%)</span>
+                        <span>$0.00</span>
+                    </div>
+                    <div class="total-row grand-total">
+                        <span>Grand Total</span>
+                        <span>$${invoice.totalAmount.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <p>Thank you for your business. For billing queries, please contact billing@velora.com</p>
+                    <p style="margin-top: 5px; font-size: 10px; color: #cbd5e1;">Generated by Velora Enterprise CRM</p>
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() { window.close(); }, 500);
+                    }
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+    };
 
     const getStatusStyle = (status) => {
         switch(status) {
@@ -227,18 +373,31 @@ const Invoices = () => {
                                                     </button>
                                                 )}
                                                 {!isClient && (
-                                                    <button onClick={() => { setEditingId(inv._id); setFormData(inv); setIsDrawerOpen(true); }} className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all" title="Edit Invoice">
+                                                    <button onClick={() => { setEditingId(inv._id); setFormData(inv); setIsDrawerOpen(true); }} className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all cursor-pointer border-none" title="Edit Invoice">
                                                         <Edit2 size={16} />
+                                                    </button>
+                                                )}
+                                                {!isClient && (
+                                                    <button 
+                                                        onClick={() => handleSendEmail(inv)} 
+                                                        className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-amber-50 hover:text-amber-600 transition-all cursor-pointer border-none" 
+                                                        title="Send Email"
+                                                    >
+                                                        <Mail size={16} />
                                                     </button>
                                                 )}
                                                 <button 
                                                     onClick={() => setShowDeleteConfirm(inv)} 
-                                                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm shadow-red-100"
+                                                    className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm shadow-red-100 cursor-pointer border-none"
                                                     title="Delete Invoice"
                                                 >
                                                     <Trash2 size={16} />
                                                 </button>
-                                                <button className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all" title="Download PDF">
+                                                <button 
+                                                    onClick={() => handleDownloadPDF(inv)} 
+                                                    className="p-2 bg-stone-100 text-stone-600 rounded-lg hover:bg-stone-200 transition-all cursor-pointer border-none" 
+                                                    title="Download PDF"
+                                                >
                                                     <Download size={16} />
                                                 </button>
                                             </div>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { 
     X, Check, ArrowRight, Calendar, 
     Monitor, Shield, Zap, Building2, 
@@ -61,9 +62,10 @@ const BookingModal = ({ isOpen, onClose, user, contactId }) => {
             });
             
             setSuccess(true);
+            toast.success("Booking confirmed successfully!");
         } catch (err) {
             console.error("Booking error:", err);
-            alert("Failed to confirm booking. Please try again.");
+            toast.error("Failed to confirm booking. Please try again.");
         } finally {
             setLoading(false);
         }

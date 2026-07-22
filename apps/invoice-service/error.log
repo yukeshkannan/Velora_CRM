@@ -8,3 +8,79 @@
     at exports.sendInvoiceEmail (E:\Company CRM\apps\invoice-service\controllers\invoiceController.js:155:68)
     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
     at async E:\Company CRM\apps\invoice-service\reproduce_issue.js:44:9
+2026-05-22T07:26:08.381Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:26:18.566Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:02.694Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:08.539Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:16.760Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:18.617Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:26.806Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:29.612Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:39.673Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:46.348Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:54:58.215Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:55:28.281Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T07:55:37.015Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:03:48.060Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:03:58.112Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:04:13.727Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:04:25.330Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:04:52.001Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)
+2026-05-22T08:04:55.376Z: CRASH in getInvoices: MongooseError: Operation `invoices.find()` buffering timed out after 10000ms
+    at Timeout.<anonymous> (E:\Company CRM\node_modules\mongoose\lib\drivers\node-mongodb-native\collection.js:187:23)
+    at listOnTimeout (node:internal/timers:608:17)
+    at process.processTimers (node:internal/timers:543:7)

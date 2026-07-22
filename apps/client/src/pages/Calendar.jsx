@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { 
     Filter, Calendar as CalendarIcon, CheckSquare, DollarSign, 
@@ -21,9 +22,39 @@ const Calendar = () => {
     const [view, setView] = useState('month');
     const [date, setDate] = useState(new Date());
     const [filter, setFilter] = useState({ tasks: true, opportunities: true, invoices: true });
+    const [contacts, setContacts] = useState([]);
+    const [users, setUsers] = useState([]);
     
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [newEventData, setNewEventData] = useState({ title: '', dueDate: new Date().toISOString().split('T')[0], priority: 'Medium' });
+    const [selectedEvent, setSelectedEvent] = useState(null);
+    const [isEditingEvent, setIsEditingEvent] = useState(false);
+    const [editEventData, setEditEventData] = useState({
+        id: '',
+        title: '',
+        type: 'task',
+        priority: 'Medium',
+        dueDate: '',
+        hour: '09',
+        minute: '00',
+        period: 'AM',
+        description: '',
+        contactId: '',
+        assignedTo: '',
+        status: 'Pending'
+    });
+
+    const [newEventData, setNewEventData] = useState({
+        title: '',
+        type: 'Call',
+        priority: 'Medium',
+        dueDate: new Date().toISOString().split('T')[0],
+        hour: '09',
+        minute: '00',
+        period: 'AM',
+        description: '',
+        contactId: '',
+        assignedTo: ''
+    });
 
     useEffect(() => {
         fetchData();
@@ -31,16 +62,23 @@ const Calendar = () => {
 
     const fetchData = async () => {
         try {
-            const [tasksRes, oppsRes, invRes] = await Promise.all([
+            const [tasksRes, oppsRes, invRes, contactsRes, usersRes] = await Promise.all([
                 axios.get('/api/tasks'),
                 axios.get('/api/opportunities'),
-                axios.get('/api/invoices')
+                axios.get('/api/invoices'),
+                axios.get('/api/contacts'),
+                axios.get('/api/auth/users')
             ]);
 
             const currentUserId = user.id || user._id;
 
             let rawTasks = tasksRes.data.data || [];
             let rawOpps = oppsRes.data.data || [];
+            const contactsData = contactsRes.data.data || [];
+            const usersData = usersRes.data.data || [];
+
+            setContacts(contactsData);
+            setUsers(usersData);
 
             // Filter for Employees
             if (user?.role === 'Employee') {
@@ -54,34 +92,53 @@ const Calendar = () => {
                 });
             }
 
-            const taskEvents = rawTasks.map(task => ({
-                id: task._id,
-                title: task.title,
-                start: new Date(task.dueDate),
-                end: new Date(task.dueDate),
-                type: 'task',
-                status: task.status,
-                priority: task.priority
-            }));
+            const taskEvents = rawTasks.map(task => {
+                const contactObj = contactsData.find(c => String(c._id) === String(task.contactId));
+                const userObj = usersData.find(u => String(u._id || u.id) === String(task.assignedTo));
+                return {
+                    id: task._id,
+                    title: task.title,
+                    start: new Date(task.dueDate),
+                    end: new Date(task.dueDate),
+                    type: 'task',
+                    status: task.status,
+                    priority: task.priority,
+                    description: task.description || 'No description provided.',
+                    contact: contactObj ? contactObj.name : 'N/A',
+                    contactId: task.contactId || '',
+                    assignedTo: userObj ? userObj.name : 'N/A',
+                    assignedToId: task.assignedTo || ''
+                };
+            });
 
-            const oppEvents = rawOpps.map(opp => ({
-                id: opp._id,
-                title: `${opp.title} (₹${opp.amount.toLocaleString()})`,
-                start: new Date(opp.expectedCloseDate),
-                end: new Date(opp.expectedCloseDate),
-                type: 'opportunity',
-                stage: opp.stage,
-                amount: opp.amount
-            }));
+            const oppEvents = rawOpps.map(opp => {
+                const contactObj = contactsData.find(c => String(c._id) === String(opp.contactId));
+                const userObj = usersData.find(u => String(u._id || u.id) === String(opp.assignedTo));
+                return {
+                    id: opp._id,
+                    title: opp.title,
+                    start: new Date(opp.expectedCloseDate),
+                    end: new Date(opp.expectedCloseDate),
+                    type: 'opportunity',
+                    stage: opp.stage,
+                    amount: opp.amount,
+                    description: `Pipeline Opportunity. Expected close: ${new Date(opp.expectedCloseDate).toLocaleDateString()}`,
+                    contact: contactObj ? contactObj.name : 'N/A',
+                    assignedTo: userObj ? userObj.name : 'N/A'
+                };
+            });
 
             const invoiceEvents = (invRes.data.data || []).map(inv => ({
                 id: inv._id,
-                title: `INV-${inv._id.slice(-4).toUpperCase()} (₹${inv.totalAmount.toLocaleString()})`,
+                title: `Invoice: #${inv._id.slice(-6).toUpperCase()}`,
                 start: new Date(inv.dueDate),
                 end: new Date(inv.dueDate),
                 type: 'invoice',
                 status: inv.status,
-                totalAmount: inv.totalAmount
+                totalAmount: inv.totalAmount,
+                description: `Billing invoice generated for client.`,
+                contact: inv.customerName || 'N/A',
+                assignedTo: 'Finance Team'
             }));
 
             setEvents([...taskEvents, ...oppEvents, ...invoiceEvents]);
@@ -103,19 +160,134 @@ const Calendar = () => {
         e.preventDefault();
         try {
             setLoading(true);
+            const payload = { ...newEventData };
+            if (!payload.assignedTo) payload.assignedTo = user?.id || user?._id;
+
+            // Combine Date and Time
+            let hh = parseInt(payload.hour);
+            if (payload.period === 'PM' && hh < 12) hh += 12;
+            if (payload.period === 'AM' && hh === 12) hh = 0;
+            const hhStr = String(hh).padStart(2, '0');
+            const formattedDueDate = `${payload.dueDate}T${hhStr}:${payload.minute}:00`;
+
             await axios.post('/api/tasks', {
-                ...newEventData,
-                type: 'Call', 
-                status: 'Pending',
-                description: 'Created from Calendar',
-                assignedTo: user?.id
+                title: payload.title,
+                type: payload.type,
+                priority: payload.priority,
+                dueDate: formattedDueDate,
+                description: payload.description,
+                contactId: payload.contactId,
+                assignedTo: payload.assignedTo,
+                status: 'Pending'
             });
             setShowCreateModal(false);
-            setNewEventData({ title: '', dueDate: new Date().toISOString().split('T')[0], priority: 'Medium' });
+            setNewEventData({
+                title: '',
+                type: 'Call',
+                priority: 'Medium',
+                dueDate: new Date().toISOString().split('T')[0],
+                hour: '09',
+                minute: '00',
+                period: 'AM',
+                description: '',
+                contactId: '',
+                assignedTo: ''
+            });
+            toast.success("Task created successfully!");
             fetchData();
         } catch (err) {
             console.error("Failed to create task", err);
-            alert("Failed to create event");
+            toast.error(err.response?.data?.message || "Failed to create task");
+            setLoading(false);
+        }
+    };
+
+    const startEditEvent = () => {
+        if (!selectedEvent || selectedEvent.type !== 'task') return;
+        
+        let hour = '09';
+        let minute = '00';
+        let period = 'AM';
+        
+        if (selectedEvent.start) {
+            const d = new Date(selectedEvent.start);
+            let hh = d.getHours();
+            const mm = d.getMinutes();
+            if (hh >= 12) {
+                period = 'PM';
+                if (hh > 12) hh -= 12;
+            } else {
+                period = 'AM';
+                if (hh === 0) hh = 12;
+            }
+            hour = String(hh).padStart(2, '0');
+            minute = String(mm).padStart(2, '0');
+            // Round minutes to closest select item if needed, but keeping it direct is safer
+            if (!['00', '15', '30', '45'].includes(minute)) {
+                minute = '00';
+            }
+        }
+
+        setEditEventData({
+            id: selectedEvent.id,
+            title: selectedEvent.title,
+            type: selectedEvent.type,
+            priority: selectedEvent.priority || 'Medium',
+            dueDate: selectedEvent.start ? new Date(selectedEvent.start).toISOString().split('T')[0] : '',
+            hour,
+            minute,
+            period,
+            description: selectedEvent.description || '',
+            contactId: selectedEvent.contactId || '',
+            assignedTo: selectedEvent.assignedToId || '',
+            status: selectedEvent.status || 'Pending'
+        });
+        setIsEditingEvent(true);
+    };
+
+    const handleUpdateEvent = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            let hh = parseInt(editEventData.hour);
+            if (editEventData.period === 'PM' && hh < 12) hh += 12;
+            if (editEventData.period === 'AM' && hh === 12) hh = 0;
+            const hhStr = String(hh).padStart(2, '0');
+            const formattedDueDate = `${editEventData.dueDate}T${hhStr}:${editEventData.minute}:00`;
+
+            await axios.put(`/api/tasks/${editEventData.id}`, {
+                title: editEventData.title,
+                type: editEventData.type,
+                priority: editEventData.priority,
+                dueDate: formattedDueDate,
+                description: editEventData.description,
+                contactId: editEventData.contactId,
+                assignedTo: editEventData.assignedTo,
+                status: editEventData.status
+            });
+            toast.success("Task updated successfully");
+            setIsEditingEvent(false);
+            setSelectedEvent(null);
+            fetchData();
+        } catch (err) {
+            console.error("Failed to update task", err);
+            toast.error(err.response?.data?.message || "Failed to update task");
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteEvent = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this task?")) return;
+        try {
+            setLoading(true);
+            await axios.delete(`/api/tasks/${id}`);
+            toast.success("Task deleted successfully");
+            setIsEditingEvent(false);
+            setSelectedEvent(null);
+            fetchData();
+        } catch (err) {
+            console.error("Failed to delete task", err);
+            toast.error(err.response?.data?.message || "Failed to delete task");
             setLoading(false);
         }
     };
@@ -131,42 +303,22 @@ const Calendar = () => {
     });
 
     const eventStyleGetter = (event) => {
-        let borderColor = '#0ea5e9'; // Default Blue
-        let bgColor = '#f0f9ff';
-        let color = '#1c1917';
-        
-        if (event.type === 'task') {
-            borderColor = '#d97706'; // Amber
-            bgColor = '#fffbeb';
-            if (event.status === 'Completed') {
-                 borderColor = '#78716c'; // Stone
-                 bgColor = '#f5f5f4'; // Stone 100
-                 color = '#78716c';
-            }
-        } else if (event.type === 'opportunity') {
-            borderColor = '#6366f1'; // Indigo
-            bgColor = '#eef2ff';
-        } else if (event.type === 'invoice') {
-            borderColor = '#10b981'; // Emerald
-            bgColor = '#ecfdf5';
-             if (event.status === 'Paid') {
-                 borderColor = '#059669'; // Emerald 600
-                 bgColor = '#d1fae5'; // Emerald 100
-                 color = '#065f46'; // Emerald 800
-            }
-        }
-
         return {
             style: {
-                backgroundColor: bgColor,
-                color: color,
-                borderRadius: '6px',
+                backgroundColor: 'transparent',
+                color: '#3c4043',
+                borderRadius: '4px',
                 border: 'none',
-                borderLeft: `3px solid ${borderColor}`,
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                padding: '4px 8px',
-                marginBottom: '2px'
+                borderLeft: 'none',
+                fontSize: '12px',
+                fontWeight: 500,
+                padding: '2px 6px',
+                marginBottom: '2px',
+                display: 'block',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                cursor: 'pointer'
             }
         };
     };
@@ -175,21 +327,52 @@ const Calendar = () => {
         const isPaid = event.type === 'invoice' && event.status === 'Paid';
         const isCompleted = event.type === 'task' && event.status === 'Completed';
 
+        let dotColor = '#1a73e8';
+        if (event.type === 'task') {
+            if (isCompleted) {
+                dotColor = '#dadce0';
+            } else if (event.priority === 'High') {
+                dotColor = '#d93025'; // Red
+            } else if (event.priority === 'Medium') {
+                dotColor = '#f9ab00'; // Yellow/Orange
+            } else {
+                dotColor = '#1a73e8'; // Blue
+            }
+        } else if (event.type === 'opportunity') {
+            dotColor = '#7986cb'; // Indigo
+        } else if (event.type === 'invoice') {
+            dotColor = '#33b679'; // Green
+        }
+
+        // Format time (e.g. "9 AM" or "12:30 PM")
+        let timeStr = '';
+        if (event.start) {
+            const d = new Date(event.start);
+            let hh = d.getHours();
+            const mm = d.getMinutes();
+            const period = hh >= 12 ? 'PM' : 'AM';
+            if (hh > 12) hh -= 12;
+            if (hh === 0) hh = 12;
+            const mmStr = mm > 0 ? `:${String(mm).padStart(2, '0')}` : '';
+            timeStr = `${hh}${mmStr} ${period}`;
+        }
+
         return (
-            <div className={`flex items-center gap-2 overflow-hidden ${isCompleted ? 'opacity-60' : ''}`}>
-                <div className="flex-shrink-0">
-                    {event.type === 'task' && !isCompleted && <Target size={10} className="text-amber-600" />}
-                    {event.type === 'task' && isCompleted && <CheckSquare size={10} className="text-stone-500" />}
-                    
-                    {event.type === 'opportunity' && <Zap size={10} className="text-indigo-600" />}
-                    
-                    {event.type === 'invoice' && !isPaid && <Receipt size={10} className="text-emerald-600" />}
-                    {event.type === 'invoice' && isPaid && <CheckSquare size={10} className="text-emerald-700" />}
-                </div>
-                <span className={`truncate uppercase tracking-tight text-[10px] ${isCompleted ? 'line-through decoration-stone-400' : ''}`}>
-                    {event.title}
-                </span>
-                {isPaid && <span className="ml-auto text-[8px] font-black bg-emerald-200 text-emerald-800 px-1 rounded">PAID</span>}
+            <div className="flex items-center gap-2 overflow-hidden w-full py-0.5">
+                <span 
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: dotColor }}
+                />
+                {timeStr ? (
+                    <span className={`text-xs font-bold text-[#3c4043] flex-shrink-0 ${isCompleted ? 'line-through text-[#9ca3af]' : ''}`}>
+                        {timeStr}
+                    </span>
+                ) : (
+                    <span className="text-[10px] font-bold text-[#70757a] flex-shrink-0">
+                        All Day
+                    </span>
+                )}
+                {isPaid && <span className="ml-auto text-[8px] font-bold bg-[#e6f4ea] text-[#137333] px-1 rounded-sm">PAID</span>}
             </div>
         );
     };
@@ -199,30 +382,27 @@ const Calendar = () => {
     return (
         <div className="flex flex-col md:flex-row h-full bg-white overflow-hidden font-sans">
             
-            {/* Sidebar - Governance Style */}
-            <div className="w-full md:w-80 bg-stone-50 border-r border-stone-100 p-8 flex flex-col gap-10 flex-shrink-0">
+            {/* Sidebar */}
+            <div className="w-full md:w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-8 flex-shrink-0">
                 <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-amber-600 uppercase tracking-[0.2em]">
-                        <Briefcase size={12} />
-                        Workflow Engine
-                    </div>
                     <button 
                         onClick={() => setShowCreateModal(true)}
-                        className="w-full py-4 bg-stone-900 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-amber-600 transition-all shadow-md shadow-stone-200 uppercase tracking-widest"
+                        className="flex items-center gap-3 px-6 py-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:shadow-md rounded-full font-bold text-xs transition-all shadow-sm cursor-pointer w-[150px] justify-center inline-flex"
                     >
-                        <Plus size={16} /> Schedule Quick Task
+                        <Plus size={20} className="text-blue-500 font-bold" />
+                        <span className="text-slate-700 font-bold text-sm tracking-tight">Create</span>
                     </button>
                 </div>
 
                 {/* Structured Filters */}
                 <div className="space-y-6">
                     <div>
-                        <h3 className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-4 border-b border-stone-200 pb-2">Active Layers</h3>
-                        <div className="space-y-3">
+                        <h3 className="text-xs font-semibold text-slate-500 mb-3 uppercase tracking-wider">My Calendars</h3>
+                        <div className="space-y-1">
                             {[
-                                { id: 'tasks', label: 'Service Tasks', color: 'bg-amber-600', icon: Target },
-                                { id: 'opportunities', label: 'Active Pipeline', color: 'bg-indigo-600', icon: Zap },
-                                { id: 'invoices', label: 'Accounts Receivable', color: 'bg-emerald-600', icon: Receipt },
+                                { id: 'tasks', label: 'Tasks', color: 'bg-[#1a73e8]', icon: Target },
+                                { id: 'opportunities', label: 'Pipeline', color: 'bg-[#7986cb]', icon: Zap },
+                                { id: 'invoices', label: 'Invoices', color: 'bg-[#33b679]', icon: Receipt },
                             ].filter(item => {
                                 if (user?.role === 'Employee' && item.id === 'invoices') return false;
                                 return true;
@@ -230,72 +410,62 @@ const Calendar = () => {
                                 <button 
                                     key={item.id}
                                     onClick={() => handleFilterChange(item.id)}
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
-                                        filter[item.id] ? 'bg-white border-stone-200 shadow-sm shadow-stone-100' : 'bg-transparent border-transparent opacity-50 gray-scale hover:opacity-80'
-                                    }`}
+                                    className="w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all cursor-pointer bg-transparent border-none hover:bg-slate-50"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${filter[item.id] ? item.color : 'bg-stone-200'} text-white`}>
-                                            <item.icon size={14} />
+                                        <div className={`w-4 h-4 rounded-sm flex items-center justify-center ${filter[item.id] ? item.color : 'bg-slate-200'} transition-all`}>
+                                            {filter[item.id] && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                                         </div>
-                                        <span className="text-xs font-bold text-stone-700">{item.label}</span>
-                                    </div>
-                                    <div className={`w-4 h-4 rounded-full border-2 border-stone-200 flex items-center justify-center ${filter[item.id] ? 'bg-stone-900 border-stone-900' : ''}`}>
-                                        {filter[item.id] && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                        <span className="text-sm font-semibold text-slate-700">{item.label}</span>
                                     </div>
                                 </button>
                             ))}
                         </div>
                     </div>
                 </div>
-
-                <div className="mt-auto p-5 bg-white rounded-2xl border border-stone-100 text-center">
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-1">Calendar Integration</p>
-                    <p className="text-xs font-medium text-stone-600">Sync with enterprise tools.</p>
-                    <button className="mt-4 text-[10px] font-bold text-amber-600 hover:text-amber-700 uppercase tracking-widest transition-colors">Connect Service</button>
-                </div>
             </div>
 
             {/* Main Statement Area */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden bg-white">
                 
                 {/* Clean Toolbar */}
-                <div className="px-10 py-6 bg-white border-b border-stone-100 flex flex-col lg:flex-row justify-between lg:items-center gap-6">
-                    <div className="flex items-center gap-6">
-                        <div className="flex items-center bg-stone-50 p-1.5 rounded-xl border border-stone-100">
+                <div className="px-8 py-5 bg-white border-b border-slate-200 flex flex-col lg:flex-row justify-between lg:items-center gap-4">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => onNavigate(new Date())}
+                            className="px-6 py-2 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-full font-bold text-xs transition-all cursor-pointer bg-white">
+                            Today
+                        </button>
+                        
+                        <div className="flex items-center">
                             <button onClick={() => onNavigate(moment(date).subtract(1, view === 'month' ? 'month' : view === 'week' ? 'week' : 'day').toDate())} 
-                                className="p-2 hover:bg-white hover:text-stone-900 rounded-lg transition-all text-stone-400">
-                                <ChevronLeft size={16} />
-                            </button>
-                            <button onClick={() => onNavigate(new Date())}
-                                className="px-4 text-[10px] font-bold text-stone-900 uppercase tracking-[0.2em]">
-                                Today
+                                className="p-2 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all text-slate-500 border-none bg-transparent cursor-pointer">
+                                <ChevronLeft size={18} />
                             </button>
                             <button onClick={() => onNavigate(moment(date).add(1, view === 'month' ? 'month' : view === 'week' ? 'week' : 'day').toDate())} 
-                                className="p-2 hover:bg-white hover:text-stone-900 rounded-lg transition-all text-stone-400">
-                                <ChevronRight size={16} />
+                                className="p-2 hover:bg-slate-50 hover:text-slate-900 rounded-full transition-all text-slate-500 border-none bg-transparent cursor-pointer">
+                                <ChevronRight size={18} />
                             </button>
                         </div>
-                        <h2 className="text-3xl font-black text-stone-900 tracking-tighter">
-                            {moment(date).format('MMMM')} <span className="text-stone-300 ml-1">{moment(date).format('YYYY')}</span>
+
+                        <h2 className="text-xl font-bold text-slate-800 tracking-tight ml-2">
+                            {moment(date).format('MMMM YYYY')}
                         </h2>
                     </div>
 
-                    <div className="flex bg-stone-50 p-1.5 rounded-xl border border-stone-100">
+                    <div className="flex border border-slate-200 rounded-full overflow-hidden p-0.5 bg-white">
                         {[
-                            { id: 'month', icon: LayoutGrid, label: 'Monthly' },
-                            { id: 'week', icon: List, label: 'Weekly' },
-                            { id: 'day', icon: Clock, label: 'Daily' }
+                            { id: 'month', label: 'Month' },
+                            { id: 'week', label: 'Week' },
+                            { id: 'day', label: 'Day' }
                         ].map(v => (
                             <button
                                 key={v.id}
                                 onClick={() => onView(v.id)}
                                 className={`
-                                    flex items-center gap-2 px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all
-                                    ${view === v.id ? 'bg-white text-stone-900 shadow-sm border border-stone-100' : 'text-stone-400 hover:text-stone-600'}
+                                    px-5 py-2 rounded-full text-xs font-bold transition-all cursor-pointer border-none
+                                    ${view === v.id ? 'bg-[#1a73e8] text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 bg-transparent'}
                                 `}
                             >
-                                <v.icon size={12} />
                                 {v.label}
                             </button>
                         ))}
@@ -303,7 +473,7 @@ const Calendar = () => {
                 </div>
 
                 {/* Static Grid */}
-                <div className="flex-1 overflow-hidden bg-white custom-calendar-wrapper p-4">
+                <div className="flex-1 overflow-hidden bg-white custom-calendar-wrapper p-6">
                     <BigCalendar
                         localizer={localizer}
                         events={filteredEvents}
@@ -311,6 +481,7 @@ const Calendar = () => {
                         endAccessor="end"
                         style={{ height: '100%' }}
                         eventPropGetter={eventStyleGetter}
+                        onSelectEvent={(event) => setSelectedEvent(event)}
                         components={{
                             toolbar: () => null,
                             event: EventComponent
@@ -323,7 +494,7 @@ const Calendar = () => {
                 </div>
             </div>
 
-            {/* Redesigned Quick Modal */}
+            {/* Create Quick Modal */}
             <AnimatePresence>
                 {showCreateModal && (
                     <div className="fixed inset-0 bg-stone-900/40 z-[60] flex items-center justify-center backdrop-blur-md p-4">
@@ -333,62 +504,147 @@ const Calendar = () => {
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             className="bg-white rounded-[32px] w-full max-w-[500px] shadow-2xl overflow-hidden border border-stone-200"
                         >
-                            <div className="p-10 border-b border-stone-100 bg-stone-50/50 flex justify-between items-start">
+                            <div className="p-8 border-b border-stone-100 bg-stone-50/50 flex justify-between items-start">
                                 <div>
-                                    <h3 className="text-2xl font-black text-stone-900 tracking-tight">Schedule Registry</h3>
-                                    <p className="text-stone-400 text-sm font-medium mt-1">Assign a new operational task to the system.</p>
+                                    <h3 className="text-xl font-black text-stone-900 tracking-tight">Create Calendar Task</h3>
+                                    <p className="text-stone-400 text-xs font-medium mt-1">Add a new task directly from your calendar dashboard.</p>
                                 </div>
-                                <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white hover:bg-stone-100 rounded-full text-stone-400 transition-colors border border-stone-100">
-                                    <X size={20} />
+                                <button onClick={() => setShowCreateModal(false)} className="p-3 bg-white hover:bg-stone-100 rounded-full text-stone-400 transition-colors border border-stone-100 cursor-pointer">
+                                    <X size={16} />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSaveEvent} className="p-10 space-y-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em]">Assignment Title</label>
+                            <form onSubmit={handleSaveEvent} className="p-8 space-y-4">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Task Title *</label>
                                     <input 
                                         required autoFocus type="text" 
                                         value={newEventData.title}
                                         onChange={e => setNewEventData({...newEventData, title: e.target.value})}
-                                        placeholder="Enter objective..."
-                                        className="w-full px-6 py-4 rounded-2xl border border-stone-200 outline-none focus:border-amber-600 focus:ring-4 focus:ring-amber-50 transition-all font-bold text-stone-900"
+                                        placeholder="e.g. Call Client about Proposal"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all font-semibold text-stone-900 text-sm"
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em]">Maturity Date</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Type</label>
                                         <div className="relative">
-                                            <input 
-                                                required type="date" 
-                                                value={newEventData.dueDate}
-                                                onChange={e => setNewEventData({...newEventData, dueDate: e.target.value})}
-                                                className="w-full px-6 py-4 rounded-2xl border border-stone-200 outline-none focus:border-amber-600 font-bold text-stone-900 bg-white"
-                                            />
+                                            <select 
+                                                value={newEventData.type}
+                                                onChange={e => setNewEventData({...newEventData, type: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-semibold text-stone-900 bg-white text-sm"
+                                            >
+                                                {['Call', 'Meeting', 'Email', 'Other'].map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                                                <ChevronRight size={14} className="rotate-90" />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em]">Priority Index</label>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Priority</label>
                                         <div className="relative">
                                             <select 
                                                 value={newEventData.priority}
                                                 onChange={e => setNewEventData({...newEventData, priority: e.target.value})}
-                                                className="w-full px-6 py-4 rounded-2xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-bold text-stone-900 bg-white"
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-semibold text-stone-900 bg-white text-sm"
                                             >
-                                                <option>Low</option>
-                                                <option>Medium</option>
-                                                <option>High</option>
+                                                {['Low', 'Medium', 'High'].map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
-                                            <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
-                                                <ChevronRight size={16} className="rotate-90" />
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                                                <ChevronRight size={14} className="rotate-90" />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="flex gap-4 pt-4">
-                                    <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 py-4 rounded-2xl text-[10px] font-bold text-stone-400 hover:bg-stone-50 transition-colors uppercase tracking-widest">Discard</button>
-                                    <button type="submit" className="flex-1 py-4 rounded-2xl text-[10px] font-bold bg-stone-900 text-white hover:bg-amber-600 shadow-xl shadow-stone-200 transition-all uppercase tracking-widest">Commit Assignment</button>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Date *</label>
+                                        <input 
+                                            required type="date" 
+                                            value={newEventData.dueDate}
+                                            onChange={e => setNewEventData({...newEventData, dueDate: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Time *</label>
+                                        <div className="flex gap-1">
+                                            <select 
+                                                value={newEventData.hour}
+                                                onChange={e => setNewEventData({...newEventData, hour: e.target.value})}
+                                                className="w-full px-2 py-2 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                            >
+                                                {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(h => <option key={h} value={h}>{h}</option>)}
+                                            </select>
+                                            <select 
+                                                value={newEventData.minute}
+                                                onChange={e => setNewEventData({...newEventData, minute: e.target.value})}
+                                                className="w-full px-2 py-2 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                            >
+                                                {['00', '15', '30', '45'].map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                            <select 
+                                                value={newEventData.period}
+                                                onChange={e => setNewEventData({...newEventData, period: e.target.value})}
+                                                className="w-full px-2 py-2 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                            >
+                                                {['AM', 'PM'].map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Contact / Client</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={newEventData.contactId}
+                                            onChange={e => setNewEventData({...newEventData, contactId: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-semibold text-stone-900 bg-white text-sm"
+                                        >
+                                            <option value="">Select Contact</option>
+                                            {contacts.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                                            <ChevronRight size={14} className="rotate-90" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Assigned To</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={newEventData.assignedTo}
+                                            onChange={e => setNewEventData({...newEventData, assignedTo: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-semibold text-stone-900 bg-white text-sm"
+                                        >
+                                            <option value="">Assign to Self (Default)</option>
+                                            {users.map(u => <option key={u._id || u.id} value={u._id || u.id}>{u.name} ({u.role})</option>)}
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                                            <ChevronRight size={14} className="rotate-90" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Notes / Description</label>
+                                    <textarea 
+                                        rows="3"
+                                        value={newEventData.description}
+                                        onChange={e => setNewEventData({...newEventData, description: e.target.value})}
+                                        placeholder="Add notes..."
+                                        className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all font-semibold text-stone-900 text-sm resize-none"
+                                    />
+                                </div>
+
+                                <div className="flex gap-4 pt-2">
+                                    <button type="button" onClick={() => setShowCreateModal(false)} className="flex-1 py-3.5 rounded-xl text-[10px] font-bold text-stone-400 hover:bg-stone-50 transition-colors uppercase tracking-widest border-none bg-transparent cursor-pointer">Discard</button>
+                                    <button type="submit" className="flex-1 py-3.5 rounded-xl text-[10px] font-bold bg-stone-900 text-white hover:bg-amber-600 shadow-xl shadow-stone-200 transition-all uppercase tracking-widest border-none cursor-pointer">Create Task</button>
                                 </div>
                             </form>
                         </motion.div>
@@ -396,68 +652,344 @@ const Calendar = () => {
                 )}
             </AnimatePresence>
 
-            <style>{`
-                .rbc-month-view, .rbc-time-view { border: none !important; font-family: 'Inter', sans-serif !important; }
+            {/* Event Details Modal */}
+            <AnimatePresence>
+                {selectedEvent && (
+                    <div className="fixed inset-0 bg-stone-900/40 z-[60] flex items-center justify-center backdrop-blur-md p-4">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="bg-white rounded-[32px] w-full max-w-[500px] shadow-2xl overflow-hidden border border-stone-200"
+                        >
+                            <div className="p-8 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center">
+                                <div>
+                                    <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${
+                                        selectedEvent.type === 'task' ? 'bg-amber-100 text-amber-800' :
+                                        selectedEvent.type === 'opportunity' ? 'bg-indigo-100 text-indigo-800' :
+                                        'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                        {selectedEvent.type.toUpperCase()}
+                                    </span>
+                                    <h3 className="text-xl font-black text-stone-900 mt-2 tracking-tight">
+                                        {isEditingEvent ? 'Edit Calendar Task' : 'Event Details'}
+                                    </h3>
+                                </div>
+                                <button onClick={() => { setSelectedEvent(null); setIsEditingEvent(false); }} className="p-2 hover:bg-stone-100 rounded-full text-stone-400 transition-colors border-none bg-transparent cursor-pointer">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {isEditingEvent ? (
+                                <form onSubmit={handleUpdateEvent} className="p-8 space-y-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Task Title *</label>
+                                        <input 
+                                            required type="text" 
+                                            value={editEventData.title}
+                                            onChange={e => setEditEventData({...editEventData, title: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all font-semibold text-stone-900 text-sm"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Date *</label>
+                                            <input 
+                                                required type="date" 
+                                                value={editEventData.dueDate}
+                                                onChange={e => setEditEventData({...editEventData, dueDate: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Time *</label>
+                                            <div className="flex gap-1">
+                                                <select 
+                                                    value={editEventData.hour}
+                                                    onChange={e => setEditEventData({...editEventData, hour: e.target.value})}
+                                                    className="w-full px-2 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                                >
+                                                    {['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'].map(h => <option key={h} value={h}>{h}</option>)}
+                                                </select>
+                                                <select 
+                                                    value={editEventData.minute}
+                                                    onChange={e => setEditEventData({...editEventData, minute: e.target.value})}
+                                                    className="w-full px-2 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                                >
+                                                    {['00', '15', '30', '45'].map(m => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+                                                <select 
+                                                    value={editEventData.period}
+                                                    onChange={e => setEditEventData({...editEventData, period: e.target.value})}
+                                                    className="w-full px-2 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 bg-white font-semibold text-stone-900 text-xs"
+                                                >
+                                                    {['AM', 'PM'].map(p => <option key={p} value={p}>{p}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Contact / Client</label>
+                                            <select 
+                                                value={editEventData.contactId}
+                                                onChange={e => setEditEventData({...editEventData, contactId: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                            >
+                                                <option value="">Select Contact</option>
+                                                {contacts.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Assignee</label>
+                                            <select 
+                                                value={editEventData.assignedTo}
+                                                onChange={e => setEditEventData({...editEventData, assignedTo: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                            >
+                                                <option value="">Assign to Self</option>
+                                                {users.map(u => <option key={u._id || u.id} value={u._id || u.id}>{u.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Priority</label>
+                                            <select 
+                                                value={editEventData.priority}
+                                                onChange={e => setEditEventData({...editEventData, priority: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                            >
+                                                {['Low', 'Medium', 'High'].map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Status</label>
+                                            <select 
+                                                value={editEventData.status}
+                                                onChange={e => setEditEventData({...editEventData, status: e.target.value})}
+                                                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
+                                            >
+                                                {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Notes / Description</label>
+                                        <textarea 
+                                            rows="3"
+                                            value={editEventData.description}
+                                            onChange={e => setEditEventData({...editEventData, description: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all font-semibold text-stone-900 text-sm resize-none"
+                                        />
+                                    </div>
+
+                                    <div className="flex gap-4 pt-4 border-t border-stone-100">
+                                        <button type="button" onClick={() => handleDeleteEvent(editEventData.id)} className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold uppercase tracking-widest border-none cursor-pointer">Delete</button>
+                                        <div className="flex-1 flex gap-2 justify-end">
+                                            <button type="button" onClick={() => setIsEditingEvent(false)} className="px-6 py-3 bg-stone-100 text-stone-600 hover:bg-stone-200 rounded-xl text-xs font-bold uppercase tracking-widest border-none cursor-pointer">Cancel</button>
+                                            <button type="submit" className="px-6 py-3 bg-stone-900 hover:bg-[#1a73e8] text-white rounded-xl text-xs font-bold uppercase tracking-widest border-none cursor-pointer">Save Changes</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            ) : (
+                                <div className="p-8 space-y-6">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Title</label>
+                                        <p className="text-base font-bold text-stone-900 leading-snug">{selectedEvent.title}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due / Target Date</label>
+                                            <p className="text-sm font-semibold text-stone-800">
+                                                {new Date(selectedEvent.start).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Status / Stage</label>
+                                            <p className="text-sm font-semibold text-stone-800">
+                                                {selectedEvent.status || selectedEvent.stage || 'N/A'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Contact / Client</label>
+                                            <p className="text-sm font-semibold text-stone-800">{selectedEvent.contact || 'N/A'}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Assigned Team/Staff</label>
+                                            <p className="text-sm font-semibold text-stone-800">{selectedEvent.assignedTo || 'N/A'}</p>
+                                        </div>
+                                    </div>
+
+                                    {selectedEvent.type === 'opportunity' && selectedEvent.amount && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Opportunity Value</label>
+                                            <p className="text-sm font-bold text-indigo-600">₹{selectedEvent.amount.toLocaleString()}</p>
+                                        </div>
+                                    )}
+
+                                    {selectedEvent.type === 'invoice' && selectedEvent.totalAmount && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Invoice Total</label>
+                                            <p className="text-sm font-bold text-emerald-600">₹{selectedEvent.totalAmount.toLocaleString()}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Notes / Description</label>
+                                        <p className="text-xs font-semibold text-stone-500 bg-stone-50 p-4 rounded-xl border border-stone-100 leading-relaxed max-h-[120px] overflow-y-auto">
+                                            {selectedEvent.description || 'No description provided.'}
+                                        </p>
+                                    </div>
+
+                                    {selectedEvent.type === 'task' && (
+                                        <div className="space-y-2 mt-4 pt-4 border-t border-stone-100">
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Update Task Status</label>
+                                            <div className="flex gap-2">
+                                                {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(status => (
+                                                    <button
+                                                        key={status}
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await axios.put(`/api/tasks/${selectedEvent.id}`, { status });
+                                                                toast.success(`Task marked as ${status}`);
+                                                                setSelectedEvent(prev => ({ ...prev, status }));
+                                                                fetchData();
+                                                            } catch (err) {
+                                                                console.error("Failed to update task status", err);
+                                                                toast.error(err.response?.data?.message || "Failed to update status");
+                                                            }
+                                                        }}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                                                            selectedEvent.status === status 
+                                                                ? 'bg-stone-900 text-white border-stone-900' 
+                                                                : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                                                        }`}
+                                                    >
+                                                        {status}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="pt-4 flex justify-between items-center border-t border-stone-100">
+                                        {selectedEvent.type === 'task' ? (
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleDeleteEvent(selectedEvent.id)}
+                                                    className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer border-none"
+                                                >
+                                                    Delete Task
+                                                </button>
+                                                <button 
+                                                    onClick={startEditEvent}
+                                                    className="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-bold uppercase tracking-widest cursor-pointer border-none"
+                                                >
+                                                    Edit Task
+                                                </button>
+                                            </div>
+                                        ) : <div />}
+                                        <button 
+                                            onClick={() => setSelectedEvent(null)}
+                                            className="px-6 py-3 bg-stone-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-stone-850 shadow-md transition-all cursor-pointer border-none"
+                                        >
+                                            Close Details
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>            <style>{`
+                .custom-calendar-wrapper {
+                    height: calc(100vh - 180px) !important;
+                }
+                .rbc-month-view, .rbc-time-view { 
+                    border: 1px solid #dadce0 !important; 
+                    border-radius: 8px !important;
+                    overflow: hidden !important;
+                    font-family: 'Inter', sans-serif !important; 
+                    background-color: #ffffff !important;
+                }
                 
                 .rbc-header {
-                    padding: 20px 0 !important;
-                    font-size: 10px !important;
-                    font-weight: 800 !important;
-                    color: #a8a29e !important;
+                    padding: 8px 0 !important;
+                    font-size: 11px !important;
+                    font-weight: 600 !important;
+                    color: #70757a !important;
                     text-transform: uppercase !important;
-                    letter-spacing: 0.15em !important;
-                    border-bottom: 2px solid #f5f5f4 !important;
+                    letter-spacing: 0.8px !important;
+                    border-bottom: 1px solid #dadce0 !important;
                     background: #fff !important;
                 }
                 
-                .rbc-month-row { border-top: 1px solid #f5f5f4 !important; min-height: 140px; }
-                .rbc-day-bg + .rbc-day-bg { border-left: 1px solid #f5f5f4 !important; }
-                .rbc-off-range-bg { background-color: #fafaf9 !important; }
+                .rbc-month-row { border-top: 1px solid #dadce0 !important; }
+                .rbc-day-bg + .rbc-day-bg { border-left: 1px solid #dadce0 !important; }
+                .rbc-off-range-bg { background-color: #ffffff !important; opacity: 0.4; }
                 
                 .rbc-date-cell {
-                    padding: 15px !important;
-                    font-size: 14px !important;
-                    font-weight: 800 !important;
-                    color: #d6d3d1 !important;
-                    text-align: left !important;
+                    padding: 8px 8px 4px 8px !important;
+                    font-size: 12px !important;
+                    font-weight: 600 !important;
+                    color: #3c4043 !important;
+                    text-align: center !important;
                 }
                 
-                .rbc-today { background-color: #fff !important; }
+                .rbc-today { 
+                    background-color: #e8f0fe !important; 
+                }
                 
                 .rbc-now .rbc-button-link {
-                    color: #d97706 !important;
-                    position: relative;
-                }
-                .rbc-now .rbc-button-link::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -4px; left: 50%; transform: translateX(-50%);
-                    width: 4px; height: 4px; background: #d97706; border-radius: 50%;
+                    background-color: #1a73e8 !important;
+                    color: #ffffff !important;
+                    border-radius: 50% !important;
+                    width: 22px !important;
+                    height: 22px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
                 }
 
                 .rbc-event {
-                    background: none !important;
-                    padding: 0 !important;
+                    background: transparent !important;
+                    padding: 2px 6px !important;
+                    margin: 1px 4px !important;
+                    transition: background-color 0.15s ease !important;
+                }
+                .rbc-event:hover {
+                    background-color: #f1f3f4 !important;
                 }
                 
                 .rbc-event-content { font-size: 0 !important; } /* Hide default text rendering */
 
                 .rbc-show-more {
                     font-size: 10px !important;
-                    font-weight: 800 !important;
-                    color: #d97706 !important;
-                    background: #fffbeb !important;
-                    padding: 4px 8px !important;
+                    font-weight: 700 !important;
+                    color: #1a73e8 !important;
+                    background: #e8f0fe !important;
+                    padding: 2px 6px !important;
                     border-radius: 4px !important;
-                    margin: 4px 15px !important;
+                    margin: 2px 4px !important;
                     text-transform: uppercase !important;
                 }
 
-                .rbc-time-header { border-bottom: 2px solid #f5f5f4 !important; }
-                .rbc-time-gutter { border-right: 1px solid #f5f5f4 !important; }
-                .rbc-timeslot-group { border-bottom: 1px solid #fafaf9 !important; min-height: 80px; }
-                .rbc-day-slot { border-left: 1px solid #f5f5f4 !important; }
-                .rbc-label { color: #a8a29e; font-size: 11px; font-weight: 700; }
+                .rbc-time-header { border-bottom: 1px solid #dadce0 !important; }
+                .rbc-time-gutter { border-right: 1px solid #dadce0 !important; }
+                .rbc-timeslot-group { border-bottom: 1px solid #dadce0 !important; min-height: 60px; }
+                .rbc-day-slot { border-left: 1px solid #dadce0 !important; }
+                .rbc-label { color: #70757a; font-size: 11px; font-weight: 500; }
+                .rbc-time-view .rbc-today { background-color: transparent !important; }
             `}</style>
         </div>
     );

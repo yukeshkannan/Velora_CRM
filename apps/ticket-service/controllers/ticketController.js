@@ -5,7 +5,7 @@ const Ticket = require('../models/Ticket');
 // @access  Public
 exports.getTickets = async (req, res) => {
   try {
-    console.log('[Ticket Service] Fetching all tickets...');
+    console.log('[Ticket Service] Fetching tickets...');
     const { email } = req.query;
     let query = {};
     // If email is provided, we might need to look up the contact first OR assume guestEmail matches. 
@@ -26,6 +26,20 @@ exports.getTickets = async (req, res) => {
     if (req.query.email) query.guestEmail = req.query.email;
     if (req.query.customerId) query.customerId = req.query.customerId;
     if (req.query.assignedTo) query.assignedTo = req.query.assignedTo;
+
+    const searchTerm = req.query.search || req.query.q;
+    if (searchTerm) {
+      const regex = new RegExp(searchTerm, 'i');
+      const searchOr = [
+        { title: regex },
+        { description: regex }
+      ];
+      if (Object.keys(query).length > 0) {
+        query = { $and: [query, { $or: searchOr }] };
+      } else {
+        query.$or = searchOr;
+      }
+    }
 
     const tickets = await Ticket.find(query);
     console.log(`[Ticket Service] Found ${tickets.length} tickets`);
@@ -97,6 +111,7 @@ exports.createTicket = async (req, res) => {
 };
 
 const axios = require('axios'); // Add axios
+const { publishToQueue } = require('../../../packages/utils');
 
 // ... existing code ...
 
@@ -138,12 +153,16 @@ exports.updateTicket = async (req, res) => {
             if (clientEmail) {
                 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:5005'; // Docker DNS
                 
-                await axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/email`, {
+                const emailPayload = {
                     to: clientEmail,
                     subject: `Ticket Resolved: ${ticket.title} [Ref: ${ticket._id}]`,
                     message: `Dear Customer,<br><br>Your ticket <strong>"${ticket.title}"</strong> has been marked as <strong>Resolved</strong>.<br><br>Description: ${ticket.description}<br><br>If you need further assistance, please open a new ticket.<br><br>Best regards,<br>Support Team`
-                });
-                console.log(`[Ticket Service] Resolution email sent to ${clientEmail}`);
+                };
+
+                const fallbackSend = () => axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/email`, emailPayload);
+
+                await publishToQueue('email_notifications', emailPayload, fallbackSend);
+                console.log(`[Ticket Service] Resolution email handled for ${clientEmail}`);
             } else {
                 console.warn('[Ticket Service] No client email found for notification.');
             }

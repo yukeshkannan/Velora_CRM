@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, Search, Package, Trash2, Edit2, ShoppingBag, Box, X } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { Plus, Search, Package, Trash2, Edit2, ShoppingBag, Box, X, Code, Server, Wrench, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -72,7 +73,7 @@ const Products = () => {
 
     const handleEdit = (product) => {
         if (user?.role !== 'Admin') {
-            alert("Only Admins can edit products.");
+            toast.error("Only Admins can edit products.");
             return;
         }
         setEditingProduct(product);
@@ -90,7 +91,7 @@ const Products = () => {
 
     const handleDelete = (product) => {
          if (user?.role !== 'Admin') {
-            alert("Only Admins can delete products.");
+            toast.error("Only Admins can delete products.");
             return;
         }
         setShowDeleteConfirm(product);
@@ -100,10 +101,12 @@ const Products = () => {
         if (!showDeleteConfirm) return;
         try {
             await axios.delete(`/api/products/${showDeleteConfirm._id}`);
+            toast.success("Product deleted successfully");
             setProducts(prev => prev.filter(p => p._id !== showDeleteConfirm._id));
             setShowDeleteConfirm(null);
         } catch (err) {
             console.error("Failed to delete product", err);
+            toast.error("Failed to delete product");
             setShowDeleteConfirm(null);
         }
     };
@@ -121,8 +124,10 @@ const Products = () => {
         try {
             if (editingProduct) {
                 await axios.put(`/api/products/${editingProduct._id}`, payload);
+                toast.success("Product updated successfully!");
             } else {
                 await axios.post('/api/products', payload);
+                toast.success("Product created successfully!");
             }
             
             setFormData({ name: '', sku: '', price: '', category: 'Service', description: '', stock: 0, image: '' });
@@ -131,11 +136,10 @@ const Products = () => {
             fetchProducts();
         } catch (err) {
             console.error("Failed to save product", err);
-            // Log server error message if available
             if (err.response?.data?.error) {
-                alert(`Error: ${err.response.data.error}`);
+                toast.error(`Error: ${err.response.data.error}`);
             } else {
-                alert("Failed to save product. Check SKU uniqueness.");
+                toast.error("Failed to save product. Check SKU uniqueness.");
             }
         }
     };
@@ -153,6 +157,17 @@ const Products = () => {
             case 'Service': return { bg: '#ecfdf5', text: '#059669' }; // Emerald
             case 'Subscription': return { bg: '#faf5ff', text: '#7c3aed' }; // Purple
             default: return { bg: '#f5f5f4', text: '#57534e' }; // Stone
+        }
+    };
+
+    const getCategoryIcon = (category) => {
+        const size = 48;
+        switch(category) {
+            case 'Software': return <Code size={size} className="text-orange-500/80" />;
+            case 'Hardware': return <Server size={size} className="text-yellow-600/80" />;
+            case 'Service': return <Wrench size={size} className="text-emerald-500/80" />;
+            case 'Subscription': return <Sparkles size={size} className="text-purple-500/80" />;
+            default: return <Package size={size} className="text-stone-400" />;
         }
     };
 
@@ -180,14 +195,6 @@ const Products = () => {
                         />
                     </div>
                     
-                    <select 
-                        value={categoryFilter} 
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="hidden lg:block pl-4 pr-10 py-2.5 rounded-xl border border-stone-200 bg-white text-sm font-black text-stone-600 outline-none focus:border-amber-500 transition-all cursor-pointer hover:bg-stone-50"
-                    >
-                        <option value="All">All Categories</option>
-                        {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
 
                     {user?.role === 'Admin' && (
                         <button 
@@ -203,6 +210,38 @@ const Products = () => {
             {/* Grid Content */}
             <div className="flex-1 p-8 overflow-y-auto">
                 <div className="max-w-[1600px] mx-auto">
+                    {/* Dynamic Category Filter Pills */}
+                    <div className="flex flex-wrap items-center gap-2 mb-8 bg-stone-100 p-1.5 rounded-2xl border border-stone-200/50 w-fit shrink-0">
+                        <button 
+                            onClick={() => setCategoryFilter('All')}
+                            className={`px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-300 border-none cursor-pointer ${
+                                categoryFilter === 'All' 
+                                ? 'bg-stone-900 text-white shadow-md' 
+                                : 'text-stone-500 hover:text-stone-900 bg-transparent'
+                            }`}
+                        >
+                            All Products
+                        </button>
+                        {CATEGORIES.map(c => {
+                            const catStyle = getCategoryColor(c);
+                            const isActive = categoryFilter === c;
+                            return (
+                                <button 
+                                    key={c}
+                                    onClick={() => setCategoryFilter(c)}
+                                    className={`px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-300 border-none cursor-pointer ${
+                                        isActive 
+                                        ? 'shadow-sm' 
+                                        : 'text-stone-500 hover:text-stone-900 bg-transparent'
+                                    }`}
+                                    style={isActive ? { backgroundColor: catStyle.text, color: '#ffffff' } : {}}
+                                >
+                                    {c}
+                                </button>
+                            );
+                        })}
+                    </div>
+
                     {filteredProducts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 text-stone-400">
                             <div className="w-24 h-24 bg-stone-100 rounded-3xl flex items-center justify-center mb-8">
@@ -216,16 +255,31 @@ const Products = () => {
                             {filteredProducts.map(product => {
                                 const catColor = getCategoryColor(product.category);
                                 return (
-                                    <div key={product._id} className="bg-white rounded-[32px] border border-stone-200 overflow-hidden group hover:shadow-2xl hover:shadow-stone-200/50 hover:-translate-y-1.5 transition-all duration-500 relative flex flex-col">
-                                        <div className="h-44 bg-stone-50/50 flex items-center justify-center border-b border-stone-100 relative overflow-hidden group-hover:bg-white transition-colors">
-                                            
-                                            {/* 1. Background Pattern (Always Visible) */}
-                                            <div className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                                            
-                                            {/* 2. Fallback Icon (Always there, lower z-index) */}
-                                            <ShoppingBag size={56} className="absolute text-stone-200 group-hover:text-amber-200 group-hover:scale-110 transition-all duration-500 z-0" />
+                                    <div 
+                                        key={product._id} 
+                                        className="bg-white rounded-[24px] border border-stone-200/60 overflow-hidden group hover:shadow-[0_30px_60px_rgba(0,0,0,0.06)] hover:-translate-y-1 transition-all duration-500 relative flex flex-col z-10"
+                                    >
+                                        {/* Dynamic category colored backdrop hover radial glow */}
+                                        <div 
+                                            className="absolute -inset-px opacity-0 group-hover:opacity-100 rounded-[24px] transition-opacity duration-500 pointer-events-none z-0" 
+                                            style={{ 
+                                                background: `radial-gradient(350px circle at 50% 100%, ${catColor.text}08, transparent 80%)`,
+                                                border: `1px solid ${catColor.text}15`
+                                            }} 
+                                        />
 
-                                            {/* 3. Product Image (Overlay, higher z-index) */}
+                                        {/* Image wrapper slot */}
+                                        <div 
+                                            className="h-44 flex items-center justify-center relative overflow-hidden transition-colors duration-500 z-10"
+                                            style={{ backgroundColor: catColor.bg }}
+                                        >
+                                            <div className="absolute inset-0 opacity-[0.02] group-hover:opacity-[0.04] transition-opacity duration-500" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                                            
+                                            {/* Category specific vector representation */}
+                                            <div className="transform group-hover:scale-105 transition-all duration-500 z-0 flex items-center justify-center bg-white w-16 h-16 rounded-[20px] shadow-sm border border-stone-200/20">
+                                                {getCategoryIcon(product.category)}
+                                            </div>
+
                                             {product.image && (
                                                 <img 
                                                     src={product.image} 
@@ -234,49 +288,62 @@ const Products = () => {
                                                     onError={(e) => { e.target.style.display = 'none'; }} 
                                                 />
                                             )}
+                                        </div>
 
-                                            {/* 4. Category Tag (Highest z-index) */}
-                                            <div className="absolute top-4 left-4 z-20">
+                                        {/* Card content block */}
+                                        <div className="p-5 flex-1 flex flex-col relative z-10">
+                                            {/* Category Badge & SKU row */}
+                                            <div className="flex items-center justify-between gap-2 mb-3">
                                                 <span 
-                                                    className="text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm border border-white/50 backdrop-blur-sm bg-white/50"
-                                                    style={{ color: catColor.text, borderColor: catColor.bg }}
+                                                    className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider shadow-sm border border-white"
+                                                    style={{ backgroundColor: catColor.bg, color: catColor.text }}
                                                 >
                                                     {product.category}
                                                 </span>
-                                            </div>
-                                        </div>
-
-                                        <div className="p-6 flex-1 flex flex-col">
-                                            <div className="flex justify-between items-start mb-4">
-                                                <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest">SKU: {product.sku}</span>
+                                                <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest bg-stone-50 px-2 py-0.5 rounded border border-stone-200/30">
+                                                    {product.sku}
+                                                </span>
                                             </div>
                                             
-                                            <h3 className="font-black text-stone-900 text-xl mb-2 tracking-tight line-clamp-1">{product.name}</h3>
-                                            <p className="text-sm text-stone-500 font-medium mb-8 line-clamp-2 flex-1">{product.description || 'Enterprise grade solution tailored for efficiency.'}</p>
+                                            <h3 className="font-extrabold text-stone-900 text-base mb-1.5 tracking-tight line-clamp-1 group-hover:text-amber-600 transition-colors duration-300">
+                                                {product.name}
+                                            </h3>
+                                            <p className="text-[11px] text-stone-500 font-medium mb-5 line-clamp-2 flex-1 leading-relaxed">
+                                                {product.description || 'Enterprise grade solution tailored for optimal efficiency.'}
+                                            </p>
                                             
-                                            <div className="flex justify-between items-end pt-6 border-t border-stone-50">
+                                            <div className="flex justify-between items-center pt-4 border-t border-stone-100 mt-auto">
                                                 <div>
-                                                    <span className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Unit Price</span>
-                                                    <span className="text-2xl font-black text-stone-900 leading-none">${product.price?.toLocaleString()}</span>
+                                                    <span className="block text-[8px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Price</span>
+                                                    <span className="text-lg font-black text-stone-900 tracking-tight leading-none">${product.price?.toLocaleString()}</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${
-                                                        product.stock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                                                        product.stock > 0 ? 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50' : 'bg-red-50/50 text-red-700 border-red-100/50'
                                                     }`}>
-                                                        <div className={`w-1.5 h-1.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                                        {product.stock > 0 ? `${product.stock} Stock` : 'Out of Stock'}
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+                                                        {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
+                                        {/* Float Controls */}
                                         {user?.role === 'Admin' && (
-                                            <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 lg:translate-y-2 group-hover:translate-y-0 transition-all duration-300 z-20">
-                                                <button onClick={() => handleEdit(product)} className="w-10 h-10 rounded-xl bg-white border border-stone-200 shadow-xl flex items-center justify-center text-stone-600 hover:text-amber-600 hover:border-amber-200 transition-all">
-                                                    <Edit2 size={18} />
+                                            <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 lg:translate-y-1 group-hover:translate-y-0 transition-all duration-300 z-20">
+                                                <button 
+                                                    onClick={() => handleEdit(product)} 
+                                                    className="w-8 h-8 rounded-lg bg-white border border-stone-200 shadow-md flex items-center justify-center text-stone-600 hover:text-amber-600 hover:border-amber-200 transition-all cursor-pointer bg-transparent border-none"
+                                                    title="Edit Product"
+                                                >
+                                                    <Edit2 size={13} />
                                                 </button>
-                                                <button onClick={() => handleDelete(product)} className="w-10 h-10 rounded-xl bg-white border border-stone-200 shadow-xl flex items-center justify-center text-stone-600 hover:text-red-600 hover:border-red-200 transition-all">
-                                                    <Trash2 size={18} />
+                                                <button 
+                                                    onClick={() => handleDelete(product)} 
+                                                    className="w-8 h-8 rounded-lg bg-white border border-stone-200 shadow-md flex items-center justify-center text-stone-600 hover:text-red-600 hover:border-red-200 transition-all cursor-pointer bg-transparent border-none"
+                                                    title="Delete Product"
+                                                >
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         )}

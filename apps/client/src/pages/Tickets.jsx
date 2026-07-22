@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, X, User, Layout, List, Trash2, Clock, CheckCircle } from 'lucide-react';
+import { Plus, X, User, Edit2, Trash2, Clock, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import KanbanBoard from '../components/KanbanBoard';
+import toast from 'react-hot-toast';
 
 const Tickets = () => {
     const { user } = useAuth();
+    const isClient = user?.role === 'Client';
     const [tickets, setTickets] = useState([]);
     const [contacts, setContacts] = useState([]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState('kanban');
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [viewMode, setViewMode] = useState('kanban');
+    const [draggedTicket, setDraggedTicket] = useState(null);
     
     // Columns Configuration
     const columns = [
@@ -29,15 +31,21 @@ const Tickets = () => {
     });
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (user) {
+            fetchData();
+        }
+    }, [user]);
 
     const fetchData = async () => {
         try {
+            const ticketUrl = isClient ? `/api/tickets?email=${user?.email}` : '/api/tickets';
+            
+            const ticketReq = axios.get(ticketUrl);
+            const contactReq = !isClient ? axios.get('/api/contacts') : Promise.resolve({ data: { data: [] } });
+            const userReq = !isClient ? axios.get('/api/auth/users') : Promise.resolve({ data: { data: [] } });
+
             const [ticketRes, contactRes, userRes] = await Promise.all([
-                axios.get('/api/tickets'),
-                axios.get('/api/contacts'),
-                axios.get('/api/auth/users')
+                ticketReq, contactReq, userReq
             ]);
             
             let allTickets = ticketRes.data.data || [];
@@ -54,19 +62,14 @@ const Tickets = () => {
 
             // Filter: Clients only see their own tickets
             if (user?.role === 'Client') {
-                const myContact = contactRes.data.data.find(c => c.email === user.email);
-                const myContactId = myContact ? myContact._id : null;
-                
                 allTickets = allTickets.filter(t => {
-                    const ticketCustomerId = typeof t.customerId === 'object' ? t.customerId?._id : t.customerId;
-                    const matchesContact = myContactId && ticketCustomerId === myContactId;
                     const matchesEmail = t.guestEmail === user.email;
-                    return matchesContact || matchesEmail;
+                    return matchesEmail;
                 });
             }
 
             setTickets(allTickets);
-            setContacts(contactRes.data.data);
+            setContacts(contactRes.data.data || []);
             setUsers(userRes.data?.data || []);
             setLoading(false);
         } catch (err) {
@@ -75,68 +78,91 @@ const Tickets = () => {
         }
     };
 
-    const handleDragEnd = async (result) => {
-        if (!result.destination) return;
-        const { draggableId, destination } = result;
-        const newStatus = destination.droppableId;
-        const ticket = tickets.find(t => t._id === draggableId);
 
-        // Restriction Check
-        if (newStatus === 'Rejected' && user?.role !== 'Admin') {
-            alert("Only Admins can Reject tickets!");
-            return;
-        }
-
-        if (newStatus === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) {
-            alert("Only Admins and Employees can Resolve tickets!");
-            return;
-        }
-
-        // Optimistic Update
-        const originalTickets = [...tickets];
-        setTickets(prev => prev.map(t => 
-            t._id === draggableId ? { ...t, status: newStatus } : t
-        ));
-
-        // API Call
-        try {
-            if (ticket && ticket.status !== newStatus) {
-                await axios.put(`/api/tickets/${draggableId}`, { status: newStatus });
-                
-                // Notifications handled by backend service
-            }
-        } catch (err) {
-            console.error("Failed to update status", err);
-            setTickets(originalTickets);
-        }
-    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
         // Restriction Check for non-admins trying to Reject
         if (formData.status === 'Rejected' && user?.role !== 'Admin') {
-            alert("Only Admins can Reject tickets!");
+            toast.error("Only Admins can Reject tickets!");
             return;
         }
 
         // Restriction Check for non-admins/non-employees trying to Resolve
         if (formData.status === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) {
-            alert("Insufficient permissions to Resolve tickets!");
+            toast.error("Insufficient permissions to Resolve tickets!");
             return;
         }
 
         try {
+            const payload = { ...formData };
+            if (isClient) {
+                payload.guestEmail = user.email;
+                payload.guestName = user.name;
+                if (!editingTicket) {
+                    payload.status = 'Open';
+                    payload.assignedTo = '';
+                }
+            }
+
+            // Clean up empty object IDs to prevent Mongoose CastErrors (400 Bad Request)
+            if (payload.assignedTo === '') delete payload.assignedTo;
+            if (payload.customerId === '') delete payload.customerId;
+
             if (editingTicket) {
-                await axios.put(`/api/tickets/${editingTicket._id}`, formData);
+                await axios.put(`/api/tickets/${editingTicket._id}`, payload);
+                toast.success("Ticket updated successfully!");
             } else {
-                await axios.post('/api/tickets', formData);
+                await axios.post('/api/tickets', payload);
+                toast.success("Ticket created successfully!");
             }
             fetchData();
             handleCloseDrawer();
         } catch (err) {
-            alert('Failed to save ticket');
+            toast.error('Failed to save ticket');
         }
+    };
+
+    const handleDragStart = (e, ticket) => {
+        setDraggedTicket(ticket);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = async (e, targetStatus) => {
+        e.preventDefault();
+        if (!draggedTicket || draggedTicket.status === targetStatus) return;
+
+        // Restriction Check for non-admins trying to drag to Rejected
+        if (targetStatus === 'Rejected' && user?.role !== 'Admin') {
+            toast.error("Only Admins can Reject tickets!");
+            return;
+        }
+
+        // Restriction Check for non-admins/non-employees trying to drag to Resolved
+        if (targetStatus === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) {
+            toast.error("Insufficient permissions to Resolve tickets!");
+            return;
+        }
+
+        // Optimistic UI update
+        const updatedTicket = { ...draggedTicket, status: targetStatus };
+        setTickets(prev => prev.map(t => t._id === draggedTicket._id ? updatedTicket : t));
+
+        try {
+            await axios.put(`/api/tickets/${draggedTicket._id}`, { status: targetStatus });
+            toast.success(`Ticket moved to ${targetStatus}`);
+        } catch (err) {
+            console.error("Failed to update status", err);
+            toast.error("Failed to update ticket status");
+            fetchData(); // rollback
+        }
+        setDraggedTicket(null);
     };
 
     const handleDelete = async (id) => {
@@ -178,68 +204,7 @@ const Tickets = () => {
         }
     };
 
-    const renderCard = (ticket) => {
-        const contact = contacts.find(c => c._id === (ticket.customerId?._id || ticket.customerId));
-        const assignedUser = users.find(u => u._id === (ticket.assignedTo?._id || ticket.assignedTo));
-        
-        return (
-            <div onClick={() => handleEdit(ticket)} className="cursor-pointer group">
-                <div className="flex justify-between items-start mb-3">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded tracking-wide ${getPriorityStyle(ticket.priority)}`}>
-                        {ticket.priority}
-                    </span>
-                    {ticket.createdAt && (
-                        <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                            <Clock size={10} />
-                            {new Date(ticket.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </span>
-                    )}
-                </div>
 
-                <h4 className="font-bold text-slate-800 text-base mb-3 leading-snug group-hover:text-blue-700 transition-colors">
-                    {ticket.title}
-                </h4>
-
-                <div className="flex justify-between items-center pt-3 border-t border-slate-50">
-                    {/* Customer */}
-                    <div className="flex items-center gap-2">
-                        {contact ? (
-                            <>
-                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500">
-                                    {contact.name.charAt(0)}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-slate-700">{contact.name.split(' ')[0]}</span>
-                                    <span className="text-[10px] text-slate-400">{contact.company || 'Direct'}</span>
-                                </div>
-                            </>
-                        ) : ticket.guestEmail ? (
-                            <>
-                                <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-[10px] font-bold text-amber-600">
-                                    {ticket.guestName?.charAt(0) || 'G'}
-                                </div>
-                                <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-amber-700">{ticket.guestName || 'Guest'}</span>
-                                    <span className="text-[10px] text-amber-500 truncate max-w-[80px]">{ticket.guestEmail}</span>
-                                </div>
-                            </>
-                        ) : <span className="text-xs text-slate-400 italic">No Customer</span>}
-                    </div>
-
-                    {/* Assignee */}
-                    {assignedUser ? (
-                        <div title={`Assigned to ${assignedUser.name}`} className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold ring-2 ring-white shadow-sm">
-                            {assignedUser.name.charAt(0).toUpperCase()}
-                        </div>
-                    ) : (
-                        <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 flex items-center justify-center">
-                            <User size={14} className="text-slate-300" />
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
-    };
 
     if (loading) return <LoadingSpinner message="Loading Support Board..." />;
 
@@ -251,24 +216,34 @@ const Tickets = () => {
                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Support Tickets</h1>
                      <p className="text-slate-500 text-sm mt-1">Manage, track, and resolve customer support tickets efficiently.</p>
                 </div>
-                 <div className="flex gap-4">
-                     <div className="flex bg-slate-100 p-1 rounded-lg">
-                        <button 
-                            onClick={() => setViewMode('kanban')}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-all ${viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            <Layout size={16} /> Board
-                        </button>
-                        <button 
-                             onClick={() => setViewMode('list')}
-                             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-bold transition-all ${viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                        >
-                            <List size={16} /> List
-                        </button>
-                    </div>
+                  <div className="flex items-center gap-4">
+                    {!isClient && (
+                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                            <button 
+                                onClick={() => setViewMode('kanban')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+                                    viewMode === 'kanban' 
+                                    ? 'bg-white text-slate-900 shadow-sm' 
+                                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                                }`}
+                            >
+                                Board
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('list')}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+                                    viewMode === 'list' 
+                                    ? 'bg-white text-slate-900 shadow-sm' 
+                                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                                }`}
+                            >
+                                List
+                            </button>
+                        </div>
+                    )}
                     <button 
                         onClick={() => { handleCloseDrawer(); setIsDrawerOpen(true); }}
-                        className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2"
+                        className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 border-none cursor-pointer"
                     >
                         <Plus size={18} /> New Ticket
                     </button>
@@ -276,26 +251,15 @@ const Tickets = () => {
             </div>
 
             {/* Content */}
-            {viewMode === 'kanban' ? (
-                <KanbanBoard 
-                    columns={columns}
-                    data={tickets}
-                    onDragEnd={handleDragEnd}
-                    renderCard={renderCard}
-                    loading={loading}
-                    layout="grid"
-                />
-            ) : (
-
-                /* List View Implementation */
-                <div className="flex-1 p-8 overflow-y-auto">
+            <div className="flex-1 p-8 overflow-y-auto">
+                {viewMode === 'list' || isClient ? (
                     <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-slate-50 border-b border-slate-200">
                                 <tr>
                                     <th className="px-6 py-4 font-bold text-slate-600">Ticket Details</th>
-                                    <th className="px-6 py-4 font-bold text-slate-600">Customer</th>
-                                    <th className="px-6 py-4 font-bold text-slate-600">Assignee</th>
+                                    {!isClient && <th className="px-6 py-4 font-bold text-slate-600">Customer</th>}
+                                    {!isClient && <th className="px-6 py-4 font-bold text-slate-600">Assignee</th>}
                                     <th className="px-6 py-4 font-bold text-slate-600">Priority</th>
                                     <th className="px-6 py-4 font-bold text-slate-600">Status</th>
                                     <th className="px-6 py-4 font-bold text-slate-600 text-right">Actions</th>
@@ -311,24 +275,28 @@ const Tickets = () => {
                                                 <div className="font-bold text-slate-900">{ticket.title}</div>
                                                 <div className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{ticket.description}</div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                {contact ? (
-                                                    <div>
-                                                        <div className="font-bold text-slate-700">{contact.name}</div>
-                                                        <div className="text-[10px] text-slate-400">{contact.company || 'Direct'}</div>
-                                                    </div>
-                                                ) : <span className="text-slate-400 italic">--</span>}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {assignedUser ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
-                                                            {assignedUser.name.charAt(0)}
+                                            {!isClient && (
+                                                <td className="px-6 py-4">
+                                                    {contact ? (
+                                                        <div>
+                                                            <div className="font-bold text-slate-700">{contact.name}</div>
+                                                            <div className="text-[10px] text-slate-400">{contact.company || 'Direct'}</div>
                                                         </div>
-                                                        <span className="font-medium text-slate-700">{assignedUser.name}</span>
-                                                    </div>
-                                                ) : <span className="text-slate-400 italic">Unassigned</span>}
-                                            </td>
+                                                    ) : <span className="text-slate-400 italic">--</span>}
+                                                </td>
+                                            )}
+                                            {!isClient && (
+                                                <td className="px-6 py-4">
+                                                    {assignedUser ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                                                {assignedUser.name.charAt(0)}
+                                                            </div>
+                                                            <span className="font-medium text-slate-700">{assignedUser.name}</span>
+                                                        </div>
+                                                    ) : <span className="text-slate-400 italic">Unassigned</span>}
+                                                </td>
+                                            )}
                                             <td className="px-6 py-4">
                                                 <span className={`px-2.5 py-1 rounded text-xs font-bold ${getPriorityStyle(ticket.priority)}`}>
                                                     {ticket.priority}
@@ -345,12 +313,12 @@ const Tickets = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleEdit(ticket)} className="p-2 hover:bg-slate-200 rounded text-slate-500">
-                                                        <List size={16} />
+                                                <div className="flex justify-end gap-1.5">
+                                                    <button onClick={() => handleEdit(ticket)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors" title="Edit Ticket">
+                                                        <Edit2 size={15} />
                                                     </button>
-                                                    <button onClick={() => setShowDeleteConfirm(ticket)} className="p-2 hover:bg-red-50 text-red-500 rounded">
-                                                        <Trash2 size={16} />
+                                                    <button onClick={() => setShowDeleteConfirm(ticket)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors" title="Delete Ticket">
+                                                        <Trash2 size={15} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -365,8 +333,103 @@ const Tickets = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                        {columns.map(col => {
+                            const colTickets = tickets.filter(t => t.status === col.id);
+                            return (
+                                <div 
+                                    key={col.id} 
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, col.id)}
+                                    className="bg-white border border-slate-200 rounded-2xl flex flex-col shadow-sm max-h-[75vh]"
+                                >
+                                    {/* Column Header matching Opportunities style */}
+                                    <div className="p-5 border-b border-slate-200 bg-white rounded-t-2xl flex flex-col gap-2 shrink-0">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="font-extrabold text-sm text-slate-800 tracking-tight uppercase">{col.title}</h3>
+                                            <span 
+                                                className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100"
+                                                style={{ backgroundColor: col.color + '15', color: col.color, borderColor: col.color + '30' }}
+                                            >
+                                                {colTickets.length}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden mr-4">
+                                                <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: col.color }}></div>
+                                            </div>
+                                            <div className="text-sm text-slate-900 font-extrabold">
+                                                {colTickets.length}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Column Content Area */}
+                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-[180px] bg-slate-50/50 rounded-b-2xl transition-colors duration-200">
+                                        {colTickets.map(t => {
+                                            const contact = contacts.find(c => c._id === (t.customerId?._id || t.customerId));
+                                            const assignedUser = users.find(u => u._id === (t.assignedTo?._id || t.assignedTo));
+                                            return (
+                                                <div 
+                                                    key={t._id} 
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, t)}
+                                                    onClick={() => handleEdit(t)}
+                                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all cursor-grab active:cursor-grabbing group relative text-left"
+                                                >
+                                                    {/* Action buttons on card hover */}
+                                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1" onClick={e => e.stopPropagation()}>
+                                                        <button onClick={() => handleEdit(t)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors bg-transparent border-none cursor-pointer" title="Edit">
+                                                            <Edit2 size={13} />
+                                                        </button>
+                                                        <button onClick={() => setShowDeleteConfirm(t)} className="p-1 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-colors bg-transparent border-none cursor-pointer" title="Delete">
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="mb-2.5">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase ${getPriorityStyle(t.priority)}`}>
+                                                            {t.priority}
+                                                        </span>
+                                                    </div>
+
+                                                    <h4 className="font-bold text-slate-900 text-sm mb-1 line-clamp-1">{t.title}</h4>
+                                                    <p className="text-slate-500 text-xs line-clamp-2 mb-3.5 leading-relaxed">{t.description}</p>
+                                                    
+                                                    {/* Footer Metadata */}
+                                                    <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-[10px] text-slate-500 font-medium">
+                                                        <span className="truncate max-w-[90px]" title={contact ? contact.name : t.guestName || 'Direct'}>
+                                                            {contact ? contact.name : t.guestName || 'Direct'}
+                                                        </span>
+                                                        {assignedUser ? (
+                                                            <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                                                                <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px] font-bold">
+                                                                    {assignedUser.name.charAt(0)}
+                                                                </div>
+                                                                <span className="font-bold text-slate-700 truncate max-w-[60px]">{assignedUser.name.split(' ')[0]}</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-400 italic">Unassigned</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {colTickets.length === 0 && (
+                                            <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 px-4 text-center text-slate-400 text-sm bg-white">
+                                                <p className="font-bold text-slate-700">Empty Stage</p>
+                                                <p className="text-xs text-slate-400 mt-1">Drag tickets here</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
 
             {/* Drawer */}
             {isDrawerOpen && (
@@ -418,71 +481,79 @@ const Tickets = () => {
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
-                                        <div className="relative">
-                                            <select 
-                                                value={formData.status} 
-                                                onChange={e => setFormData({...formData, status: e.target.value})}
-                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                            >
-                                                {columns.map(c => {
-                                                    const isCurrent = formData.status === c.id;
-                                                    // Only Admin can see/select 'Rejected' (unless it's already rejected)
-                                                    if (!isCurrent && c.id === 'Rejected' && user?.role !== 'Admin') return null;
-                                                    // Only Admin and Employee can see/select 'Resolved' (unless it's already resolved)
-                                                    if (!isCurrent && c.id === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) return null;
-                                                    return <option key={c.id} value={c.id}>{c.title}</option>;
-                                                })}
-                                            </select>
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                        {isClient ? (
+                                            <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 select-none">
+                                                {formData.status}
                                             </div>
-                                        </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <select 
+                                                    value={formData.status} 
+                                                    onChange={e => setFormData({...formData, status: e.target.value})}
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                                >
+                                                    {columns.map(c => {
+                                                        const isCurrent = formData.status === c.id;
+                                                        // Only Admin can see/select 'Rejected' (unless it's already rejected)
+                                                        if (!isCurrent && c.id === 'Rejected' && user?.role !== 'Admin') return null;
+                                                        // Only Admin and Employee can see/select 'Resolved' (unless it's already resolved)
+                                                        if (!isCurrent && c.id === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) return null;
+                                                        return <option key={c.id} value={c.id}>{c.title}</option>;
+                                                    })}
+                                                </select>
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Customer & Assignee - Grid */}
-                                <div className="grid grid-cols-2 gap-5">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer <span className="text-red-500">*</span></label>
-                                        <div className="relative">
-                                            <select 
-                                                required 
-                                                value={formData.customerId} 
-                                                onChange={e => setFormData({...formData, customerId: e.target.value})}
-                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                            >
-                                                <option value="">Select Customer...</option>
-                                                {contacts.map(c => (
-                                                    <option key={c._id} value={c._id}>
-                                                        {c.name} {c.company ? `(${c.company})` : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                {!isClient && (
+                                    <div className="grid grid-cols-2 gap-5">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer <span className="text-red-500">*</span></label>
+                                            <div className="relative">
+                                                <select 
+                                                    required={!isClient} 
+                                                    value={formData.customerId} 
+                                                    onChange={e => setFormData({...formData, customerId: e.target.value})}
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                                >
+                                                    <option value="">Select Customer...</option>
+                                                    {contacts.map(c => (
+                                                        <option key={c._id} value={c._id}>
+                                                            {c.name} {c.company ? `(${c.company})` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assign To</label>
-                                        <div className="relative">
-                                            <select 
-                                                value={formData.assignedTo} 
-                                                onChange={e => setFormData({...formData, assignedTo: e.target.value})}
-                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                            >
-                                                <option value="">Unassigned</option>
-                                                {users.map(u => (
-                                                    <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
-                                                ))}
-                                            </select>
-                                             <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assign To</label>
+                                            <div className="relative">
+                                                <select 
+                                                    value={formData.assignedTo} 
+                                                    onChange={e => setFormData({...formData, assignedTo: e.target.value})}
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                                >
+                                                    <option value="">Unassigned</option>
+                                                    {users.map(u => (
+                                                        <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                                                    ))}
+                                                </select>
+                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Description - Full Width */}
                                 <div>

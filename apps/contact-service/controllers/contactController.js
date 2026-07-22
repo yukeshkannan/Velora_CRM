@@ -6,10 +6,21 @@ const { formatResponse } = require('../../../packages/utils');
 // @access  Public
 exports.getContacts = async (req, res) => {
   try {
-    console.log('[Contact Service] Fetching all contacts...');
-    const { email } = req.query;
+    console.log('[Contact Service] Fetching contacts...');
+    const { email, search, q } = req.query;
     let query = {};
     if (email) query.email = email;
+
+    const searchTerm = search || q;
+    if (searchTerm) {
+      const regex = new RegExp(searchTerm, 'i');
+      query.$or = [
+        { name: regex },
+        { email: regex },
+        { company: regex }
+      ];
+    }
+
     const contacts = await Contact.find(query).sort({ createdAt: -1 });
     console.log(`[Contact Service] Found ${contacts.length} contacts`);
     formatResponse(res, 200, 'Contacts retrieved successfully', contacts);

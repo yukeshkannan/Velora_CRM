@@ -3,9 +3,11 @@
  * @param {Array} data - The array of objects to export.
  * @param {String} filename - The name of the downloadable file (without extension).
  */
+import toast from 'react-hot-toast';
+
 export const exportToCSV = (data, filename = 'export') => {
     if (!data || !data.length) {
-        alert("No data to export!");
+        toast.error("No data to export!");
         return;
     }
 
@@ -41,4 +43,5 @@ export const exportToCSV = (data, filename = 'export') => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success("Records exported successfully!");
 };

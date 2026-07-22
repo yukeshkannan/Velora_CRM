@@ -6,7 +6,8 @@ const {
   createInvoice,
   updateInvoice,
   deleteInvoice,
-  sendInvoiceEmail
+  sendInvoiceEmail,
+  downloadInvoiceFile
 } = require('../controllers/invoiceController');
 
 router
@@ -21,5 +22,6 @@ router
   .delete(deleteInvoice);
 
 router.route('/:id/send').post(sendInvoiceEmail);
+router.route('/:id/download').get(downloadInvoiceFile);
 
 module.exports = router;

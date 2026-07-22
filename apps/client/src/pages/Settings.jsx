@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { User, Lock, Save, LogOut, Shield, Bell, ChevronRight, Camera, AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { User, Lock, Save, LogOut, Shield, Bell, ChevronRight, Camera, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Settings = () => {
     const { user, logout, checkAuth } = useAuth();
+    const isClient = user?.role === 'Client';
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -25,6 +27,8 @@ const Settings = () => {
         newPassword: '',
         confirmPassword: ''
     });
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         if(user) {
@@ -59,7 +63,7 @@ const Settings = () => {
 
         // Check file size (5MB limit)
         if (file.size > 5 * 1024 * 1024) {
-            alert("File is too large! Max 5MB allowed.");
+            toast.error("File is too large! Max 5MB allowed.");
             return;
         }
 
@@ -248,7 +252,8 @@ const Settings = () => {
                                         />
                                     </div>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                                {!isClient && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Designation</label>
                                         <input 
@@ -268,6 +273,7 @@ const Settings = () => {
                                         />
                                     </div>
                                 </div>
+                                )}
 
                                 <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '2rem', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                                     <button type="submit" disabled={loading} style={{ 
@@ -292,21 +298,39 @@ const Settings = () => {
                             <form onSubmit={handlePasswordUpdate} style={{ display: 'grid', gap: '1.5rem', maxWidth: '400px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>New Password</label>
-                                    <input 
-                                        type="password" 
-                                        value={passData.newPassword}
-                                        onChange={(e) => setPassData({...passData, newPassword: e.target.value})}
-                                        style={{ padding: '0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', backgroundColor: '#f8fafc', color: '#0f172a' }}
-                                    />
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <input 
+                                            type={showNewPassword ? "text" : "password"} 
+                                            value={passData.newPassword}
+                                            onChange={(e) => setPassData({...passData, newPassword: e.target.value})}
+                                            style={{ padding: '0.85rem', paddingRight: '2.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', backgroundColor: '#f8fafc', color: '#0f172a', width: '100%' }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center' }}
+                                        >
+                                            {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>Confirm Password</label>
-                                    <input 
-                                        type="password" 
-                                        value={passData.confirmPassword}
-                                        onChange={(e) => setPassData({...passData, confirmPassword: e.target.value})}
-                                        style={{ padding: '0.85rem', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', backgroundColor: '#f8fafc', color: '#0f172a' }}
-                                    />
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <input 
+                                            type={showConfirmPassword ? "text" : "password"} 
+                                            value={passData.confirmPassword}
+                                            onChange={(e) => setPassData({...passData, confirmPassword: e.target.value})}
+                                            style={{ padding: '0.85rem', paddingRight: '2.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', backgroundColor: '#f8fafc', color: '#0f172a', width: '100%' }}
+                                        />
+                                        <button 
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            style={{ position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', display: 'flex', alignItems: 'center' }}
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div style={{ marginTop: '1rem' }}>

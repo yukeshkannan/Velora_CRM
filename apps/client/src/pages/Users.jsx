@@ -4,6 +4,29 @@ import { Plus, Search, User, Briefcase, Mail, Shield, X, Check, Building2, Eye, 
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
+const roleOptions = {
+  Admin: {
+    departments: ['Administration', 'IT Operations', 'Management'],
+    designations: ['System Administrator', 'Operations Director', 'IT Manager']
+  },
+  Employee: {
+    departments: ['Engineering', 'Customer Support', 'IT Operations'],
+    designations: ['Software Developer', 'Support Engineer', 'Systems Engineer', 'Junior Developer']
+  },
+  Sales: {
+    departments: ['Sales', 'Marketing', 'Business Development'],
+    designations: ['Sales Executive', 'Account Manager', 'Business Development Representative', 'Sales Lead']
+  },
+  HR: {
+    departments: ['Human Resources', 'People Operations'],
+    designations: ['HR Specialist', 'Recruiter', 'HR Coordinator', 'HR Manager']
+  },
+  Client: {
+    departments: ['External Client'],
+    designations: ['Client Representative', 'External Partner']
+  }
+};
+
 const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +64,19 @@ const Users = () => {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'role') {
+      const depts = roleOptions[value]?.departments || [];
+      const desigs = roleOptions[value]?.designations || [];
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        department: depts[0] || '',
+        designation: desigs[0] || ''
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleEdit = (user) => {
@@ -117,7 +152,10 @@ const Users = () => {
       
       setFormData({
         name: '', email: '', password: '',
-        role: 'Employee', designation: '', department: '', baseSalary: ''
+        role: 'Employee', 
+        department: 'Engineering',
+        designation: 'Software Developer',
+        baseSalary: ''
       });
       setIsDrawerOpen(false);
       setEditingUser(null);
@@ -131,7 +169,10 @@ const Users = () => {
     setEditingUser(null);
     setFormData({
         name: '', email: '', password: '',
-        role: 'Employee', designation: '', department: ''
+        role: 'Employee', 
+        department: 'Engineering',
+        designation: 'Software Developer',
+        baseSalary: ''
     });
     setIsDrawerOpen(true);
     setSuccess('');
@@ -139,6 +180,16 @@ const Users = () => {
   };
 
   if (loading) return <LoadingSpinner message="Loading Users..." />;
+
+  const depts = [...(roleOptions[formData.role]?.departments || [])];
+  const desigs = [...(roleOptions[formData.role]?.designations || [])];
+
+  if (formData.department && !depts.includes(formData.department)) {
+    depts.push(formData.department);
+  }
+  if (formData.designation && !desigs.includes(formData.designation)) {
+    desigs.push(formData.designation);
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -158,60 +209,97 @@ const Users = () => {
         </button>
       </div>
 
-      {/* Users Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {users.map((u) => (
-          <div 
-            key={u._id} 
-            className="group bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-200 transition-all cursor-pointer relative overflow-hidden"
-            onClick={() => handleEdit(u)}
-          >
-            {/* Hover Indicator */}
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-200"></div>
-
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-blue-600 flex items-center justify-center text-xl font-bold">
-                {u.name.charAt(0)}
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                u.role === 'Admin' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
-              }`}>
-                {u.role}
-              </span>
-            </div>
-            
-            <h3 className="text-lg font-bold text-slate-900 mb-1">{u.name}</h3>
-            <p className="text-sm text-slate-500 mb-4">{u.designation || 'No Designation'}</p>
-            
-            <div className="flex flex-col gap-3 text-sm text-slate-600">
-              <div className="flex items-center gap-2">
-                <Mail size={16} className="text-slate-400" />
-                <span className="truncate">{u.email}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Building2 size={16} className="text-slate-400" />
-                <span>{u.department || 'General'}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 flex gap-3">
-                <button 
-                    onClick={(e) => { e.stopPropagation(); handleEdit(u); }}
-                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-slate-600 hover:text-blue-600 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+      {/* Users List Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mt-6">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">User</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Department</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Designation</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Base Salary</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {users.map((u) => (
+                <tr 
+                  key={u._id} 
+                  className="hover:bg-slate-50 transition-colors cursor-pointer animate-fade-in"
+                  onClick={() => handleEdit(u)}
                 >
-                    <Pencil size={16} />
-                    Edit
-                </button>
-                <button 
-                    onClick={(e) => confirmDelete(e, u)}
-                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold text-slate-600 hover:text-red-600 py-2 rounded-lg hover:bg-red-50 transition-colors"
-                >
-                    <Trash2 size={16} />
-                    Delete
-                </button>
-            </div>
-          </div>
-        ))}
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        {u.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900">{u.name}</div>
+                        <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Mail size={12} className="text-slate-400" />
+                          <span>{u.email}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                      u.role === 'Admin' ? 'bg-red-50 text-red-600 border border-red-100' :
+                      u.role === 'HR' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
+                      u.role === 'Sales' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                      u.role === 'Client' ? 'bg-green-50 text-green-600 border border-green-100' :
+                      'bg-blue-50 text-blue-600 border border-blue-100'
+                    }`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={14} className="text-slate-400" />
+                      <span>{u.department || 'General'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    <div className="flex items-center gap-1.5">
+                      <Briefcase size={14} className="text-slate-400" />
+                      <span>{u.designation || '-'}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-900 font-semibold">
+                    {u.salary?.base ? `₹${u.salary.base.toLocaleString()}` : '₹0'}
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => handleEdit(u)} 
+                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit User"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button 
+                        onClick={(e) => confirmDelete(e, u)} 
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete User"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center text-slate-400">
+                    No users registered in the system.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Slide-Over Drawer for Add/Edit User */}
@@ -278,15 +366,23 @@ const Users = () => {
                             </div>
                             <div>
                                 <label className="block mb-2 font-semibold text-slate-700">Department</label>
-                                <input type="text" name="department" placeholder="e.g. Finance" value={formData.department} onChange={handleChange}
-                                    className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all" />
+                                <select name="department" value={formData.department} onChange={handleChange}
+                                    className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-white">
+                                    {depts.map((d, i) => (
+                                        <option key={i} value={d}>{d}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 
                         <div>
                             <label className="block mb-2 font-semibold text-slate-700">Designation</label>
-                            <input type="text" name="designation" placeholder="e.g. Sales Executive" value={formData.designation} onChange={handleChange}
-                            className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all" />
+                            <select name="designation" value={formData.designation} onChange={handleChange}
+                                className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-white">
+                                {desigs.map((d, i) => (
+                                    <option key={i} value={d}>{d}</option>
+                                ))}
+                            </select>
                         </div>
 
                          <div>

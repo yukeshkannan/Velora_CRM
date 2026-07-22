@@ -83,6 +83,7 @@ exports.updateTask = async (req, res) => {
 
             if (assignedUser && assignedUser.email) {
                 const axios = require('axios');
+                const { publishToQueue } = require('../../../packages/utils');
                 const subject = `Task Update: ${task.title}`;
                 const message = `
                     <h3>Task Updated</h3>
@@ -94,12 +95,17 @@ exports.updateTask = async (req, res) => {
                     <p>Please check the CRM for more details.</p>
                 `;
 
-                // Fire and forget notification
-                axios.post('http://notification-service:5005/api/notifications/email', {
+                const emailPayload = {
                     to: assignedUser.email,
                     subject,
                     message
-                }).catch(err => console.error("Failed to send notification:", err.message));
+                };
+
+                const fallbackSend = () => axios.post('http://notification-service:5005/api/notifications/email', emailPayload);
+
+                publishToQueue('email_notifications', emailPayload, fallbackSend)
+                    .then(() => console.log(`[Task Service] Notification handled for ${assignedUser.email}`))
+                    .catch(err => console.error("Failed to handle notification:", err.message));
             }
         } catch (noteErr) {
             console.error("Notification Error:", noteErr.message);

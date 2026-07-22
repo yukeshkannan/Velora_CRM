@@ -151,15 +151,17 @@ const Tasks = () => {
 
             if (editingId) {
                 await axios.put(`/api/tasks/${editingId}`, payload);
+                toast.success("Task updated successfully!");
             } else {
                 await axios.post('/api/tasks', payload);
+                toast.success("Task created successfully!");
             }
             
             fetchData();
             handleCloseDrawer();
         } catch (err) {
             console.error("Failed to save task", err);
-            alert("Failed to save task");
+            toast.error(err.response?.data?.message || "Failed to save task");
         }
     };
 
@@ -340,7 +342,7 @@ const Tasks = () => {
             }
         } catch (err) {
             console.error("Failed to update module", err);
-            alert(`Failed to save status: ${err.response?.data?.message || err.message}`);
+            toast.error(`Failed to save status: ${err.response?.data?.message || err.message}`);
         } finally {
             setIsSaving(false);
         }
@@ -447,8 +449,15 @@ const Tasks = () => {
                     </div>
                     {canManageTasks ? (
                         <button 
-                            onClick={() => setIsDrawerOpen(true)}
-                            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2"
+                            onClick={() => {
+                                setEditingId(null);
+                                setFormData({
+                                    title: '', type: 'Call', status: 'Pending', priority: 'Medium',
+                                    dueDate: '', description: '', contactId: '', assignedTo: ''
+                                });
+                                setIsDrawerOpen(true);
+                            }}
+                            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 border-none cursor-pointer"
                         >
                             <Plus size={18} /> New Task
                         </button>
@@ -504,14 +513,28 @@ const Tasks = () => {
                                         <td className="px-6 py-4 text-sm text-slate-500">
                                             {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            {canManageTasks || task.isOpportunity || rawOpportunities.some(o => o._id === task._id) ? (
-                                                <button onClick={() => handleEdit(task)} className="text-slate-400 hover:text-blue-600 p-1 font-bold">
-                                                    {task.isOpportunity || rawOpportunities.some(o => o._id === task._id) ? 'View' : 'Edit'}
-                                                </button>
-                                            ) : (
-                                                <span className="text-slate-300 text-xs italic">Read Only</span>
-                                            )}
+                                        <td className="px-6 py-4 text-right font-bold">
+                                            <div className="flex justify-end items-center gap-3">
+                                                {canManageTasks || task.isOpportunity || rawOpportunities.some(o => o._id === task._id) ? (
+                                                    <button 
+                                                        onClick={() => handleEdit(task)} 
+                                                        className="text-slate-400 hover:text-blue-600 p-1 font-bold text-xs cursor-pointer border-none bg-transparent"
+                                                    >
+                                                        {task.isOpportunity || rawOpportunities.some(o => o._id === task._id) ? 'View' : 'Edit'}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-slate-300 text-xs italic font-medium">Read Only</span>
+                                                )}
+                                                {canManageTasks && !task.isOpportunity && !rawOpportunities.some(o => o._id === task._id) && (
+                                                    <button 
+                                                        onClick={() => handleDelete(task)} 
+                                                        className="text-slate-400 hover:text-red-600 p-1 cursor-pointer border-none bg-transparent"
+                                                        title="Delete Task"
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

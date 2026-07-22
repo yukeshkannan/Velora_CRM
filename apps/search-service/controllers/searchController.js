@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { getCache, setCache } = require('../../../packages/utils');
 
 // @desc    Global Search across services
 // @route   GET /api/search?q=query
@@ -13,7 +14,13 @@ exports.globalSearch = async (req, res) => {
     });
   }
 
-  console.log(`🔎 Searching for: "${query}"`);
+  const cacheKey = `search:${query.toLowerCase().trim()}`;
+  const cachedResult = await getCache(cacheKey);
+  if (cachedResult) {
+    return res.status(200).json(cachedResult);
+  }
+
+  console.log(`Searching for: "${query}"`);
 
   // Service Endpoints
   const CONTACT_SERVICE = 'http://localhost:5002/api/contacts';
@@ -27,32 +34,20 @@ exports.globalSearch = async (req, res) => {
     // OR we implement ?search= query in other services. 
     // For MVP, we fetch all and filter here (Not scalable for huge data, but fine for now).
 
+    const encodedQuery = encodeURIComponent(query);
     const [contactsRes, opportunitiesRes, ticketsRes, productsRes] = await Promise.all([
-      axios.get(CONTACT_SERVICE).catch(e => ({ data: { data: [] } })),
-      axios.get(OPPORTUNITY_SERVICE).catch(e => ({ data: { data: [] } })),
-      axios.get(TICKET_SERVICE).catch(e => ({ data: { data: [] } })),
-      axios.get(PRODUCT_SERVICE).catch(e => ({ data: { data: [] } }))
+      axios.get(`${CONTACT_SERVICE}?search=${encodedQuery}`).catch(e => ({ data: { data: [] } })),
+      axios.get(`${OPPORTUNITY_SERVICE}?search=${encodedQuery}`).catch(e => ({ data: { data: [] } })),
+      axios.get(`${TICKET_SERVICE}?search=${encodedQuery}`).catch(e => ({ data: { data: [] } })),
+      axios.get(`${PRODUCT_SERVICE}?search=${encodedQuery}`).catch(e => ({ data: { data: [] } }))
     ]);
 
-    // Filtering Logic (Simple Case Insensitive Match)
-    // Adjust fields based on what actual models have.
-    
-    const filterData = (data, fields) => {
-        if (!Array.isArray(data)) return [];
-        return data.filter(item => {
-            return fields.some(field => {
-                const val = item[field];
-                return val && val.toString().toLowerCase().includes(query.toLowerCase());
-            });
-        });
-    };
+    const contacts = contactsRes.data.data || [];
+    const opportunities = opportunitiesRes.data.data || [];
+    const tickets = ticketsRes.data.data || [];
+    const products = productsRes.data.data || [];
 
-    const contacts = filterData(contactsRes.data.data, ['name', 'email', 'company']);
-    const opportunities = filterData(opportunitiesRes.data.data, ['title']);
-    const tickets = filterData(ticketsRes.data.data, ['title', 'description']);
-    const products = filterData(productsRes.data.data, ['name', 'sku', 'description']);
-
-    res.status(200).json({
+    const searchPayload = {
       success: true,
       query,
       results: {
@@ -61,10 +56,13 @@ exports.globalSearch = async (req, res) => {
         tickets: { count: tickets.length, data: tickets },
         products: { count: products.length, data: products }
       }
-    });
+    };
+
+    await setCache(cacheKey, searchPayload, 120); // Cache for 2 minutes
+    res.status(200).json(searchPayload);
 
   } catch (err) {
-    console.error('❌ Search Error:', err.message);
+    console.error(' Search Error:', err.message);
     res.status(500).json({
       success: false,
       error: 'Server Error during search'

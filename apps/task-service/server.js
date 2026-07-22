@@ -4,6 +4,8 @@ const cors = require('cors');
 const { connectDB } = require('../../packages/database');
 const taskRoutes = require('./routes/taskRoutes');
 
+const { correlationLogger } = require('../../packages/utils');
+
 // Load env vars
 dotenv.config();
 
@@ -13,6 +15,7 @@ const PORT = process.env.PORT || 5004;
 // Middleware
 app.use(express.json());
 app.use(cors());
+app.use(correlationLogger('Task-Service'));
 
 // Mount routers
 app.use('/api/tasks', taskRoutes);

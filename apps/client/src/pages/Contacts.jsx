@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-hot-toast';
 import { 
     Plus, Search, Mail, Phone, Building2, Pencil, Trash2, X, Filter, 
     MoreHorizontal, Download, User
@@ -60,10 +61,11 @@ const Contacts = () => {
   const handleDelete = async (contactId) => {
     try {
         await axios.delete(`/api/contacts/${contactId}`);
+        toast.success('Contact deleted successfully');
         setContacts(contacts.filter(c => c._id !== contactId));
         setShowDeleteConfirm(null);
     } catch (err) {
-        alert('Failed to delete contact');
+        toast.error(err.response?.data?.message || 'Failed to delete contact');
     }
   };
 
@@ -72,14 +74,16 @@ const Contacts = () => {
     try {
       if (editingContact) {
         await axios.put(`/api/contacts/${editingContact._id}`, formData);
+        toast.success('Contact updated successfully');
       } else {
         await axios.post('/api/contacts', formData);
+        toast.success('Contact created successfully');
       }
       
       handleCloseDrawer();
       fetchContacts(); 
     } catch (err) {
-      alert(err.response?.data?.message || 'Operation failed');
+      toast.error(err.response?.data?.message || 'Operation failed');
     }
   };
 
@@ -191,11 +195,11 @@ const Contacts = () => {
                                 </span>
                             </td>
                             <td className="px-6 py-4 text-right">
-                                <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleEdit(contact)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors">
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => handleEdit(contact)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit">
                                         <Pencil size={18} />
                                     </button>
-                                    <button onClick={() => setShowDeleteConfirm(contact)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                    <button onClick={() => setShowDeleteConfirm(contact)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                                         <Trash2 size={18} />
                                     </button>
                                 </div>

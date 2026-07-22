@@ -4,11 +4,14 @@ const cors = require('cors');
 const { connectDB } = require('../../packages/database');
 const ticketRoutes = require('./routes/ticketRoutes');
 
+const { correlationLogger } = require('../../packages/utils');
+
 dotenv.config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(correlationLogger('Ticket-Service'));
 app.use('/api/tickets', ticketRoutes);
 
 const PORT = process.env.PORT || 5010;

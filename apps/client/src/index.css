@@ -1,72 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root,
-.theme-amber {
-    --primary: #f59e0b;
-    --primary-light: #fef3c7;
-    --primary-dark: #d97706;
-    --secondary: #0f172a;
-    --accent: #f59e0b;
-    --brand-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
-    --bg-main: #ffffff;
-    --card-bg: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --shadow-premium: 0 20px 40px -15px rgba(245, 158, 11, 0.15);
-}
-
 .theme-indigo {
     --primary: #4f46e5;
     --primary-light: #e0e7ff;
     --primary-dark: #3730a3;
-    --secondary: #0f172a;
+    --secondary: #09090b;
     --accent: #4f46e5;
-    --brand-gradient: linear-gradient(135deg, #4f46e5 0%, #818cf8 100%);
+    --brand-gradient: linear-gradient(135deg, #09090b 0%, #27272a 100%);
     --bg-main: #ffffff;
     --card-bg: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --shadow-premium: 0 20px 40px -15px rgba(79, 70, 229, 0.15);
+    --text-main: #09090b;
+    --text-muted: #52525b;
+    --shadow-premium: 0 20px 40px -15px rgba(9, 9, 11, 0.05);
 }
 
-.theme-emerald {
-    --primary: #10b981;
-    --primary-light: #d1fae5;
-    --primary-dark: #065f46;
-    --secondary: #0f172a;
-    --accent: #10b981;
-    --brand-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-    --bg-main: #ffffff;
-    --card-bg: #ffffff;
-    --text-main: #1e293b;
-    --text-muted: #64748b;
-    --shadow-premium: 0 20px 40px -15px rgba(16, 185, 129, 0.15);
-}
-
-.theme-slate {
-    --primary: #334155;
-    --primary-light: #f1f5f9;
-    --primary-dark: #1e293b;
-    --secondary: #020617;
-    --accent: #334155;
-    --brand-gradient: linear-gradient(135deg, #334155 0%, #64748b 100%);
-    --bg-main: #ffffff;
-    --card-bg: #ffffff;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --shadow-premium: 0 20px 40px -15px rgba(51, 65, 85, 0.15);
+html {
+    scroll-behavior: smooth;
 }
 
 @layer base {
     body {
-        @apply antialiased bg-stone-50 text-stone-900 selection:bg-amber-100;
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        @apply antialiased bg-[#FAFAF9] text-[#09090B] selection:bg-indigo-100 selection:text-indigo-900;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         caret-color: transparent;
-        /* Fixes cursor blinking everywhere */
     }
 
     input,
@@ -81,8 +42,8 @@
     h4,
     h5,
     h6 {
-        @apply font-bold text-stone-900 tracking-tight;
-        font-family: 'Outfit', sans-serif;
+        @apply font-bold text-[#09090B] tracking-tight;
+        font-family: 'Plus Jakarta Sans', sans-serif;
     }
 }
 
@@ -139,7 +100,7 @@
 
     /* Professional Inputs */
     .pro-input-new {
-        @apply w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none transition-all duration-200 font-medium;
+        @apply w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none transition-all duration-200 font-medium;
         @apply focus:bg-white focus:border-blue-600 focus:ring-4 focus:ring-blue-600/5;
         @apply placeholder:text-slate-400 text-sm;
     }
@@ -228,4 +189,13 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+
+/* Bulletproof Full-Width Button Alignment Utility */
+.btn-premium-full {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    align-items: center !important;
+    justify-content: center !important;
 }

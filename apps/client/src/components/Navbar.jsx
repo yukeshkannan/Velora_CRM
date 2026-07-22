@@ -1,134 +1,168 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, User, Clock, ChevronRight } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Menu, X } from 'lucide-react';
+import Logo from './Logo';
 
 const Navbar = () => {
-    const { user } = useAuth();
+    const location = useLocation();
     const navigate = useNavigate();
-    const [query, setQuery] = useState('');
-    const [results, setResults] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
-    const searchRef = useRef(null);
+    const [scrolled, setScrolled] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [hoveredIdx, setHoveredIdx] = useState(null);
 
-    // Debounce Search
+    const navItems = [
+        { name: 'System', href: '#features', id: 'features' },
+        { name: 'Enterprise', href: '#pricing', id: 'pricing' },
+        { name: 'Practice', href: '#faqs', id: 'faqs' }
+    ];
+
     useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-            if (query.length > 2) {
-                performSearch(query);
+        const handleScroll = () => {
+            if (window.scrollY > 20) {
+                setScrolled(true);
             } else {
-                setResults(null);
+                setScrolled(false);
             }
-        }, 500);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
-        return () => clearTimeout(delayDebounceFn);
-    }, [query]);
-
-    // Close on click outside
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (searchRef.current && !searchRef.current.contains(event.target)) {
-                setShowDropdown(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [searchRef]);
-
-    const performSearch = async (searchTerm) => {
-        setLoading(true);
-        try {
-            const res = await axios.get(`/api/search?q=${searchTerm}`);
-            setResults(res.data.results);
-            setShowDropdown(true);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleResultClick = (type, item) => {
-        setShowDropdown(false);
-        setQuery(''); // Clear search on navigation
+    const handleScrollOrNavigate = (e, targetId) => {
+        e.preventDefault();
         
-        switch(type) {
-            case 'contacts': navigate('/contacts'); break; // Ideally deep link (e.g., /contacts?id=...)
-            case 'products': navigate('/products'); break;
-            case 'tickets': navigate('/tickets'); break;
-            case 'opportunities': navigate('/opportunities'); break;
-            default: break;
+        if (location.pathname === '/') {
+            // Smooth Scroll on Landing Page
+            const element = document.getElementById(targetId);
+            if (element) {
+                const offset = 110; // Extra offset due to floating island capsule
+                const bodyRect = document.body.getBoundingClientRect().top;
+                const elementRect = element.getBoundingClientRect().top;
+                const elementPosition = elementRect - bodyRect;
+                const offsetPosition = elementPosition - offset;
+                const scrollTarget = offsetPosition;
+
+                window.scrollTo({
+                    top: scrollTarget,
+                    behavior: 'smooth'
+                });
+            }
+        } else {
+            // Navigate to Landing Page with hash state
+            navigate(`/#${targetId}`);
         }
     };
-
 
     return (
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-20">
-            {/* Search Area */}
-            <div className="flex items-center gap-4 flex-1 relative">
-                <div ref={searchRef} className="relative w-96">
-                    <div className="flex items-center bg-stone-50 px-4 py-2 rounded-xl border border-transparent focus-within:border-amber-500 focus-within:ring-4 focus-within:ring-amber-500/10 transition-all">
-                        <Search size={18} className="text-stone-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Search clients, deals, or tickets..." 
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            onFocus={() => { if(results) setShowDropdown(true); }}
-                            className="bg-transparent border-none outline-none ml-2 w-full text-stone-700 placeholder:text-stone-400 text-sm font-medium"
-                        />
-                        {loading && <Loader2 size={16} className="animate-spin text-stone-400" />}
+        <header className="fixed top-0 left-0 right-0 z-50 w-full flex justify-center px-4 sm:px-6 py-4 md:py-6 pointer-events-none transition-all duration-500">
+            
+            {/* Glassmorphic Floating Island Capsule (Option 1) */}
+            <nav className={`pointer-events-auto w-full max-w-7xl rounded-full border border-zinc-200/50 bg-[#FAF9F5]/75 backdrop-blur-xl transition-all duration-500 flex justify-between items-center relative
+                ${scrolled 
+                    ? 'py-3 px-6 md:px-10 shadow-[0_12px_40px_rgba(11,64,156,0.08)] bg-[#FAF9F5]/85 border-zinc-200/70 max-w-6xl' 
+                    : 'py-4 px-8 md:px-12 shadow-[0_8px_30px_rgba(0,0,0,0.03)]'
+                }`}
+            >
+                
+                {/* Brand Logo "Velora" with Integrated Live Pulse */}
+                <div onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3.5 cursor-pointer group">
+                    <div className="relative flex items-center justify-center p-2 rounded-full bg-[#0C0F1A] border border-zinc-800/50 shadow-md group-hover:border-[#D4AF37]/30 transition-all duration-300">
+                        {/* High-end Gold Pulsing Glow Aura */}
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#D4AF37]/25 to-[#FFF8E7]/5 opacity-60 blur-md scale-125 animate-pulse pointer-events-none" />
+                        <Logo size={24} variant="gold" className="relative z-10 transition-all duration-500 group-hover:scale-110 drop-shadow-[0_2px_12px_rgba(212,175,55,0.6)]" />
                     </div>
-
-                    {/* Search Results Dropdown */}
-                    {showDropdown && results && (
-                        <div className="absolute top-full mt-2 left-0 right-0 bg-white border border-stone-200 rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200">
-                            {Object.entries(results).map(([key, section]) => {
-                                if (section.count === 0) return null;
-                                return (
-                                    <div key={key}>
-                                        <div className="px-4 py-2 bg-stone-50 text-[10px] font-black text-stone-400 uppercase tracking-widest border-b border-stone-100">
-                                            {key} ({section.count})
-                                        </div>
-                                        {section.data.slice(0, 3).map(item => (
-                                            <div 
-                                                key={item._id} 
-                                                onClick={() => handleResultClick(key, item)}
-                                                className="px-4 py-3 cursor-pointer border-b border-stone-50 hover:bg-stone-50 flex justify-between items-center group transition-colors"
-                                            >
-                                                <div className="overflow-hidden">
-                                                    <div className="text-sm font-bold text-stone-700 group-hover:text-amber-600 transition-colors uppercase tracking-tight">{item.name || item.title}</div>
-                                                    {(item.email || item.sku || item.description) && (
-                                                        <div className="text-[10px] text-stone-400 truncate max-w-[250px] font-medium">{item.email || item.sku || item.description?.substring(0, 40)}...</div>
-                                                    )}
-                                                </div>
-                                                <ChevronRight size={14} className="text-stone-300 group-hover:text-amber-500 transition-colors" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            })}
-                            {Object.values(results).every(s => s.count === 0) && (
-                                <div className="p-8 text-center text-stone-400 text-sm font-bold">No records found.</div>
-                            )}
-                        </div>
-                    )}
+                    <span className="text-2xl md:text-3xl font-serif font-normal tracking-wide text-zinc-900 group-hover:text-[#0B409C] transition-colors duration-300 select-none">
+                        Velora
+                    </span>
                 </div>
-            </div>
+                
+                {/* Center Navigation Links with Spring-Animated Hover Pill Track (Option 2 - Mixed Design) */}
+                <div 
+                    className="hidden md:flex items-center gap-4 bg-zinc-200/20 border border-zinc-300/10 rounded-full p-1.5 text-[13px] font-semibold text-zinc-600/90 tracking-wider uppercase"
+                    onMouseLeave={() => setHoveredIdx(null)}
+                >
+                    {navItems.map((item, idx) => (
+                        <Link 
+                            key={idx}
+                            to="/" 
+                            onClick={(e) => handleScrollOrNavigate(e, item.id)}
+                            onMouseEnter={() => setHoveredIdx(idx)}
+                            className="relative py-2 px-6 transition-colors duration-300 z-10 hover:text-zinc-950 rounded-full"
+                        >
+                            <span className="relative z-10">{item.name}</span>
+                            {hoveredIdx === idx && (
+                                <motion.span
+                                    layoutId="navHover"
+                                    className="absolute inset-0 bg-white shadow-[0_2.5px_10px_rgba(0,0,0,0.035)] rounded-full border border-zinc-200/40 z-0"
+                                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                />
+                            )}
+                        </Link>
+                    ))}
+                </div>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center gap-4">
-                <div className="h-6 w-px bg-stone-200"></div>
+                {/* Right Actions - Upscaled for Premium legibility */}
+                <div className="hidden md:flex items-center gap-8">
+                    <Link to="/login" className="text-[13.5px] font-semibold text-zinc-600 hover:text-zinc-950 transition-colors duration-300">
+                        Login
+                    </Link>
+                    <Link to="/signup" 
+                          className="px-7 py-3 bg-gradient-to-r from-[#0B409C] to-[#0A347D] hover:from-[#0A347D] hover:to-[#072457] text-white text-[13px] font-bold tracking-wider rounded-full transition-all duration-300 shadow-[0_4px_16px_rgba(11,64,156,0.15)] hover:shadow-[0_6px_20px_rgba(11,64,156,0.25)] hover:scale-[1.03] active:scale-95 uppercase">
+                        Request Access
+                    </Link>
+                </div>
 
-                <button className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-stone-50 transition-colors group">
-                    <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-200 group-hover:scale-105 transition-transform">
-                        <User size={16} />
-                    </div>
-                    <span className="text-sm font-black text-stone-900">{user?.name || 'User'}</span>
+                {/* Mobile Menu Button */}
+                <button 
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="md:hidden p-2 text-zinc-600 hover:text-zinc-950 focus:outline-none transition-colors"
+                >
+                    {isOpen ? <X size={22} /> : <Menu size={22} />}
                 </button>
-            </div>
+
+                {/* Mobile Glassmorphic Overlay */}
+                <AnimatePresence>
+                    {isOpen && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: -20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            className="absolute top-[110%] left-0 right-0 p-6 bg-[#FAF9F5]/95 backdrop-blur-2xl border border-zinc-200/50 rounded-3xl shadow-[0_20px_50px_rgba(11,64,156,0.12)] flex flex-col gap-5 pointer-events-auto md:hidden"
+                        >
+                            {navItems.map((item, idx) => (
+                                <Link 
+                                    key={idx}
+                                    to="/" 
+                                    onClick={(e) => { setIsOpen(false); handleScrollOrNavigate(e, item.id); }} 
+                                    className="text-sm font-semibold text-zinc-700 hover:text-zinc-950 transition-colors tracking-wider uppercase py-3 border-b border-zinc-200/20"
+                                >
+                                    {item.name}
+                                </Link>
+                            ))}
+                            
+                            <div className="flex flex-col gap-4 pt-3">
+                                <Link 
+                                    to="/login" 
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-center text-sm font-semibold text-zinc-700 hover:text-zinc-950 py-3 transition-colors"
+                                >
+                                    Login
+                                </Link>
+                                <Link 
+                                    to="/signup" 
+                                    onClick={() => setIsOpen(false)}
+                                    className="w-full py-3 bg-gradient-to-r from-[#0B409C] to-[#0A347D] text-white text-center text-sm font-bold tracking-wider rounded-full shadow-md uppercase"
+                                >
+                                    Request Access
+                                </Link>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+            </nav>
         </header>
     );
 };

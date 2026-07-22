@@ -5,13 +5,11 @@ const { sendEmail } = require('../utils/emailProvider');
 // Cron Job: Check for Overdue/Pending Tasks
 // Schedule: Every Friday at 9:00 AM
 const initScheduledJobs = () => {
-  console.log('⏰ Scheduler Initialized: Checking for pending tasks every Friday at 9 AM...');
+  console.log('[Notification-Service] Scheduler initialized: Checking pending tasks every Friday at 9:00 AM');
   
   cron.schedule('0 9 * * 5', async () => {
-    console.log('\n🔄 Cron Job Started: Checking Pending Tasks...');
+    console.log('[Notification-Service] Scheduled job triggered: Checking pending tasks...');
     try {
-      // 1. Fetch Pending Tasks from Task Service via Gateway (or direct)
-      // Using direct port 5004 to avoid circular dependency issues if Gateway is down
       const response = await axios.get('http://task-service:5004/api/tasks');
       
       if (!response.data.success) {
@@ -21,13 +19,9 @@ const initScheduledJobs = () => {
       const tasks = response.data.data;
       const pendingTasks = tasks.filter(t => t.status === 'Pending' || t.status === 'In Progress');
 
-      console.log(`   Found ${pendingTasks.length} pending tasks.`);
+      console.log(`[Notification-Service] Processing ${pendingTasks.length} pending task reminders.`);
 
-      // 2. Process each task
       for (const task of pendingTasks) {
-          // In a real app, we would fetch User details to get their email.
-          // For this Demo, we will use a dummy/admin email or the specific assignee email if available.
-          // Simulating email sending to Admin for now.
           const adminEmail = process.env.SENDER_EMAIL; 
           
           if (adminEmail) {
@@ -35,22 +29,23 @@ const initScheduledJobs = () => {
             const html = `
                 <h3>Task Reminder</h3>
                 <p>Hello,</p>
-                <p>The following task is still <b>${task.status}</b>:</p>
+                <p>The following task is currently <b>${task.status}</b>:</p>
                 <ul>
                     <li><b>Title:</b> ${task.title}</li>
                     <li><b>Priority:</b> ${task.priority}</li>
                     <li><b>Due Date:</b> ${task.dueDate ? new Date(task.dueDate).toDateString() : 'No Due Date'}</li>
                 </ul>
-                <p>Please update the status.</p>
+                <p>Please update the status in Velora CRM.</p>
             `;
             await sendEmail(adminEmail, subject, html);
           }
       }
       
     } catch (error) {
-      console.error('❌ Cron Job Error:', error.message);
+      console.error('[Notification-Service] Task scheduler error:', error.message);
     }
   });
 };
 
 module.exports = initScheduledJobs;
+

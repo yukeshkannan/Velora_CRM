@@ -1,5 +1,5 @@
 const express = require('express');
-const router = express.Router();
+const { authMiddleware } = require('../../../packages/utils');
 const {
   getTickets,
   getTicketById,
@@ -7,6 +7,11 @@ const {
   updateTicket,
   deleteTicket
 } = require('../controllers/ticketController');
+
+const router = express.Router();
+
+// Secure all ticket endpoints: user must be authenticated
+router.use(authMiddleware());
 
 router
   .route('/')
@@ -17,6 +22,6 @@ router
   .route('/:id')
   .get(getTicketById)
   .put(updateTicket)
-  .delete(deleteTicket);
+  .delete(authMiddleware(['Admin', 'Employee']), deleteTicket);
 
 module.exports = router;

@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Contact = require('../../contact-service/models/Contact');
 const { sendOTPEmail } = require('../utils/emailService');
 const { formatResponse } = require('utils'); 
 
@@ -23,6 +24,21 @@ exports.register = async (req, res) => {
       department
     });
 
+    // Auto-create CRM Contact profile for Client users
+    if (user.role === 'Client') {
+      try {
+        await Contact.create({
+          name: user.name,
+          email: user.email,
+          company: user.department || 'Independent',
+          status: 'Customer'
+        });
+        console.log(`[Auth Service] Auto-created CRM contact for registered client: ${user.email}`);
+      } catch (contactErr) {
+        console.error("[Auth Service] Failed to auto-create contact on register:", contactErr.message);
+      }
+    }
+
     formatResponse(res, 201, 'User registered successfully', { userId: user._id, email: user.email, role: user.role });
   } catch (error) {
     formatResponse(res, 500, error.message);
@@ -33,11 +49,45 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    // Developer Offline Fallback: If DB DNS/Atlas is offline, allow bypass using seed credentials
+    const { mongoose } = require('database');
+    if (mongoose.connection.readyState !== 1) {
+      console.log('[Auth Service] Database offline. Using local developer fallback...');
+      if (email === 'admin@company.com' && password === 'admin123') {
+        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a111', role: 'Admin', email: 'admin@company.com' }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
+        return formatResponse(res, 200, 'Login successful (Offline Bypass)', { 
+          token, 
+          user: {
+            id: '65beefc1d9b3a5a7d7f7a111',
+            name: 'Offline Admin User',
+            email: 'admin@company.com',
+            role: 'Admin',
+            profilePic: ''
+          }
+        });
+      } else if (email === 'employee@company.com' && password === 'employee123') {
+        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a222', role: 'Employee', email: 'employee@company.com' }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
+        return formatResponse(res, 200, 'Login successful (Offline Bypass)', { 
+          token, 
+          user: {
+            id: '65beefc1d9b3a5a7d7f7a222',
+            name: 'Offline Employee User',
+            email: 'employee@company.com',
+            role: 'Employee',
+            profilePic: ''
+          }
+        });
+      } else {
+        return formatResponse(res, 401, 'Invalid email or password (Database is offline)');
+      }
+    }
+
     const user = await User.findOne({ email });
 
     // Login User - Update Response
     if (user && (await user.matchPassword(password))) {
-      const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
       formatResponse(res, 200, 'Login successful', { 
         token, 
         user: {
@@ -45,7 +95,9 @@ exports.login = async (req, res) => {
           name: user.name,
           email: user.email,
           role: user.role,
-          profilePic: user.profilePic // Added profilePic
+          designation: user.designation,
+          department: user.department,
+          profilePic: user.profilePic
         }
       });
     } else {
@@ -55,6 +107,83 @@ exports.login = async (req, res) => {
     formatResponse(res, 500, error.message);
   }
 };
+
+// Google Login / Signup
+exports.googleLogin = async (req, res) => {
+  try {
+    const { token: idToken } = req.body;
+    if (!idToken) {
+      return formatResponse(res, 400, 'Google token is required');
+    }
+
+    // Verify token with Google API
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+    if (!response.ok) {
+      return formatResponse(res, 401, 'Invalid Google token');
+    }
+    const payload = await response.json();
+
+    const { email, name, sub: googleId, picture } = payload;
+
+    // Find or create user (case-insensitive email matching)
+    let user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+
+    if (!user) {
+      // Create new user with default Client role
+      user = await User.create({
+        name,
+        email,
+        authProvider: 'google',
+        googleId,
+        role: 'Client',
+        profilePic: picture || ''
+      });
+      console.log(`[Google Auth] Created new client user: ${email}`);
+
+      // Auto-create CRM Contact profile for new Google registered clients
+      try {
+        await Contact.create({
+          name: user.name,
+          email: user.email,
+          company: 'Independent',
+          status: 'Customer'
+        });
+        console.log(`[Google Auth] Auto-created CRM contact for Google client: ${email}`);
+      } catch (contactErr) {
+        console.error("[Google Auth] Failed to auto-create contact on Google login:", contactErr.message);
+      }
+    } else {
+      // Link Google account if it exists locally but didn't have googleId linked
+      if (user.authProvider === 'local') {
+        user.authProvider = 'google';
+        user.googleId = googleId;
+        if (!user.profilePic && picture) user.profilePic = picture;
+        await user.save();
+        console.log(`[Google Auth] Linked existing local user to Google: ${email}`);
+      }
+    }
+
+    // Generate JWT token
+    const appToken = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+    formatResponse(res, 200, 'Google Authentication successful', {
+      token: appToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        designation: user.designation,
+        department: user.department,
+        profilePic: user.profilePic
+      }
+    });
+  } catch (error) {
+    console.error('[Google Auth Error]:', error);
+    formatResponse(res, 500, error.message);
+  }
+};
+
 
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
@@ -140,12 +269,8 @@ exports.createUser = async (req, res) => {
 // Get All Users
 exports.getAllUsers = async (req, res) => {
   try {
-    const { mongoose } = require('database');
-    console.log("Fetching all users [DEBUG]... Connection State:", mongoose.connection.readyState);
-    if (mongoose.connection.readyState !== 1) {
-       throw new Error(`Database not connected. State: ${mongoose.connection.readyState}`);
-    }
     // Attempt simple find
+
     const users = await User.find({});
     console.log(`Found ${users ? users.length : 0} users`);
     

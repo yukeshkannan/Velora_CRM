@@ -6,4 +6,23 @@ const formatResponse = (res, statusCode, message, data = null) => {
   });
 };
 
-module.exports = { formatResponse };
+const correlationLogger = (serviceName) => {
+  return (req, res, next) => {
+    const correlationId = req.headers['x-correlation-id'] || 'N/A';
+    req.correlationId = correlationId;
+    console.log(`[${serviceName}] [${correlationId}] ${req.method} ${req.originalUrl || req.url}`);
+    next();
+  };
+};
+
+const rabbitmq = require('./rabbitmq');
+const authMiddleware = require('./authMiddleware');
+const cache = require('./cache');
+
+module.exports = { 
+  formatResponse,
+  authMiddleware,
+  correlationLogger,
+  ...cache,
+  ...rabbitmq
+};

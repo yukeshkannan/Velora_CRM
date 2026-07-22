@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import axios from 'axios';
-import { Lock, Mail, User, ArrowRight, Building2, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, User, ArrowRight, Building2, Sparkles, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import Logo from '../components/Logo';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -14,8 +15,66 @@ const Signup = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, loginWithUserData } = useAuth();
   const navigate = useNavigate();
+
+  const handleGoogleSuccess = async (response) => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const res = await axios.post('/api/auth/google-login', { token: response.credential });
+      if (res.data.success) {
+        const { token, user } = res.data.data;
+        loginWithUserData(user, token);
+        navigate('/app');
+      } else {
+        setError(res.data.message || 'Google Login failed');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Google authentication failed');
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const initGoogle = () => {
+      if (window.google) {
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "301285732578-k89hrdj36qar35g0ddgmc5e0sgluuejs.apps.googleusercontent.com";
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleSuccess,
+        });
+
+        const targetDiv = document.getElementById("googleSignUpDiv");
+        if (targetDiv) {
+          window.google.accounts.id.renderButton(
+            targetDiv,
+            { 
+              theme: "outline", 
+              size: "large", 
+              width: 340, 
+              text: "signup_with", 
+              shape: "pill" 
+            }
+          );
+        }
+      }
+    };
+
+    if (window.google) {
+      initGoogle();
+    } else {
+      const interval = setInterval(() => {
+        if (window.google) {
+          initGoogle();
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -44,172 +103,202 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-stone-50 font-sans relative overflow-hidden">
+    <>
+      <div className="h-screen max-h-screen overflow-hidden grid grid-cols-1 lg:grid-cols-2 bg-[#FAF9F5] font-sans relative"
+           style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
       
-      {/* --- LEFT PANEL: BRAND STORY --- */}
+      {/* Premium Champagne & Soft Blue Glow Backdrops */}
+      <div className="absolute top-[-5%] left-[-5%] w-[45%] h-[45%] bg-[#0B409C]/3 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-[5%] right-[-5%] w-[45%] h-[45%] bg-[#D4AF37]/2 rounded-full blur-[140px] pointer-events-none" />
+
+      {/* --- LEFT PANEL: LUXURY BRAND STORY --- */}
       <motion.div 
          initial={{ x: '-100%' }}
          animate={{ x: 0 }}
          transition={{ duration: 0.8, ease: "easeInOut" }}
-         className="hidden lg:flex bg-gradient-to-br from-black to-stone-950 p-16 flex-col justify-between relative overflow-hidden text-white"
+         className="hidden lg:flex bg-gradient-to-br from-[#090B12] to-[#020305] p-12 xl:p-16 flex-col justify-between relative overflow-hidden text-white border-r border-zinc-900 h-full max-h-screen"
       >
-        {/* Background Elements */}
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-amber-600/10 rounded-full blur-[100px] -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-orange-900/20 rounded-full blur-3xl -ml-10 -mb-10"></div>
+        {/* Deep Velvet Radial Glows */}
+        <div className="absolute top-0 right-0 w-[550px] h-[550px] bg-[#0B409C]/10 rounded-full blur-[120px] -mr-32 -mt-32 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#D4AF37]/5 rounded-full blur-[140px] -ml-20 -mb-20 pointer-events-none"></div>
         
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-20 cursor-pointer" onClick={() => navigate('/')}>
-             <div className="w-10 h-10 bg-amber-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-amber-900/50">
-                <Sparkles size={20} fill="currentColor" />
-             </div>
-             <span className="text-xl font-black tracking-tight text-white uppercase">AURA <span className="text-amber-600">CRM</span></span>
-          </div>
+        {/* Logo at Top */}
+        <div className="flex items-center gap-3 cursor-pointer relative z-10" onClick={() => navigate('/')}>
+           <div className="relative flex items-center justify-center p-2 rounded-full bg-[#0C0F1A] border border-zinc-800/80 shadow-md">
+               <Logo size={24} variant="light" />
+           </div>
+           <span className="text-2xl font-serif tracking-wide text-white select-none">Velora</span>
+        </div>
 
+        {/* Centered Heading/Content */}
+        <div className="my-auto py-12 relative z-10 flex flex-col justify-center text-left">
           <motion.div 
              initial={{ opacity: 0, y: 20 }}
              animate={{ opacity: 1, y: 0 }}
              transition={{ delay: 0.5 }}
-             className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-black text-amber-500 uppercase tracking-widest mb-6"
+             className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest mb-6 w-fit animate-pulse"
           >
-             <Sparkles size={12} /> Enterprise Ecosystem
+             <Sparkles size={11} /> Enterprise Ecosystem
           </motion.div>
 
-          <h1 className="text-6xl font-black text-white leading-[1.1] mb-8 tracking-tight">
-             Begin Your <br/> <span className="text-amber-500">Digital Scale.</span>
+          <h1 className="text-5xl font-serif text-white font-normal leading-[1.2] mb-6 tracking-tight">
+             Begin your <br/> <span className="font-serif italic font-light text-[#D4AF37]">digital scale.</span>
           </h1>
           
-          <p className="text-stone-400 text-lg font-medium max-w-md leading-relaxed">
-             Join the ecosystem built for high-performance teams and modern businesses.
+          <p className="text-zinc-400 text-base font-normal max-w-sm leading-relaxed normal-case">
+             Join the curated relationship ecosystem built for high-performance teams and modern institutions.
           </p>
         </div>
 
-        <div className="relative z-10 space-y-4 border-t border-white/10 pt-10 text-sm font-bold text-stone-300">
-           <div className="flex items-center gap-3">
-              <CheckCircle2 size={16} className="text-amber-600" /> Enterprise-grade security
-           </div>
-           <div className="flex items-center gap-3">
-              <CheckCircle2 size={16} className="text-amber-600" /> 99.9% uptime guaranteed
-           </div>
-           <div className="flex items-center gap-3">
-              <CheckCircle2 size={16} className="text-amber-600" /> Trusted by 500+ companies
-           </div>
+        {/* Small branding text at bottom */}
+        <div className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest relative z-10 text-left select-none">
+          Velora Curation Suite
         </div>
       </motion.div>
 
-      {/* --- RIGHT PANEL: FORM --- */}
-      <div className="flex items-center justify-center p-6 lg:p-8 relative bg-white lg:bg-transparent h-screen">
+      {/* --- RIGHT PANEL: FORM CARD --- */}
+      <div className="flex flex-col items-center justify-center py-6 lg:py-8 px-4 md:px-8 relative z-10 h-full overflow-y-auto">
+          {/* Mobile Logo & Brand Name */}
+          <div className="flex lg:hidden items-center gap-3.5 mb-4 cursor-pointer group" onClick={() => navigate('/')}>
+             <div className="relative flex items-center justify-center p-2 rounded-full bg-[#0C0F1A] border border-zinc-800/80 shadow-md">
+                 <Logo size={20} variant="light" />
+             </div>
+             <span className="text-xl font-serif tracking-wide text-zinc-950 select-none">Velora</span>
+          </div>
+
         <motion.div 
-           initial={{ opacity: 0, scale: 0.95 }}
+           initial={{ opacity: 0, scale: 0.96 }}
            animate={{ opacity: 1, scale: 1 }}
            transition={{ duration: 0.8 }}
-           className="w-full max-w-md flex flex-col justify-center h-full"
+           className="w-full max-w-[390px] bg-white border border-zinc-200/60 rounded-[24px] p-5 md:p-6 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.06)] backdrop-blur-xl"
         >
-          <div className="mb-6 flex-shrink-0">
-            <h2 className="text-3xl font-black text-stone-900 mb-2 tracking-tight">Client Onboarding</h2>
-            <p className="text-stone-500 font-medium text-sm">Initialize your professional workspace profile.</p>
+          <div className="mb-4 text-left">
+            <h2 className="text-2xl font-serif font-normal text-zinc-900 mb-1 tracking-tight">Client Onboarding</h2>
+            <p className="text-zinc-400 text-xs font-medium">Initialize your professional workspace profile.</p>
           </div>
 
           {error && (
              <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl text-red-600 text-xs font-bold flex items-center gap-2 shadow-sm"
+                className="mb-4 p-3 bg-red-50/50 border border-red-100 rounded-2xl text-red-600 text-xs font-bold flex items-center gap-2 shadow-sm text-left"
              >
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
                 {error}
              </motion.div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-3 flex-shrink-0">
+          <form onSubmit={handleSubmit} className="space-y-2.5 text-left">
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Full Name</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Full Name</label>
               <div className="relative group">
-                <User className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-amber-600 transition-colors" size={18} />
+                <User className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-300 group-focus-within:text-[#0B409C] transition-colors" size={18} />
                 <input 
                   name="name"
                   type="text" 
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full pl-14 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl outline-none focus:border-amber-600 focus:bg-white transition-all font-bold text-stone-900 placeholder:text-stone-300 text-sm"
+                  className="w-full pl-14 pr-4 py-2.5 bg-[#FAF9F5] border border-zinc-200/80 rounded-2xl outline-none focus:bg-white focus:border-[#0B409C] focus:ring-4 focus:ring-[#0B409C]/5 transition-all duration-300 font-medium text-zinc-950 placeholder:text-zinc-300 text-sm shadow-sm"
                   placeholder="e.g. Johnathan Doe"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Organization</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Organization</label>
               <div className="relative group">
-                <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-amber-600 transition-colors" size={18} />
+                <Building2 className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-300 group-focus-within:text-[#0B409C] transition-colors" size={18} />
                 <input 
                   name="department" 
                   type="text" 
                   value={formData.department}
                   onChange={handleChange}
-                  className="w-full pl-14 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl outline-none focus:border-amber-600 focus:bg-white transition-all font-bold text-stone-900 placeholder:text-stone-300 text-sm"
+                  className="w-full pl-14 pr-4 py-2.5 bg-[#FAF9F5] border border-zinc-200/80 rounded-2xl outline-none focus:bg-white focus:border-[#0B409C] focus:ring-4 focus:ring-[#0B409C]/5 transition-all duration-300 font-medium text-zinc-950 placeholder:text-zinc-300 text-sm shadow-sm"
                   placeholder="e.g. Acme Corporation"
                 />
               </div>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Corporate Email</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Corporate Email</label>
               <div className="relative group">
-                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-amber-600 transition-colors" size={18} />
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-300 group-focus-within:text-[#0B409C] transition-colors" size={18} />
                 <input 
                   name="email"
                   type="email" 
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full pl-14 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl outline-none focus:border-amber-600 focus:bg-white transition-all font-bold text-stone-900 placeholder:text-stone-300 text-sm"
+                  className="w-full pl-14 pr-4 py-2.5 bg-[#FAF9F5] border border-zinc-200/80 rounded-2xl outline-none focus:bg-white focus:border-[#0B409C] focus:ring-4 focus:ring-[#0B409C]/5 transition-all duration-300 font-medium text-zinc-950 placeholder:text-zinc-300 text-sm shadow-sm"
                   placeholder="name@company.com"
                 />
               </div>
             </div>
             
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em] ml-1">Password</label>
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Password</label>
               <div className="relative group">
-                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-300 group-focus-within:text-amber-600 transition-colors" size={18} />
+                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-zinc-300 group-focus-within:text-[#0B409C] transition-colors" size={18} />
                 <input 
                   name="password"
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full pl-14 pr-4 py-3.5 bg-stone-50 border border-stone-200 rounded-2xl outline-none focus:border-amber-600 focus:bg-white transition-all font-bold text-stone-900 placeholder:text-stone-300 text-sm"
+                  className="w-full pl-14 pr-12 py-2.5 bg-[#FAF9F5] border border-zinc-200/80 rounded-2xl outline-none focus:bg-white focus:border-[#0B409C] focus:ring-4 focus:ring-[#0B409C]/5 transition-all duration-300 font-medium text-zinc-950 placeholder:text-zinc-300 text-sm shadow-sm"
                   placeholder="••••••••••••"
                 />
+                <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-5 top-1/2 -translate-y-1/2 text-zinc-300 hover:text-zinc-500 transition-colors cursor-pointer"
+                >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
+              
               {/* Form Progress Indicator */}
-              <div className="flex gap-1 h-1.5 mt-4 px-1">
-                 <div className={`flex-1 rounded-full bg-stone-100 transition-colors duration-500 ${filledCount >= 1 ? 'bg-rose-500' : ''}`} />
-                 <div className={`flex-1 rounded-full bg-stone-100 transition-colors duration-500 ${filledCount >= 2 ? 'bg-amber-500' : ''}`} />
-                 <div className={`flex-1 rounded-full bg-stone-100 transition-colors duration-500 ${filledCount >= 3 ? 'bg-sky-500' : ''}`} />
-                 <div className={`flex-1 rounded-full bg-stone-100 transition-colors duration-500 ${filledCount >= 4 ? 'bg-emerald-500' : ''}`} />
+              <div className="flex gap-1.5 h-1 mt-2.5 px-1">
+                 <div className={`flex-1 rounded-full bg-zinc-100 transition-all duration-500 ${filledCount >= 1 ? 'bg-[#0B409C]/40' : ''}`} />
+                 <div className={`flex-1 rounded-full bg-zinc-100 transition-all duration-500 ${filledCount >= 2 ? 'bg-[#0B409C]/70' : ''}`} />
+                 <div className={`flex-1 rounded-full bg-zinc-100 transition-all duration-500 ${filledCount >= 3 ? 'bg-[#0B409C]' : ''}`} />
+                 <div className={`flex-1 rounded-full bg-zinc-100 transition-all duration-500 ${filledCount >= 4 ? 'bg-[#10B981]' : ''}`} />
               </div>
             </div>
 
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full bg-stone-900 text-white font-black h-12 rounded-2xl hover:bg-amber-600 hover:text-stone-900 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4 uppercase tracking-widest text-xs shadow-xl shadow-stone-200"
-            >
-              {isLoading ? 'Processing...' : 'Initialize Workspace'}
-              {!isLoading && <ArrowRight size={18} />}
-            </button>
+            <div className="w-full pt-1">
+              <button 
+                type="submit" 
+                disabled={isLoading}
+                className="btn-premium-full py-3 bg-gradient-to-r from-[#0B409C] to-[#093582] text-white font-bold text-xs uppercase tracking-widest rounded-2xl hover:shadow-[0_8px_25px_rgba(11,64,156,0.3)] shadow-[0_8px_20px_rgba(11,64,156,0.15)] transition-all active:scale-98 cursor-pointer border-none flex items-center justify-center gap-3"
+              >
+                {isLoading ? 'Processing...' : 'Initialize Workspace'}
+                {!isLoading && <ArrowRight size={14} />}
+              </button>
+            </div>
           </form>
 
-          <div className="mt-6 text-center pt-6 border-t border-stone-100 flex-shrink-0">
-            <p className="text-stone-400 font-bold text-[10px] uppercase tracking-widest mb-3">Already synchronized?</p>
-            <NavLink to="/login" className="px-6 py-2.5 bg-stone-100 text-stone-900 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-stone-200 transition-all inline-flex items-center gap-2">
-              Secure Sign In <ArrowRight size={14} />
+          {/* Dynamic Google Sign-In Container */}
+          <div className="mt-3 flex flex-col items-center justify-center gap-2.5">
+            <div className="flex items-center gap-2.5 w-full my-0.5">
+              <div className="h-[1px] flex-1 bg-zinc-200/60" />
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">or continue with</span>
+              <div className="h-[1px] flex-1 bg-zinc-200/60" />
+            </div>
+            <div id="googleSignUpDiv" className="w-full flex justify-center" />
+          </div>
+
+          <div className="mt-4 text-center pt-4 border-t border-zinc-100 flex-shrink-0">
+            <p className="text-zinc-400 font-bold text-[10px] uppercase tracking-widest mb-2">Already synchronized?</p>
+            <NavLink to="/login" className="px-5 py-1.5 bg-zinc-100 text-zinc-800 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-[#0B409C] hover:text-white transition-all inline-flex items-center gap-2 shadow-sm border border-zinc-200/40 text-decoration-none">
+              Secure Sign In <ArrowRight size={12} />
             </NavLink>
           </div>
         </motion.div>
       </div>
     </div>
+    </>
   );
 };
 

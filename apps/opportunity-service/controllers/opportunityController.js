@@ -1,23 +1,38 @@
 const Opportunity = require('../models/Opportunity');
-const { formatResponse } = require('../../../packages/utils');
+const { formatResponse, getCache, setCache, delCachePattern } = require('../../../packages/utils');
 
 // @desc    Get all opportunities
 // @route   GET /api/opportunities
 // @access  Public
 exports.getOpportunities = async (req, res) => {
   try {
-    console.log('[Opportunity Service] Fetching all opportunities...');
-    const { contactId } = req.query;
+    const { contactId, search, q, assignedTo } = req.query;
+    const cacheKey = `opp:all:${contactId || ''}:${assignedTo || ''}:${search || q || ''}`;
+    
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
+    console.log('[Opportunity Service] Fetching opportunities from DB...');
     let query = {};
-    if (contactId) {
-        query.contactId = contactId;
+    if (contactId) query.contactId = contactId;
+    if (assignedTo) query.assignedTo = assignedTo;
+
+    const searchTerm = search || q;
+    if (searchTerm) {
+      query.title = new RegExp(searchTerm, 'i');
     }
-    if (req.query.assignedTo) {
-        query.assignedTo = req.query.assignedTo;
-    }
+
     const opportunities = await Opportunity.find(query).sort({ createdAt: -1 });
-    console.log(`[Opportunity Service] Found ${opportunities.length} opportunities`);
-    formatResponse(res, 200, 'Opportunities retrieved successfully', opportunities);
+    const responsePayload = {
+      success: true,
+      message: 'Opportunities retrieved successfully',
+      data: opportunities
+    };
+
+    await setCache(cacheKey, responsePayload, 120); // Cache for 2 minutes
+    res.status(200).json(responsePayload);
   } catch (err) {
     console.error('[Opportunity Service] Error fetching opportunities:', err);
     formatResponse(res, 500, 'Server Error', err.message);
@@ -47,6 +62,7 @@ exports.getOpportunity = async (req, res) => {
 exports.createOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.create(req.body);
+    await delCachePattern('opp:*');
     formatResponse(res, 201, 'Opportunity created successfully', opportunity);
   } catch (err) {
     formatResponse(res, 400, 'Invalid data', err.message);
@@ -58,9 +74,6 @@ exports.createOpportunity = async (req, res) => {
 // @access  Public
 exports.updateOpportunity = async (req, res) => {
   try {
-    console.log(`[Controller] UPDATE HIT. ID: ${req.params.id}`);
-    console.log(`[Controller] Body Modules: ${req.body.modules ? req.body.modules.length : 'Missing'}`);
-    
     let opportunity = await Opportunity.findById(req.params.id);
 
     if (!opportunity) {
@@ -79,18 +92,12 @@ exports.updateOpportunity = async (req, res) => {
         }
     });
 
-    const beforeSave = JSON.parse(JSON.stringify(opportunity));
     await opportunity.save();
+    await delCachePattern('opp:*');
 
-    // Return DEBUG info
     res.status(200).json({
         success: true,
-        data: opportunity,
-        debug: {
-            receivedModulesCount: req.body.modules ? req.body.modules.length : 'undefined',
-            beforeSaveModulesCount: beforeSave.modules ? beforeSave.modules.length : 'undefined',
-            savedModulesCount: opportunity.modules ? opportunity.modules.length : 'undefined'
-        }
+        data: opportunity
     });
 
   } catch (err) {
@@ -110,7 +117,7 @@ exports.deleteOpportunity = async (req, res) => {
     }
 
     await opportunity.deleteOne();
-
+    await delCachePattern('opp:*');
     formatResponse(res, 200, 'Opportunity deleted successfully', {});
   } catch (err) {
     formatResponse(res, 500, 'Server Error', err.message);

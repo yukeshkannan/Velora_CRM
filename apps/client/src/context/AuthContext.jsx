@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
@@ -19,17 +19,23 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const hasAutoCheckedIn = useRef(false);
 
-  /* Auto Check-in Logic - Only for Employees/Staff */
-  /* Auto Check-in Logic - Only for Employees/Staff */
+  /* Auto Check-in Logic - Only for Employees/Staff (Excluding Admin & Client) */
   const autoCheckIn = async (parsedUser) => {
-    if (parsedUser.role === 'Client') return; // Clients don't have attendance
+    if (parsedUser.role === 'Client' || parsedUser.role === 'Admin') return; // Admin and Clients don't have attendance
+    if (hasAutoCheckedIn.current) return;
+    hasAutoCheckedIn.current = true;
     try {
         const url = `${API_URL}/api/attendance/check-in`;
         console.log("Checking in via:", url);
+        const token = localStorage.getItem('token');
         const res = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({ userId: parsedUser.id || parsedUser._id }),
         });
         if (!res.ok && res.status !== 400) {
@@ -41,11 +47,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const autoCheckOut = async (currUser) => {
-    if (currUser.role === 'Client') return; // Clients don't have attendance
+    if (currUser.role === 'Client' || currUser.role === 'Admin') return; // Admin and Clients don't have attendance
     try {
+        const token = localStorage.getItem('token');
         await fetch(`${API_URL}/api/attendance/check-out`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({ userId: currUser.id || currUser._id }),
         });
     } catch (err) {
@@ -80,6 +90,11 @@ export const AuthProvider = ({ children }) => {
         }
     }
     setLoading(false);
+
+    // Refresh user role from DB in background to avoid stale localStorage roles
+    if (token && savedUser && savedUser !== 'undefined') {
+        checkAuth();
+    }
   }, []);
 
   const login = async (email, password) => {
@@ -107,6 +122,7 @@ export const AuthProvider = ({ children }) => {
       
       // Auto Check-in
       if (user) {
+          hasAutoCheckedIn.current = false;
           autoCheckIn(user);
       }
 
@@ -117,12 +133,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithUserData = (userData, token) => {
+    localStorage.setItem('token', token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    if (userData) {
+      hasAutoCheckedIn.current = false;
+      autoCheckIn(userData);
+    }
+  };
+
   const logout = () => {
     if (user) {
         autoCheckOut(user);
     }
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    hasAutoCheckedIn.current = false;
+    localStorage.clear(); // Bulletproof reset: Wipes out all active and stale session variables
     setUser(null);
     navigate('/');
   };
@@ -137,8 +163,13 @@ export const AuthProvider = ({ children }) => {
     
     try {
         console.log("Refreshing user data...");
+        const token = localStorage.getItem('token');
         // Use the auth-service endpoint we just added
-        const res = await fetch(`${API_URL}/api/auth/users/${storedUser.id || storedUser._id}`);
+        const res = await fetch(`${API_URL}/api/auth/users/${storedUser.id || storedUser._id}`, {
+            headers: {
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            }
+        });
         const data = await res.json();
         
         if (res.ok && data.success) {
@@ -160,7 +191,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, login, logout, checkAuth, loginWithUserData }}>
       {children}
     </AuthContext.Provider>
   );

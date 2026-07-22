@@ -1,12 +1,19 @@
 const axios = require('axios');
-const { formatResponse } = require('../../../packages/utils');
+const { formatResponse, getCache, setCache } = require('../../../packages/utils');
 
 // @desc    Get Dashboard Analytics
 // @route   GET /api/analytics/dashboard
 // @access  Public (Should be Protected in Prod)
 exports.getDashboardData = async (req, res) => {
   try {
-    console.log('📊 Fetching Dashboard Data...');
+    const cacheKey = 'analytics:dashboard';
+    const cachedDashboard = await getCache(cacheKey);
+    if (cachedDashboard) {
+      return res.status(200).json(cachedDashboard);
+    }
+
+    console.log('[Analytics-Service] Processing fresh dashboard metrics...');
+
 
     // 1. Define Service URLs (Use Environment Variables for Docker compatibility)
     const CONTACT_SERVICE = `${process.env.CONTACT_SERVICE_URL || 'http://localhost:5002'}/api/contacts`;
@@ -120,8 +127,15 @@ exports.getDashboardData = async (req, res) => {
       }
     };
 
-    console.log('✅ Dashboard Data Aggregated Successfully');
-    formatResponse(res, 200, 'Dashboard data retrieved', dashboardData);
+    const responsePayload = {
+      success: true,
+      message: 'Dashboard data retrieved',
+      data: dashboardData
+    };
+
+    await setCache(cacheKey, responsePayload, 300); // Cache for 5 minutes
+    console.log('✅ Dashboard Data Aggregated & Cached Successfully');
+    res.status(200).json(responsePayload);
 
   } catch (err) {
     console.error('❌ Analytics Error:', err.message);

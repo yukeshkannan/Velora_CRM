@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import LoadingSpinner from '../components/LoadingSpinner';
+import toast from 'react-hot-toast';
 
 const ClientDashboard = () => {
     const { user } = useAuth();
@@ -24,35 +25,47 @@ const ClientDashboard = () => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                
-                // 1. Fetch Contact First
-                const contactsRes = await axios.get('/api/contacts?email=' + user?.email);
-                const allContacts = (contactsRes.data.data || []);
-                let contact = allContacts.find(c => c.email === user?.email);
+                const isClient = user?.role === 'Client';
+                let contact = null;
+                let myProjects = [];
+                let myMilestones = [];
+                let myInvoices = [];
+                let myTickets = [];
 
-                // 2. Prepare calls based on contact existence
-                const invoiceReq = axios.get(`/api/invoices?email=${user?.email}`);
-                const ticketReq = axios.get(`/api/tickets?email=${user?.email}`);
-                
-                // Only request projects/tasks if we have a valid contact ID to filter by
-                const projectReq = contact 
-                    ? axios.get(`/api/opportunities?contactId=${contact._id}`) 
-                    : Promise.resolve({ data: { data: [] } });
+                if (isClient) {
+                    // Clients only query invoices and tickets (allowed by gateway)
+                    const [invRes, ticketRes] = await Promise.all([
+                        axios.get(`/api/invoices?email=${user?.email}`),
+                        axios.get(`/api/tickets?email=${user?.email}`)
+                    ]);
+                    myInvoices = invRes.data.data || [];
+                    myTickets = ticketRes.data.data || [];
+                } else {
+                    // Staff queries contacts, projects, tasks, invoices, and tickets
+                    const contactsRes = await axios.get('/api/contacts?email=' + user?.email);
+                    const allContacts = (contactsRes.data.data || []);
+                    contact = allContacts.find(c => c.email === user?.email);
 
-                const taskReq = contact 
-                    ? axios.get(`/api/tasks?contactId=${contact._id}`) 
-                    : Promise.resolve({ data: { data: [] } });
+                    const invoiceReq = axios.get(`/api/invoices?email=${user?.email}`);
+                    const ticketReq = axios.get(`/api/tickets?email=${user?.email}`);
+                    
+                    const projectReq = contact 
+                        ? axios.get(`/api/opportunities?contactId=${contact._id}`) 
+                        : Promise.resolve({ data: { data: [] } });
 
-                const [invRes, ticketRes, oppRes, taskRes] = await Promise.all([
-                    invoiceReq, ticketReq, projectReq, taskReq
-                ]);
+                    const taskReq = contact 
+                        ? axios.get(`/api/tasks?contactId=${contact._id}`) 
+                        : Promise.resolve({ data: { data: [] } });
 
-                // 3. Process Data
-                const myInvoices = invRes.data.data || [];
-                const myTickets = ticketRes.data.data || [];
-                // Filtering stage locally just in case, but data is now securely limited by backend
-                const myProjects = (oppRes.data.data || []).filter(o => o.stage !== 'Lost');
-                const myMilestones = taskRes.data.data || [];
+                    const [invRes, ticketRes, oppRes, taskRes] = await Promise.all([
+                        invoiceReq, ticketReq, projectReq, taskReq
+                    ]);
+
+                    myInvoices = invRes.data.data || [];
+                    myTickets = ticketRes.data.data || [];
+                    myProjects = (oppRes.data.data || []).filter(o => o.stage !== 'Lost');
+                    myMilestones = taskRes.data.data || [];
+                }
 
                 setClientData({
                     contact,
@@ -60,7 +73,6 @@ const ClientDashboard = () => {
                     milestones: myMilestones,
                     invoices: myInvoices,
                     tickets: myTickets,
-                    // If no contact, we don't block the UI entirely, just show empty projects
                     noContact: false 
                 });
                 setLoading(false);
@@ -74,6 +86,10 @@ const ClientDashboard = () => {
     }, [user]);
 
     const handleExport = () => {
+        if (!clientData.invoices || clientData.invoices.length === 0) {
+            toast.error("No financial records available to export.");
+            return;
+        }
         const headers = ['Invoice ID', 'Date', 'Amount', 'Status'];
         const rows = clientData.invoices.map(inv => [inv._id, new Date(inv.dueDate).toLocaleDateString(), inv.totalAmount, inv.status]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -83,6 +99,7 @@ const ClientDashboard = () => {
         a.href = url;
         a.download = `payment_details_${user?.name}.csv`;
         a.click();
+        toast.success("Finance details exported successfully.");
     };
 
     if (loading) return <LoadingSpinner message="Loading your workspace..." />;
@@ -163,33 +180,52 @@ const ClientDashboard = () => {
                 <div className="space-y-6">
                     <div 
                         onClick={() => navigate('/app/invoices')}
-                        className="bg-stone-900 rounded-[48px] p-10 text-white shadow-2xl relative overflow-hidden group cursor-pointer hover:ring-2 hover:ring-amber-500 transition-all"
+                        className="bg-gradient-to-br from-[#0C111D] to-[#04060B] border border-zinc-800/80 rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden group cursor-pointer hover:border-[#D4AF37]/40 transition-all duration-500"
                     >
-                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-                             <CreditCard size={100} />
+                        {/* Glowing backdrops */}
+                        <div className="absolute top-[-20%] right-[-20%] w-[65%] h-[65%] bg-[#D4AF37]/4 rounded-full blur-[60px] group-hover:bg-[#D4AF37]/6 transition-all duration-500 pointer-events-none" />
+                        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#0B409C]/4 rounded-full blur-[60px] pointer-events-none" />
+
+                        {/* Credit Card Bezel Icon */}
+                        <div className="absolute top-8 right-8 w-11 h-11 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-2xl flex items-center justify-center text-[#D4AF37] group-hover:scale-110 group-hover:bg-[#D4AF37]/15 transition-all duration-500">
+                             <CreditCard size={20} />
                         </div>
-                        <h3 className="text-xl font-black mb-10 relative z-10">Financial <br/> Summary</h3>
+
+                        <h3 className="text-xl font-serif font-normal text-left text-zinc-100 mb-8 relative z-10 tracking-tight">
+                            Financial <br/> Summary
+                        </h3>
                         
-                        <div className="space-y-8 relative z-10">
-                            <div>
-                                <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-2">Outstanding Dues</p>
-                                <p className="text-4xl font-black text-amber-500 tracking-tighter">
+                        <div className="space-y-6 relative z-10">
+                            <div className="text-left">
+                                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Outstanding Dues</p>
+                                <p className="text-3xl font-serif font-light text-[#D4AF37] tracking-wide">
                                     ${clientData.invoices.filter(i => i.status !== 'Paid').reduce((s, i) => s + i.totalAmount, 0).toLocaleString()}
                                 </p>
                             </div>
-                            <div className="h-px bg-white/10 w-full" />
-                            <div className="space-y-4">
+                            
+                            <div className="h-px bg-zinc-800/60 w-full" />
+                            
+                            <div className="space-y-3">
                                 {clientData.invoices.slice(0, 2).map((inv, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-xs">
-                                        <span className="text-stone-500 font-bold">{new Date(inv.dueDate).toLocaleDateString()}</span>
-                                        <span className="font-black">${inv.totalAmount.toLocaleString()}</span>
-                                        <span className={`px-2 py-0.5 rounded uppercase text-[8px] font-black ${inv.status === 'Paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-500'}`}>
-                                            {inv.status}
-                                        </span>
+                                    <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-zinc-900/60 last:border-b-0">
+                                        <div className="flex flex-col text-left">
+                                            <span className="text-zinc-400 font-bold">Due {new Date(inv.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="font-bold text-zinc-200">${inv.totalAmount.toLocaleString()}</span>
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                                inv.status === 'Paid' 
+                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' 
+                                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
+                                            }`}>
+                                                {inv.status}
+                                            </span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <button className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all mt-4">
+                            
+                            <button className="w-full py-3 bg-[#111622] hover:bg-gradient-to-r hover:from-[#0B409C] hover:to-[#093582] text-zinc-300 hover:text-white border border-zinc-800/80 hover:border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:shadow-[0_8px_20px_rgba(11,64,156,0.15)] active:scale-98 transition-all duration-300 mt-2 cursor-pointer">
                                 View Full Ledger
                             </button>
                         </div>
