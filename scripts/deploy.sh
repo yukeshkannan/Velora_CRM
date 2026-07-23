@@ -44,12 +44,13 @@ check_service() {
     local service=$1
     local port=$2
     
-    if curl -s http://localhost:$port > /dev/null 2>&1; then
+    if curl -s -f http://localhost:$port/health > /dev/null 2>&1 || curl -s -f http://localhost:$port/api > /dev/null 2>&1 || curl -s -f http://localhost:$port/ > /dev/null 2>&1; then
         echo -e "${GREEN}[OK] $service operational (port $port)${NC}"
     else
         echo -e "${RED}[FAIL] $service non-responsive (port $port)${NC}"
     fi
 }
+
 
 check_service "Gateway" 5000
 check_service "Frontend" 3000
