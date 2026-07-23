@@ -17,20 +17,25 @@ app.use('/api/auth', authRoutes);
 
 const seedAdminUser = async () => {
   try {
-    const adminExists = await User.findOne({ role: 'Admin' });
-    if (!adminExists) {
-      const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@company.com';
-      const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123456';
-      
+    const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@company.com').toLowerCase().trim();
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123456';
+    
+    let admin = await User.findOne({ role: 'Admin' });
+    if (!admin) {
       await User.create({
         name: 'System Administrator',
-        email: adminEmail.toLowerCase().trim(),
+        email: adminEmail,
         password: adminPassword,
         role: 'Admin',
         designation: 'Chief Administrator',
         department: 'Management'
       });
       console.log(`[Auth-Service] Initial Admin account auto-provisioned: ${adminEmail}`);
+    } else {
+      admin.email = adminEmail;
+      admin.password = adminPassword;
+      await admin.save();
+      console.log(`[Auth-Service] Admin credentials synced with .env: ${adminEmail}`);
     }
   } catch (err) {
     console.error('[Auth-Service] Failed to seed default admin:', err.message);
