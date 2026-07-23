@@ -1,23 +1,6 @@
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      - DOMAIN_NAME=aura-crm.duckdns.org
-    volumes:
-      - ./deployment/Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    networks:
-      - aura-network
-    depends_on:
-      - gateway
-      - client
-
   gateway:
+
     build: { context: ., dockerfile: apps/gateway/Dockerfile }
     ports: [ "5000:5000" ]
     environment:
@@ -180,6 +163,3 @@ networks:
   aura-network:
     driver: bridge
 
-volumes:
-  caddy_data:
-  caddy_config:
