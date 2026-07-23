@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/task-service/package.json ./apps/task-service/
 RUN npm install
-COPY apps/task-service ./apps/task-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

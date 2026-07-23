@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/search-service/package.json ./apps/search-service/
 RUN npm install
-COPY apps/search-service ./apps/search-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

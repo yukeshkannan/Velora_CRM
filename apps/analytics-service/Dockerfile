@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/analytics-service/package.json ./apps/analytics-service/
 RUN npm install
-COPY apps/analytics-service ./apps/analytics-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

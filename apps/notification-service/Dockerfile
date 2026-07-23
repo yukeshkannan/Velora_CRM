@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/notification-service/package.json ./apps/notification-service/
 RUN npm install
-COPY apps/notification-service ./apps/notification-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

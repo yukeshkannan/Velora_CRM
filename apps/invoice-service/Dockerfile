@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/invoice-service/package.json ./apps/invoice-service/
 RUN npm install
-COPY apps/invoice-service ./apps/invoice-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

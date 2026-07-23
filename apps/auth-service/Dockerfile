@@ -10,8 +10,9 @@ COPY apps/auth-service/package.json ./apps/auth-service/
 # Install dependencies (Root and Workspaces)
 RUN npm install
 
-# Copy service source
-COPY apps/auth-service ./apps/auth-service
+# Copy apps source
+COPY apps/ ./apps/
+
 
 # Final stage
 FROM node:18-alpine

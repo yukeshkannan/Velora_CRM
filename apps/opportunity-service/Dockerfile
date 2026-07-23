@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/opportunity-service/package.json ./apps/opportunity-service/
 RUN npm install
-COPY apps/opportunity-service ./apps/opportunity-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app

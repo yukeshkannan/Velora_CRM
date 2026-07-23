@@ -4,7 +4,7 @@ COPY package.json package-lock.json* ./
 COPY packages/ ./packages/
 COPY apps/product-service/package.json ./apps/product-service/
 RUN npm install
-COPY apps/product-service ./apps/product-service
+COPY apps/ ./apps/
 
 FROM node:18-alpine
 WORKDIR /app
