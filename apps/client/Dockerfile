@@ -4,13 +4,14 @@ WORKDIR /app
 
 # Copy monorepo config
 COPY package.json package-lock.json* ./
+COPY packages/ ./packages/
 COPY apps/client/package.json ./apps/client/
 
 # Install dependencies
 RUN npm install
 
 # Copy source and build
-COPY apps/client ./apps/client
+COPY apps/ ./apps/
 WORKDIR /app/apps/client
 # Handle Env Vars
 ARG VITE_API_URL

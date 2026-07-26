@@ -172,6 +172,14 @@ export const AuthProvider = ({ children }) => {
         });
         const data = await res.json();
         
+        if (res.status === 401) {
+            // Stale or expired session in localStorage -> clean up
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            return;
+        }
+
         if (res.ok && data.success) {
             const updatedUser = data.data;
             // Merge with existing to keep token if needed, though usually user obj is enough
