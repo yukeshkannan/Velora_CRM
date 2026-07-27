@@ -23,12 +23,12 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['Software', 'Hardware', 'Service', 'Subscription'],
-    default: 'Service'
+    enum: ['CRM Services', 'HRMS Services', 'Customer Support', 'AWS & Cloud', 'Software', 'Hardware', 'Service', 'Subscription'],
+    default: 'CRM Services'
   },
   stock: {
     type: Number,
-    default: 0
+    default: 99
   },
   image: {
     type: String,

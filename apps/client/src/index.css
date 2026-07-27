@@ -23,18 +23,50 @@ html, body {
     user-select: none;
 }
 
-/* Allow text selection & caret ONLY inside inputs and textareas */
-input, textarea, select, [contenteditable="true"] {
+/* Allow text selection & caret ONLY inside text inputs and textareas */
+input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="search"], textarea, [contenteditable="true"] {
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     user-select: text !important;
-    cursor: text !important;
+    cursor: text;
 }
 
-/* Interactive elements get pointer cursor */
-button, a, [role="button"] {
-    cursor: pointer;
+/* All dropdowns and interactive controls get pointer cursor platform-wide */
+select, option, button, a, [role="button"], label[for], input[type="checkbox"], input[type="radio"], input[type="date"], input[type="submit"] {
+    cursor: pointer !important;
+}
+
+/* --- PLATFORM-WIDE ULTRA-PREMIUM DROPDOWN STYLING --- */
+select {
+    cursor: pointer !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.85rem center !important;
+    background-size: 1.1rem !important;
+    padding-right: 2.5rem !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+select:hover {
+    border-color: #0f172a !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+select:focus {
+    outline: none !important;
+    border-color: #0f172a !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1) !important;
+}
+
+select option {
+    background-color: #ffffff;
+    color: #0f172a;
+    padding: 10px 14px;
+    font-weight: 600;
 }
 
 html, body, #root, #root > div {

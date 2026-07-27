@@ -125,49 +125,51 @@ const ClientDashboard = () => {
         <div className="min-h-screen flex flex-col bg-slate-50 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
              style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
             
-            {/* Top Glassmorphic Command Header */}
-            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center shadow-xs border border-slate-800 shrink-0">
+            {/* Fully Responsive Top Glassmorphic Command Header */}
+            <div className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 sm:py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+                <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 text-white font-black text-lg sm:text-xl flex items-center justify-center shadow-xs border border-slate-800 shrink-0">
                         {user?.name?.charAt(0) || 'C'}
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight truncate">
                                 {user?.name || 'Corporate Account'}
                             </h1>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5 shrink-0">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Client
                             </span>
                         </div>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2">
-                            <span>{user?.email}</span>
-                            <span>•</span>
-                            <span className="text-slate-700 font-bold">Enterprise Client Portal</span>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5 flex flex-wrap items-center gap-2 truncate">
+                            <span className="truncate">{user?.email}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="text-slate-700 font-bold hidden sm:inline">Enterprise Client Portal</span>
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-row items-center gap-2.5 w-full md:w-auto">
                     <button 
                         onClick={() => navigate('/app/tickets')}
-                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center gap-2 border border-slate-200/80 cursor-pointer shadow-2xs"
+                        className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border border-slate-200/80 cursor-pointer shadow-2xs"
                     >
-                        <Plus size={15} /> Raise Support Ticket
+                        <Plus size={15} /> 
+                        <span>Raise Ticket</span>
                     </button>
                     <button 
                         onClick={handleExport}
-                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer border-none"
+                        className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border-none"
                     >
-                        <Download size={15} /> Export Ledger
+                        <Download size={15} /> 
+                        <span>Export Ledger</span>
                     </button>
                 </div>
             </div>
 
-            {/* Main Content Grid */}
-            <div className="flex-1 p-6 sm:p-8 max-w-[1600px] w-full mx-auto space-y-6 sm:space-y-8">
+            {/* Main Content Responsive Grid */}
+            <div className="flex-1 p-4 sm:p-8 max-w-[1600px] w-full mx-auto space-y-6 sm:space-y-8">
                 
-                {/* Executive KPI Overview Grid */}
+                {/* Executive KPI Overview Grid (Responsive 1 -> 2 -> 4 Cols) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                     <KpiCard 
                         title="Active Projects" 
@@ -203,18 +205,18 @@ const ClientDashboard = () => {
                     />
                 </div>
 
-                {/* Main Workspace Dual Column */}
+                {/* Main Workspace Dual Column Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
                     
                     {/* Left Column (8 cols): Main Interactive Hub */}
-                    <div className="lg:col-span-8 space-y-6">
+                    <div className="lg:col-span-8 space-y-6 w-full min-w-0">
                         
-                        {/* Tab Selector Pill */}
-                        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
-                            <div className="flex items-center gap-1">
+                        {/* Fully Responsive Tab Selector Bar */}
+                        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs overflow-x-auto scrollbar-none">
+                            <div className="flex items-center gap-1.5 min-w-max">
                                 <button
                                     onClick={() => setActiveTab('engagements')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border cursor-pointer whitespace-nowrap ${
                                         activeTab === 'engagements'
                                             ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
                                             : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
@@ -224,7 +226,7 @@ const ClientDashboard = () => {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('tickets')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border cursor-pointer whitespace-nowrap ${
                                         activeTab === 'tickets'
                                             ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
                                             : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
@@ -234,7 +236,7 @@ const ClientDashboard = () => {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('invoices')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                    className={`px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all border cursor-pointer whitespace-nowrap ${
                                         activeTab === 'invoices'
                                             ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
                                             : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
@@ -256,15 +258,15 @@ const ClientDashboard = () => {
 
                         {/* SUPPORT TICKETS TAB */}
                         {activeTab === 'tickets' && (
-                            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
-                                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                            <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                                     <div>
-                                        <h3 className="text-lg font-extrabold text-slate-900">Support Requests Ledger</h3>
+                                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Support Requests Ledger</h3>
                                         <p className="text-xs text-slate-500 font-medium mt-0.5">Track active support inquiries and resolution updates.</p>
                                     </div>
                                     <button 
                                         onClick={() => navigate('/app/tickets')}
-                                        className="px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border-none"
+                                        className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shrink-0"
                                     >
                                         Open Tickets Portal <ChevronRight size={14} />
                                     </button>
@@ -277,7 +279,7 @@ const ClientDashboard = () => {
                                         </div>
                                     ) : (
                                         clientData.tickets.map(ticket => (
-                                            <div key={ticket._id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-4">
+                                            <div key={ticket._id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
@@ -287,12 +289,12 @@ const ClientDashboard = () => {
                                                         }`}>
                                                             {ticket.priority || 'Medium'} Priority
                                                         </span>
-                                                        <span className="text-xs font-medium text-slate-400">• Filed {new Date(ticket.createdAt || Date.now()).toLocaleDateString()}</span>
+                                                        <span className="text-xs font-medium text-slate-400">• {new Date(ticket.createdAt || Date.now()).toLocaleDateString()}</span>
                                                     </div>
                                                     <h4 className="text-sm font-extrabold text-slate-900 truncate">{ticket.title}</h4>
                                                     <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">{ticket.description}</p>
                                                 </div>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-extrabold shrink-0 ${
+                                                <span className={`px-3 py-1 rounded-full text-xs font-extrabold self-start sm:self-center shrink-0 ${
                                                     ticket.status === 'Resolved' || ticket.status === 'Closed'
                                                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                                         : 'bg-amber-100 text-amber-800 border border-amber-200'
@@ -308,22 +310,22 @@ const ClientDashboard = () => {
 
                         {/* INVOICES TAB */}
                         {activeTab === 'invoices' && (
-                            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
-                                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                            <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                                     <div>
-                                        <h3 className="text-lg font-extrabold text-slate-900">Financial Invoices Ledger</h3>
+                                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Financial Invoices Ledger</h3>
                                         <p className="text-xs text-slate-500 font-medium mt-0.5">Full record of corporate billing and payment receipts.</p>
                                     </div>
                                     <button 
                                         onClick={() => navigate('/app/invoices')}
-                                        className="px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border-none"
+                                        className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shrink-0"
                                     >
                                         Full Invoices Module <ChevronRight size={14} />
                                     </button>
                                 </div>
 
                                 <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse min-w-[500px]">
                                         <thead className="bg-slate-100/70 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
                                             <tr>
                                                 <th className="p-3.5 pl-4">Invoice ID</th>
@@ -363,7 +365,7 @@ const ClientDashboard = () => {
                     </div>
 
                     {/* Right Column (4 cols): Account Lead & Billing Card */}
-                    <div className="lg:col-span-4 space-y-6">
+                    <div className="lg:col-span-4 space-y-6 w-full min-w-0">
                         
                         {/* Dark Slate Financial Summary Card */}
                         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-white shadow-xl space-y-6">
@@ -372,16 +374,16 @@ const ClientDashboard = () => {
                                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ledger Overview</span>
                                     <h3 className="text-lg font-extrabold text-white mt-0.5">Account Summary</h3>
                                 </div>
-                                <div className="w-10 h-10 bg-slate-800 text-emerald-400 rounded-xl flex items-center justify-center border border-slate-700">
+                                <div className="w-10 h-10 bg-slate-800 text-emerald-400 rounded-xl flex items-center justify-center border border-slate-700 shrink-0">
                                      <CreditCard size={18} />
                                 </div>
                             </div>
                             
                             <div className="space-y-4">
-                                <div className="flex justify-between items-baseline">
+                                <div className="flex justify-between items-baseline flex-wrap gap-2">
                                     <div>
                                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Pending Balance</p>
-                                        <p className="text-3xl font-black text-emerald-400 tracking-tight mt-1">
+                                        <p className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight mt-1">
                                             ${pendingBalance.toLocaleString()}
                                         </p>
                                     </div>
@@ -402,28 +404,6 @@ const ClientDashboard = () => {
                             </div>
                         </div>
 
-                        {/* Dedicated Client Success Manager Card */}
-                        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">
-                            <div className="flex items-center gap-3">
-                                 <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white font-black text-lg flex items-center justify-center border border-slate-800 shrink-0">
-                                    <UserCheck size={20} />
-                                 </div>
-                                 <div>
-                                    <h4 className="text-sm font-extrabold text-slate-900">Assigned Solutions Lead</h4>
-                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">SLA Response: &lt; 4 Hours</span>
-                                 </div>
-                            </div>
-                            <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                                Your assigned engagement lead is active. Request a technical review or raise an inquiry ticket directly.
-                            </p>
-                            <button 
-                                onClick={() => navigate('/app/tickets')}
-                                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-2"
-                            >
-                                <MessageSquare size={14} /> Contact Solutions Lead
-                            </button>
-                        </div>
-
                     </div>
                 </div>
 
@@ -435,10 +415,10 @@ const ClientDashboard = () => {
 const KpiCard = ({ title, value, icon, sub, badge, onClick }) => (
     <div 
         onClick={onClick}
-        className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group flex items-center justify-between"
+        className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group flex items-center justify-between min-w-0"
     >
-        <div>
-            <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 pr-2">
+            <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-black uppercase tracking-wider text-slate-400">{title}</span>
                 {badge && (
                     <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
@@ -446,8 +426,8 @@ const KpiCard = ({ title, value, icon, sub, badge, onClick }) => (
                     </span>
                 )}
             </div>
-            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{value}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{sub}</p>
+            <p className="text-xl sm:text-3xl font-black text-slate-900 mt-1 truncate">{value}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 truncate">{sub}</p>
         </div>
         <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
             {icon}
@@ -478,13 +458,13 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
     // Project List View
     if (!selectedProject) {
         return (
-            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
-                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                     <div>
-                        <h3 className="text-lg font-extrabold text-slate-900">Active Corporate Deliverables</h3>
+                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Active Corporate Deliverables</h3>
                         <p className="text-xs text-slate-500 font-medium mt-0.5">Select a project to inspect milestone phases & deliverable status.</p>
                     </div>
-                    <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
+                    <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200 w-fit">
                         {projects.length} Running Projects
                     </span>
                 </div>
@@ -499,19 +479,19 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
                                 <div 
                                     key={proj._id} 
                                     onClick={() => setSelectedProject(proj)} 
-                                    className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 hover:bg-slate-100/50 transition-all cursor-pointer group space-y-3"
+                                    className="p-4 sm:p-5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 hover:bg-slate-100/50 transition-all cursor-pointer group space-y-3"
                                 >
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center">
+                                            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shrink-0">
                                                 {proj.title?.charAt(0) || 'P'}
                                             </div>
-                                            <div>
-                                                <h4 className="text-base font-extrabold text-slate-900">{proj.title}</h4>
+                                            <div className="min-w-0">
+                                                <h4 className="text-sm sm:text-base font-extrabold text-slate-900 truncate">{proj.title}</h4>
                                                 <p className="text-xs text-slate-400 font-medium">Corporate Contract Engagement</p>
                                             </div>
                                         </div>
-                                        <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-wider">
+                                        <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-wider w-fit self-start sm:self-auto">
                                             {proj.stage}
                                         </span>
                                     </div>
@@ -541,7 +521,7 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
     const progressPercent = Math.round((completedPhases / phases.length) * 100);
 
     return (
-        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6 animate-in slide-in-from-right duration-300">
+        <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6 animate-in slide-in-from-right duration-300">
             <button 
                 onClick={() => setSelectedProject(null)} 
                 className="flex items-center gap-1.5 text-xs font-extrabold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-wider cursor-pointer border-none bg-transparent"
@@ -549,19 +529,19 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
                 <ChevronRight size={14} className="rotate-180" /> Back to Engagements List
             </button>
 
-            <div className="flex justify-between items-start pb-4 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{selectedProject.title}</h3>
+                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">{selectedProject.title}</h3>
                     <p className="text-xs text-slate-500 font-medium mt-0.5">Phase-by-phase execution roadmap & milestone delivery verification.</p>
                 </div>
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-extrabold rounded-full border border-indigo-200">
+                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-extrabold rounded-full border border-indigo-200 w-fit">
                     Stage: {selectedProject.stage}
                 </span>
             </div>
 
             {/* Overall Progress Meter */}
             <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold text-slate-700">
+                <div className="flex flex-col sm:flex-row sm:justify-between text-xs font-bold text-slate-700 gap-1">
                     <span>Deliverable Roadmap Progress</span>
                     <span>{progressPercent}% Completed ({completedPhases} of {phases.length} Phases Verified)</span>
                 </div>
@@ -577,8 +557,8 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                 {phases.map((phase) => (
                     <div key={phase.id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-3">
-                        <div>
-                            <p className="text-xs font-extrabold text-slate-900">{phase.name}</p>
+                        <div className="min-w-0">
+                            <p className="text-xs font-extrabold text-slate-900 truncate">{phase.name}</p>
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{phase.date}</span>
                         </div>
                         {phase.status === 'Completed' ? (

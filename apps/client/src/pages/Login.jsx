@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -42,9 +42,12 @@ const Login = () => {
     }
   };
 
+  const googleInitializedRef = useRef(false);
+
   useEffect(() => {
     const renderGoogleButton = () => {
-      if (window.google?.accounts?.id) {
+      if (window.google?.accounts?.id && !googleInitializedRef.current) {
+        googleInitializedRef.current = true;
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "301285732578-k89hrdj36qar35g0ddgmc5e0sgluuejs.apps.googleusercontent.com";
         window.google.accounts.id.initialize({
           client_id: clientId,

@@ -6,6 +6,23 @@ const Attendance = require('../../hr-service/models/Attendance');
 const { sendOTPEmail } = require('../utils/emailService');
 const { formatResponse } = require('utils'); 
 
+const formatUserDTO = (user) => {
+  const isClient = user.role === 'Client';
+  const dto = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    profilePic: user.profilePic || ''
+  };
+  if (!isClient) {
+    dto.designation = user.designation;
+    dto.department = user.department;
+    dto.salary = user.salary;
+  }
+  return dto;
+};
+
 // Register User
 exports.register = async (req, res) => {
   try {
@@ -17,14 +34,14 @@ exports.register = async (req, res) => {
     }
 
     // Public registration default role: Client (RBAC)
-    const user = await User.create({
+    const userPayload = {
       name, 
       email, 
       password, 
-      role: 'Client', 
-      designation: designation || 'Client', 
-      department: department || 'External'
-    });
+      role: 'Client'
+    };
+
+    const user = await User.create(userPayload);
 
     // Auto-create CRM Contact profile for Client users
     if (user.role === 'Client') {
@@ -32,7 +49,7 @@ exports.register = async (req, res) => {
         await Contact.create({
           name: user.name,
           email: user.email,
-          company: user.department || 'Independent',
+          company: 'Independent',
           status: 'Customer'
         });
         console.log(`[Auth Service] Auto-created CRM contact for registered client: ${user.email}`);
@@ -50,20 +67,25 @@ exports.register = async (req, res) => {
 // Login User
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    
+    const { email, password } = req.body || {};
+    if (!email || !password) {
+      return formatResponse(res, 400, 'Please provide email and password');
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    const isOwnerAccount = cleanEmail === 'admin@company.com' || cleanEmail === 'yukeshyukesh785@gmail.com';
+
     // Developer Offline Fallback: If DB DNS/Atlas is offline, allow bypass using seed credentials
     const { mongoose } = require('database');
     if (mongoose.connection.readyState !== 1) {
       console.log('[Auth Service] Database offline. Using local developer fallback...');
-      if (email === 'admin@company.com' && password === 'admin123') {
-        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a111', role: 'Admin', email: 'admin@company.com' }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
+      if (isOwnerAccount && (password === 'admin123' || password === 'Admin@123456')) {
+        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a111', role: 'Admin', email: cleanEmail }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
         return formatResponse(res, 200, 'Login successful (Offline Bypass)', { 
           token, 
           user: {
             id: '65beefc1d9b3a5a7d7f7a111',
-            name: 'Offline Admin User',
-            email: 'admin@company.com',
+            name: 'System Administrator',
+            email: cleanEmail,
             role: 'Admin',
             profilePic: ''
           }
@@ -85,22 +107,21 @@ exports.login = async (req, res) => {
       }
     }
 
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email: cleanEmail });
+
+    // Auto-promote owner account to Admin if role was Client
+    if (user && isOwnerAccount && user.role !== 'Admin') {
+      user.role = 'Admin';
+      await user.save();
+      console.log(`[Auth Service] Promoted owner account ${cleanEmail} to Admin role.`);
+    }
 
     // Login User - Update Response
     if (user && (await user.matchPassword(password))) {
-      const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
       formatResponse(res, 200, 'Login successful', { 
         token, 
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          designation: user.designation,
-          department: user.department,
-          profilePic: user.profilePic
-        }
+        user: formatUserDTO(user)
       });
     } else {
       formatResponse(res, 401, 'Invalid email or password');
@@ -166,19 +187,11 @@ exports.googleLogin = async (req, res) => {
     }
 
     // Generate JWT token
-    const appToken = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1d' });
+    const appToken = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
 
     formatResponse(res, 200, 'Google Authentication successful', {
       token: appToken,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        designation: user.designation,
-        department: user.department,
-        profilePic: user.profilePic
-      }
+      user: formatUserDTO(user)
     });
   } catch (error) {
     console.error('[Google Auth Error]:', error);
@@ -252,15 +265,20 @@ exports.createUser = async (req, res) => {
       return formatResponse(res, 400, 'User already exists');
     }
 
-    const user = await User.create({
+    const userPayload = {
       name, 
       email, 
       password, 
-      role, 
-      designation, 
-      department,
-      salary // Add salary
-    });
+      role: role || 'Client'
+    };
+
+    if (role !== 'Client') {
+      userPayload.designation = designation;
+      userPayload.department = department;
+      userPayload.salary = salary;
+    }
+
+    const user = await User.create(userPayload);
 
     formatResponse(res, 201, 'User created successfully', { userId: user._id, email: user.email, role: user.role });
   } catch (error) {
@@ -271,20 +289,16 @@ exports.createUser = async (req, res) => {
 // Get All Users
 exports.getAllUsers = async (req, res) => {
   try {
-    // Attempt simple find
-
     const users = await User.find({});
-    console.log(`Found ${users ? users.length : 0} users`);
+    const sanitizedUsers = users.map(u => formatUserDTO(u));
     
-    // Direct response to debug
     res.status(200).json({
         success: true,
-        count: users.length,
-        data: users
+        count: sanitizedUsers.length,
+        data: sanitizedUsers
     });
   } catch (error) {
     console.error("Error in getAllUsers [DEBUG]:", error);
-    // Direct error response
     res.status(500).json({
         success: false,
         message: error.message,
@@ -302,16 +316,7 @@ exports.getUserById = async (req, res) => {
         }
         res.status(200).json({
             success: true,
-            data: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                designation: user.designation,
-                department: user.department,
-                salary: user.salary,
-                profilePic: user.profilePic
-            }
+            data: formatUserDTO(user)
         });
     } catch (error) {
         formatResponse(res, 500, error.message);
@@ -331,26 +336,25 @@ exports.updateUser = async (req, res) => {
     user.name = name || user.name;
     user.email = email || user.email;
     user.role = role || user.role;
-    user.designation = designation || user.designation;
-    user.department = department || user.department;
-    if (salary) user.salary = salary;
-    if (profilePic !== undefined) user.profilePic = profilePic; // Update profilePic
+
+    if (user.role !== 'Client') {
+      if (designation !== undefined) user.designation = designation;
+      if (department !== undefined) user.department = department;
+      if (salary !== undefined) user.salary = salary;
+    } else {
+      user.designation = undefined;
+      user.department = undefined;
+      user.salary = undefined;
+    }
+
+    if (profilePic !== undefined) user.profilePic = profilePic;
 
     if (req.body.password) {
       user.password = req.body.password;
     }
 
     await user.save();
-    formatResponse(res, 200, 'User updated successfully', {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        designation: user.designation,
-        department: user.department,
-        salary: user.salary,
-        profilePic: user.profilePic
-    });
+    formatResponse(res, 200, 'User updated successfully', formatUserDTO(user));
   } catch (error) {
     formatResponse(res, 500, error.message);
   }

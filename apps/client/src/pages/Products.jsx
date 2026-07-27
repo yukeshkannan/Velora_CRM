@@ -317,11 +317,9 @@ const Products = () => {
                                                     <span className="text-lg font-black text-stone-900 tracking-tight leading-none">${product.price?.toLocaleString()}</span>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
-                                                        product.stock > 0 ? 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50' : 'bg-red-50/50 text-red-700 border-red-100/50'
-                                                    }`}>
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${product.stock > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
-                                                        {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border bg-emerald-50/70 text-emerald-700 border-emerald-200/60">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        Active Service
                                                     </div>
                                                 </div>
                                             </div>
@@ -440,35 +438,20 @@ const Products = () => {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Price (USD)</label>
-                                            <div className="relative">
-                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 font-black">$</span>
-                                                <input 
-                                                    required 
-                                                    type="number" 
-                                                    name="price" 
-                                                    value={formData.price} 
-                                                    onChange={handleChange} 
-                                                    min="0" 
-                                                    step="0.01"
-                                                    className="w-full pl-10 pr-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black focus:border-amber-500 outline-none transition-all"
-                                                    placeholder="0.00" 
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Stock Availability</label>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Service Fee ($)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 font-black">$</span>
                                             <input 
                                                 required 
                                                 type="number" 
-                                                name="stock" 
-                                                value={formData.stock} 
+                                                name="price" 
+                                                value={formData.price} 
                                                 onChange={handleChange} 
-                                                min="0"
-                                                className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-bold focus:border-amber-500 outline-none transition-all"
-                                                placeholder="0" 
+                                                min="0" 
+                                                step="0.01"
+                                                className="w-full pl-10 pr-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black focus:border-amber-500 outline-none transition-all"
+                                                placeholder="0.00" 
                                             />
                                         </div>
                                     </div>

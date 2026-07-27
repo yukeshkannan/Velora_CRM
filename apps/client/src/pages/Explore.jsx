@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { 
     Globe, Smartphone, Zap, Shield, 
     BarChart, Database, ArrowRight, Check,
-    Monitor, Server, Code2, Sparkles, MessageSquare,
+    Monitor, Server, Code2, Sparkles, MessageSquare, Building2,
     Package, Layers, ChevronRight, ChevronDown, HelpCircle, Filter, LayoutGrid,
     FileText, ShieldCheck, CreditCard, Clock, CheckCircle2, X, DollarSign, Send, Calendar
 } from 'lucide-react';
@@ -41,8 +41,8 @@ const Explore = () => {
     useEffect(() => {
         const fetchContent = async () => {
             try {
-                // 1. Fetch Products from DB (with reseed to ensure IT/Cloud portfolio)
-                const prodRes = await axios.get('/api/products?reseed=true');
+                // 1. Fetch Products from DB
+                const prodRes = await axios.get('/api/products');
                 setProducts(prodRes.data.data || []);
 
                 // 2. Fetch Contact ID (Filtered by Email)

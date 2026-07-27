@@ -184,9 +184,19 @@ app.use('/api/leave', authMiddleware(), (req, res, next) => {
     proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
 }));
 
+app.use('/api/analytics', authMiddleware(), (req, res, next) => {
+    if (!STAFF_ROLES.includes(req.user.role)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    next();
+}, proxy(SERVICES.ANALYTICS, {
+    parseReqBody: false,
+    proxyReqPathResolver: (req) => req.originalUrl.split('?')[0] + (req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : ''),
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Analytics Service Unavailable' })
+}));
+
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'Aura-API-Gateway', timestamp: new Date() }));
 app.get('/api', (req, res) => res.json({ status: 'UP', message: 'Aura API Gateway Operational' }));
 
+// API Gateway Operational - Auth & Microservices Proxy Configured
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`[Gateway] Service running on port ${PORT}`));
 

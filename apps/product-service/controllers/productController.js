@@ -7,63 +7,72 @@ const defaultITProducts = [
     description: 'Full-stack custom CRM with automated pipeline management, lead scoring, and omnichannel analytics.',
     price: 4500,
     category: 'CRM Services',
-    sku: 'CRM-ENT-01'
+    sku: 'CRM-ENT-01',
+    stock: 99
   },
   {
     name: 'Contact Center & Sales Automation',
     description: 'AI-powered contact center suite with auto-dialer, IVR routing, and real-time deal stage sync.',
     price: 3200,
     category: 'CRM Services',
-    sku: 'CRM-CC-02'
+    sku: 'CRM-CC-02',
+    stock: 99
   },
   {
     name: 'Velora HRMS & Payroll Engine',
     description: 'Comprehensive enterprise HR platform featuring automated payroll, tax calculation, and employee self-service portal.',
     price: 3800,
     category: 'HRMS Services',
-    sku: 'HRM-PAY-01'
+    sku: 'HRM-PAY-01',
+    stock: 99
   },
   {
     name: 'Biometric Attendance & Leave Portal',
     description: 'Smart attendance tracking system with GPS geolocation, leave approval workflows, and shift management.',
     price: 2400,
     category: 'HRMS Services',
-    sku: 'HRM-ATT-02'
+    sku: 'HRM-ATT-02',
+    stock: 99
   },
   {
     name: '24/7 Enterprise Helpdesk & SLA Suite',
     description: 'High-throughput ticketing engine with custom SLA escalation rules, automated email dispatch, and resolution analytics.',
     price: 2900,
     category: 'Customer Support',
-    sku: 'SUP-SLA-01'
+    sku: 'SUP-SLA-01',
+    stock: 99
   },
   {
     name: 'Omnichannel Live Chat Agent Engine',
     description: 'Real-time customer messaging widget with AI auto-replies, visitor tracking, and CRM contact auto-sync.',
     price: 1800,
     category: 'Customer Support',
-    sku: 'SUP-CHAT-02'
+    sku: 'SUP-CHAT-02',
+    stock: 99
   },
   {
     name: 'AWS Enterprise DevOps & Architecture',
     description: 'High-availability AWS cloud setup with automated CI/CD pipelines, TerraForm IaC, and 99.99% uptime SLA.',
     price: 6500,
     category: 'AWS & Cloud',
-    sku: 'AWS-DEV-01'
+    sku: 'AWS-DEV-01',
+    stock: 99
   },
   {
     name: 'Cloud Migration & Kubernetes Cluster',
     description: 'Seamless legacy to cloud migration with containerized Kubernetes orchestration, auto-scaling, and security hardening.',
     price: 8200,
     category: 'AWS & Cloud',
-    sku: 'AWS-K8S-02'
+    sku: 'AWS-K8S-02',
+    stock: 99
   },
   {
     name: 'Serverless Microservices Infrastructure',
     description: 'Event-driven Node.js/Go serverless API gateway setup with Redis caching, RabbitMQ queueing, and MongoDB cluster sharding.',
     price: 5400,
     category: 'AWS & Cloud',
-    sku: 'AWS-SRV-03'
+    sku: 'AWS-SRV-03',
+    stock: 99
   }
 ];
 
@@ -72,6 +81,9 @@ const defaultITProducts = [
 // @access  Public
 exports.getProducts = async (req, res) => {
   try {
+    const searchTerm = req.query.search || req.query.q || '';
+    const reseed = req.query.reseed === 'true';
+
     // Purge any legacy hardware products
     await Product.deleteMany({ 
       $or: [
@@ -79,6 +91,9 @@ exports.getProducts = async (req, res) => {
         { name: { $regex: /hardware/i } }
       ]
     });
+
+    // Auto-update any 0-stock products to available stock (99)
+    await Product.updateMany({ stock: { $lte: 0 } }, { $set: { stock: 99 } });
 
     // Auto-seed if database has no products or reseed requested
     let count = await Product.countDocuments();

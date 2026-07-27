@@ -21,6 +21,11 @@ const sanitizeUser = (u) => {
     if (copy.profilePic && typeof copy.profilePic === 'string' && copy.profilePic.includes('document-service:5007')) {
         copy.profilePic = copy.profilePic.replace('http://document-service:5007', '');
     }
+    if (copy.role === 'Client') {
+        delete copy.salary;
+        delete copy.department;
+        delete copy.designation;
+    }
     return copy;
 };
 
@@ -32,7 +37,7 @@ export const AuthProvider = ({ children }) => {
 
   /* Auto Check-in Logic - Only for Employees/Staff (Excluding Admin & Client) */
   const autoCheckIn = async (parsedUser) => {
-    if (parsedUser.role === 'Client' || parsedUser.role === 'Admin') return; // Admin and Clients don't have attendance
+    if (!parsedUser || !parsedUser.role || ['client', 'admin'].includes(parsedUser.role.toLowerCase())) return; // Admin and Clients don't have attendance
     if (hasAutoCheckedIn.current) return;
     hasAutoCheckedIn.current = true;
     try {
@@ -116,8 +121,9 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
       
       if (res.ok && data.success) {
-        const userData = sanitizeUser(data.data);
-        const token = data.token;
+        const rawUser = data.data?.user || data.data;
+        const token = data.data?.token || data.token;
+        const userData = sanitizeUser(rawUser);
         
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
@@ -146,8 +152,9 @@ export const AuthProvider = ({ children }) => {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        const userData = sanitizeUser(data.data);
-        const token = data.token;
+        const rawUser = data.data?.user || data.data;
+        const token = data.data?.token || data.token;
+        const userData = sanitizeUser(rawUser);
 
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(userData));
@@ -192,12 +199,13 @@ export const AuthProvider = ({ children }) => {
     // Get ID from current state or storage
     const storedUser = user || JSON.parse(localStorage.getItem('user'));
     if (!storedUser) return;
+    const userId = storedUser.id || storedUser._id;
+    if (!userId || userId === 'undefined') return;
     
     try {
         console.log("Refreshing user data...");
         const token = localStorage.getItem('token');
-        // Use the auth-service endpoint we just added
-        const res = await fetch(`${API_URL}/api/auth/users/${storedUser.id || storedUser._id}`, {
+        const res = await fetch(`${API_URL}/api/auth/users/${userId}`, {
             headers: {
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, DollarSign, User, TrendingUp, LayoutGrid, Pencil, X, Trash2, Download, Building2, ChevronDown, Check, Sparkles, Play, Eye, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Search, DollarSign, User, TrendingUp, LayoutGrid, Pencil, X, Trash2, Download, Building2, ChevronDown, Check, Sparkles, Play, Eye, CheckCircle2, XCircle, Calendar } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -110,48 +110,89 @@ const StageDropdown = ({ currentStage, onSelect }) => {
 
 const AssignEmployeeDropdown = ({ opp, users, onAssign }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [coords, setCoords] = useState({ top: 0, left: 0 });
+    const buttonRef = useRef(null);
+
     const assignedId = typeof opp.assignedTo === 'object' ? opp.assignedTo?._id : opp.assignedTo;
     const assignedUser = users.find(u => String(u._id || u.id) === String(assignedId));
+
+    const toggleDropdown = (e) => {
+        e.stopPropagation();
+        if (!isOpen && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.bottom + 6,
+                left: rect.left + rect.width / 2
+            });
+        }
+        setIsOpen(!isOpen);
+    };
+
+    useEffect(() => {
+        const handleOutsideClick = () => setIsOpen(false);
+        if (isOpen) {
+            window.addEventListener('click', handleOutsideClick);
+            window.addEventListener('scroll', handleOutsideClick, true);
+        }
+        return () => {
+            window.removeEventListener('click', handleOutsideClick);
+            window.removeEventListener('scroll', handleOutsideClick, true);
+        };
+    }, [isOpen]);
 
     return (
         <div className="relative inline-block text-left">
             <button
+                ref={buttonRef}
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={toggleDropdown}
                 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
                     assignedUser 
                         ? 'bg-slate-100 border-slate-200/80 text-slate-800 hover:bg-slate-200' 
-                        : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 animate-pulse'
+                        : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
                 }`}
             >
                 <User size={13} className={assignedUser ? 'text-indigo-600' : 'text-amber-600'} />
                 <span className="truncate max-w-[110px]">{assignedUser ? assignedUser.name : 'Unassigned Lead'}</span>
-                <ChevronDown size={13} className="text-slate-400 shrink-0" />
+                <ChevronDown size={13} className={`transition-transform duration-200 text-slate-400 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
+            {/* Unclipped Floating Fixed Menu */}
             {isOpen && (
-                <div className="absolute left-0 mt-1 w-52 bg-white rounded-xl border border-slate-200 shadow-xl z-50 overflow-hidden py-1">
-                    <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400">
+                <div 
+                    style={{ 
+                        position: 'fixed', 
+                        top: `${coords.top}px`, 
+                        left: `${coords.left}px`,
+                        transform: 'translateX(-50%)'
+                    }}
+                    className="w-56 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
                         Assign to Employee
                     </div>
-                    {users.length === 0 ? (
-                        <div className="px-3 py-2 text-xs font-bold text-slate-400">No Employees Found</div>
-                    ) : (
-                        users.map(u => (
-                            <button
-                                key={u._id || u.id}
-                                type="button"
-                                onClick={() => {
-                                    onAssign(opp._id, u._id || u.id, u.name);
-                                    setIsOpen(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center justify-between border-none bg-transparent cursor-pointer"
-                            >
-                                <span>{u.name}</span>
-                                <span className="text-[10px] font-medium text-slate-400">{u.role}</span>
-                            </button>
-                        ))
-                    )}
+                    <div className="max-h-48 overflow-y-auto space-y-0.5">
+                        {users.length === 0 ? (
+                            <div className="px-3 py-2 text-xs font-bold text-slate-400">No Employees Found</div>
+                        ) : (
+                            users.map(u => (
+                                <button
+                                    key={u._id || u.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onAssign(opp._id, u._id || u.id, u.name);
+                                        setIsOpen(false);
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-colors border-none bg-transparent cursor-pointer"
+                                >
+                                    <span>{u.name}</span>
+                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{u.role}</span>
+                                </button>
+                            ))
+                        )}
+                    </div>
                 </div>
             )}
         </div>
@@ -318,6 +359,16 @@ const Opportunities = () => {
         setIsDrawerOpen(true);
     };
 
+    const handleDateChange = async (dealId, newDate) => {
+        try {
+            await axios.put(`/api/opportunities/${dealId}`, { expectedCloseDate: newDate });
+            setOpportunities(prev => prev.map(o => o._id === dealId ? { ...o, expectedCloseDate: newDate } : o));
+            toast.success('Target close date updated!');
+        } catch (err) {
+            toast.error('Failed to update target close date');
+        }
+    };
+
     const handleDelete = async (id) => {
         try {
             await axios.delete(`/api/opportunities/${id}`);
@@ -476,18 +527,18 @@ const Opportunities = () => {
                         </div>
                     </div>
 
-                    {/* Generous Column Spacing Table */}
+                    {/* Balanced Column Spacing Table */}
                     <div className="overflow-x-auto w-full">
-                        <table className="w-full text-left border-collapse min-w-[900px]">
+                        <table className="w-full text-left border-collapse min-w-[1050px]">
                             <thead>
                                 <tr className="bg-slate-100/70 border-b border-slate-200/80">
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[28%] min-w-[220px]">Deal Title</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[18%] min-w-[150px]">Client / Contact</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[18%] min-w-[150px]">Assigned Representative</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right w-[12%] min-w-[110px]">Deal Amount</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-center w-[12%] min-w-[140px]">Stage</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-center w-[12%] min-w-[120px]">Target Close</th>
-                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right w-[8%] min-w-[80px] pr-8">Actions</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[24%] min-w-[200px]">Deal Title</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[15%] min-w-[140px]">Client / Contact</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle w-[16%] min-w-[150px]">Assigned Representative</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right w-[12%] min-w-[110px]">Deal Amount</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-center w-[14%] min-w-[140px]">Stage</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-center w-[13%] min-w-[140px]">Target Close</th>
+                                    <th className="px-5 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right w-[6%] min-w-[80px] pr-6">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -500,16 +551,16 @@ const Opportunities = () => {
                                         <tr key={opp._id} className="hover:bg-slate-50/80 transition-colors group">
                                             
                                             {/* Deal Title */}
-                                            <td className="px-6 py-5 align-middle">
-                                                <div className="flex flex-col pr-4">
+                                            <td className="px-5 py-4 align-middle">
+                                                <div className="flex flex-col pr-3">
                                                     <span 
                                                         onClick={() => handleEdit(opp)}
-                                                        className="font-extrabold text-sm sm:text-base text-slate-900 hover:text-slate-700 cursor-pointer transition-colors leading-snug"
+                                                        className="font-extrabold text-xs sm:text-sm text-slate-900 hover:text-slate-700 cursor-pointer transition-colors leading-snug"
                                                     >
                                                         {opp.title}
                                                     </span>
                                                     {totalModules > 0 && (
-                                                        <span className="text-xs font-semibold text-slate-400 mt-1">
+                                                        <span className="text-[11px] font-semibold text-slate-400 mt-0.5">
                                                             Modules: {completedModules}/{totalModules} completed
                                                         </span>
                                                     )}
@@ -517,61 +568,70 @@ const Opportunities = () => {
                                             </td>
 
                                             {/* Client / Contact */}
-                                            <td className="px-6 py-5 align-middle">
+                                            <td className="px-5 py-4 align-middle">
                                                 {contact ? (
                                                     <div className="flex flex-col pr-2">
-                                                        <span className="font-extrabold text-xs sm:text-sm text-slate-900">{contact.name}</span>
-                                                        <span className="text-xs font-medium text-slate-400 flex items-center gap-1 mt-0.5">
-                                                            <Building2 size={12} className="text-slate-400 shrink-0" />
+                                                        <span className="font-extrabold text-xs text-slate-900 truncate">{contact.name}</span>
+                                                        <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 mt-0.5">
+                                                            <Building2 size={11} className="text-slate-400 shrink-0" />
                                                             <span className="truncate">{contact.company || contact.email}</span>
                                                         </span>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-xs sm:text-sm text-slate-400 font-medium">--</span>
+                                                    <span className="text-xs text-slate-400 font-medium">--</span>
                                                 )}
                                             </td>
 
                                             {/* Assigned Representative / Employee Dropdown */}
-                                            <td className="px-6 py-5 align-middle">
+                                            <td className="px-5 py-4 align-middle">
                                                 <AssignEmployeeDropdown opp={opp} users={users} onAssign={handleAssignUser} />
                                             </td>
 
                                             {/* Deal Amount */}
-                                            <td className="px-6 py-5 align-middle text-right">
-                                                <span className="font-black text-sm sm:text-base text-slate-900">
+                                            <td className="px-5 py-4 align-middle text-right">
+                                                <span className="font-black text-xs sm:text-sm text-slate-900">
                                                     {formatCurrency(opp.amount || 0)}
                                                 </span>
                                             </td>
 
                                             {/* Stage (Custom Floating Popover Dropdown - FIXED POSITIONING) */}
-                                            <td className="px-6 py-5 align-middle text-center">
+                                            <td className="px-5 py-4 align-middle text-center">
                                                 <StageDropdown 
                                                     currentStage={opp.stage} 
                                                     onSelect={(newStage) => handleStageChange(opp._id, newStage)} 
                                                 />
                                             </td>
 
-                                            {/* Target Close Date */}
-                                            <td className="px-6 py-5 align-middle text-center text-xs sm:text-sm font-bold text-slate-700 whitespace-nowrap">
-                                                {opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '--'}
+                                            {/* Target Close Date - Compact Inline Interactive Date Picker */}
+                                            <td className="px-5 py-4 align-middle text-center">
+                                                <div className="inline-flex items-center justify-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-xl px-2.5 py-1.5 transition-all shadow-2xs">
+                                                    <Calendar size={13} className="text-slate-500 shrink-0" />
+                                                    <input 
+                                                        type="date" 
+                                                        value={opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toISOString().split('T')[0] : ''} 
+                                                        onChange={(e) => handleDateChange(opp._id, e.target.value)} 
+                                                        className="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer p-0"
+                                                        title="Set Target Close Date"
+                                                    />
+                                                </div>
                                             </td>
 
                                             {/* Actions */}
-                                            <td className="px-6 py-5 align-middle text-right pr-8">
+                                            <td className="px-5 py-4 align-middle text-right pr-6">
                                                 <div className="flex justify-end items-center gap-1.5">
                                                     <button 
                                                         onClick={() => handleEdit(opp)} 
                                                         className="p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer" 
                                                         title="Edit Deal Details"
                                                     >
-                                                        <Pencil size={16} />
+                                                        <Pencil size={15} />
                                                     </button>
                                                     <button 
                                                         onClick={() => setShowDeleteConfirm(opp)} 
                                                         className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer" 
                                                         title="Delete Deal"
                                                     >
-                                                        <Trash2 size={16} />
+                                                        <Trash2 size={15} />
                                                     </button>
                                                 </div>
                                             </td>
@@ -679,17 +739,6 @@ const Opportunities = () => {
                                                 <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>
                                             ))}
                                         </select>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Target Close Date</label>
-                                        <input 
-                                            type="date" 
-                                            name="expectedCloseDate" 
-                                            value={formData.expectedCloseDate} 
-                                            onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
-                                            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all text-xs sm:text-sm font-medium text-slate-900 shadow-2xs"
-                                        />
                                     </div>
                                 </form>
                             </div>
