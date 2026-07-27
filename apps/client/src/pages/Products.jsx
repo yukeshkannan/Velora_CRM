@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Package, Trash2, Edit2, ShoppingBag, Box, X, Code, Server, Wrench, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const CATEGORIES = ['Software', 'Hardware', 'Service', 'Subscription'];
+const CATEGORIES = ['CRM Services', 'HRMS Services', 'Customer Support', 'AWS & Cloud'];
 
 const Products = () => {
     const { user } = useAuth();
@@ -23,7 +24,7 @@ const Products = () => {
         name: '',
         sku: '',
         price: '',
-        category: 'Service',
+        category: 'CRM Services',
         description: '',
         stock: 0,
         image: ''
@@ -41,7 +42,7 @@ const Products = () => {
         try {
             const res = await axios.get('/api/products');
             console.log("Fetched Products Data:", res.data.data); // DEBUG LOG
-            setProducts(res.data.data);
+            setProducts(res.data.data || []);
             setLoading(false);
         } catch (err) {
             console.error("Failed to fetch products", err);
@@ -81,7 +82,7 @@ const Products = () => {
             name: product.name,
             sku: product.sku,
             price: product.price,
-            category: product.category,
+            category: product.category || 'CRM Services',
             description: product.description || '',
             stock: product.stock,
             image: product.image || ''
@@ -130,7 +131,7 @@ const Products = () => {
                 toast.success("Product created successfully!");
             }
             
-            setFormData({ name: '', sku: '', price: '', category: 'Service', description: '', stock: 0, image: '' });
+            setFormData({ name: '', sku: '', price: '', category: 'CRM Services', description: '', stock: 0, image: '' });
             setIsDrawerOpen(false);
             setEditingProduct(null);
             fetchProducts();
@@ -146,62 +147,62 @@ const Products = () => {
 
     const openCreateDrawer = () => {
         setEditingProduct(null);
-        setFormData({ name: '', sku: '', price: '', category: 'Service', description: '', stock: 0, image: '' });
+        setFormData({ name: '', sku: '', price: '', category: 'CRM Services', description: '', stock: 0, image: '' });
         setIsDrawerOpen(true);
     };
 
     const getCategoryColor = (cat) => {
         switch(cat) {
-            case 'Software': return { bg: '#fff7ed', text: '#ea580c' }; // Orange
-            case 'Hardware': return { bg: '#fefce8', text: '#a16207' }; // Yellow
-            case 'Service': return { bg: '#ecfdf5', text: '#059669' }; // Emerald
-            case 'Subscription': return { bg: '#faf5ff', text: '#7c3aed' }; // Purple
-            default: return { bg: '#f5f5f4', text: '#57534e' }; // Stone
+            case 'CRM Services': return { bg: '#e0e7ff', text: '#3730a3' }; // Indigo
+            case 'HRMS Services': return { bg: '#dcfce7', text: '#166534' }; // Emerald
+            case 'Customer Support': return { bg: '#ffedd5', text: '#c2410c' }; // Orange
+            case 'AWS & Cloud': return { bg: '#f0f9ff', text: '#0369a1' }; // Sky
+            default: return { bg: '#f1f5f9', text: '#334155' };
         }
     };
 
     const getCategoryIcon = (category) => {
-        const size = 48;
+        const size = 28;
         switch(category) {
-            case 'Software': return <Code size={size} className="text-orange-500/80" />;
-            case 'Hardware': return <Server size={size} className="text-yellow-600/80" />;
-            case 'Service': return <Wrench size={size} className="text-emerald-500/80" />;
-            case 'Subscription': return <Sparkles size={size} className="text-purple-500/80" />;
-            default: return <Package size={size} className="text-stone-400" />;
+            case 'CRM Services': return <Code size={size} className="text-indigo-600" />;
+            case 'HRMS Services': return <Wrench size={size} className="text-emerald-600" />;
+            case 'Customer Support': return <Sparkles size={size} className="text-orange-600" />;
+            case 'AWS & Cloud': return <Server size={size} className="text-sky-600" />;
+            default: return <Package size={size} className="text-slate-500" />;
         }
     };
 
     if (loading) return <LoadingSpinner message="Synchronizing Catalog..." />;
 
     return (
-        <div className="h-screen flex flex-col bg-stone-50/50 overflow-hidden font-sans">
+        <div className="h-screen flex flex-col bg-slate-50 overflow-hidden font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
             
             {/* Header */}
-            <div className="bg-white border-b border-stone-200 px-8 py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20">
+            <div className="bg-white border-b border-slate-200/80 px-8 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-20">
                 <div>
-                    <h1 className="text-3xl font-black text-stone-900 tracking-tight">Product Catalog <span className="text-amber-600">.</span></h1>
-                    <p className="text-stone-500 font-medium text-sm mt-1">Manage corporate services, licenses, and inventory.</p>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Product Catalog</h1>
+                    <p className="text-slate-500 font-medium text-xs sm:text-sm mt-0.5">Manage corporate services, software licenses, and inventory offerings.</p>
                 </div>
 
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <div className="relative flex-1 md:flex-none">
-                        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input 
                             type="text" 
-                            placeholder="Search catalog..." 
+                            placeholder="Search catalog by name, SKU..." 
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full md:w-64 pl-11 pr-4 py-2.5 rounded-xl border border-stone-200 text-sm font-bold text-stone-700 outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all placeholder:text-stone-400 placeholder:font-medium"
+                            className="w-full md:w-64 pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-2xs"
                         />
                     </div>
-                    
 
                     {user?.role === 'Admin' && (
                         <button 
-                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-amber-600 text-white rounded-xl text-sm font-black hover:bg-amber-700 transition-all shadow-lg shadow-amber-200"
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all shadow-xs cursor-pointer"
                             onClick={openCreateDrawer}
                         >
-                            <Plus size={18} strokeWidth={3} /> Add Product
+                            <Plus size={16} /> Add Product
                         </button>
                     )}
                 </div>
@@ -211,30 +212,28 @@ const Products = () => {
             <div className="flex-1 p-8 overflow-y-auto">
                 <div className="max-w-[1600px] mx-auto">
                     {/* Dynamic Category Filter Pills */}
-                    <div className="flex flex-wrap items-center gap-2 mb-8 bg-stone-100 p-1.5 rounded-2xl border border-stone-200/50 w-fit shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-8 bg-slate-200/60 p-1.5 rounded-2xl border border-slate-200/80 w-fit shrink-0">
                         <button 
                             onClick={() => setCategoryFilter('All')}
-                            className={`px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-300 border-none cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border-none cursor-pointer ${
                                 categoryFilter === 'All' 
-                                ? 'bg-stone-900 text-white shadow-md' 
-                                : 'text-stone-500 hover:text-stone-900 bg-transparent'
+                                ? 'bg-slate-900 text-white shadow-xs' 
+                                : 'text-slate-600 hover:text-slate-900 bg-transparent'
                             }`}
                         >
                             All Products
                         </button>
                         {CATEGORIES.map(c => {
-                            const catStyle = getCategoryColor(c);
                             const isActive = categoryFilter === c;
                             return (
                                 <button 
                                     key={c}
                                     onClick={() => setCategoryFilter(c)}
-                                    className={`px-5 py-2 rounded-xl text-xs font-black tracking-wider uppercase transition-all duration-300 border-none cursor-pointer ${
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border-none cursor-pointer ${
                                         isActive 
-                                        ? 'shadow-sm' 
-                                        : 'text-stone-500 hover:text-stone-900 bg-transparent'
+                                        ? 'bg-slate-900 text-white shadow-xs' 
+                                        : 'text-slate-600 hover:text-slate-900 bg-transparent'
                                     }`}
-                                    style={isActive ? { backgroundColor: catStyle.text, color: '#ffffff' } : {}}
                                 >
                                     {c}
                                 </button>
@@ -355,134 +354,149 @@ const Products = () => {
                 </div>
             </div>
 
-            {isDrawerOpen && (
-                <>
-                    <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[60] transition-opacity" onClick={() => setIsDrawerOpen(false)} />
-                    <div className="fixed inset-y-0 right-0 w-full max-w-[500px] bg-white z-[70] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500">
-                        <div className="p-8 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
-                            <div>
-                                <h2 className="text-2xl font-black text-stone-900 tracking-tight">{editingProduct ? 'Edit Product' : 'Add Product'}</h2>
-                                <p className="text-stone-500 font-medium text-sm mt-1">Configure your catalog items with precision.</p>
+            <AnimatePresence>
+                {isDrawerOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40" 
+                            onClick={() => setIsDrawerOpen(false)} 
+                        />
+                        <motion.div 
+                            initial={{ x: '100%', opacity: 0.5 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                            className="fixed top-0 right-0 bottom-0 w-full sm:w-[500px] bg-white z-50 shadow-2xl flex flex-col border-l border-slate-200/80"
+                        >
+                            <div className="p-8 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+                                <div>
+                                    <h2 className="text-2xl font-black text-stone-900 tracking-tight">{editingProduct ? 'Edit Product' : 'Add Product'}</h2>
+                                    <p className="text-stone-500 font-medium text-sm mt-1">Configure your catalog items with precision.</p>
+                                </div>
+                                <button onClick={() => setIsDrawerOpen(false)} className="w-10 h-10 rounded-xl border border-stone-200 flex items-center justify-center text-stone-400 hover:bg-white hover:text-stone-900 transition-all shadow-sm cursor-pointer">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <button onClick={() => setIsDrawerOpen(false)} className="w-10 h-10 rounded-xl border border-stone-200 flex items-center justify-center text-stone-400 hover:bg-white hover:text-stone-900 transition-all shadow-sm">
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        <div className="flex-1 overflow-y-auto p-8">
-                            <form id="productForm" onSubmit={handleSubmit} className="space-y-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Product Identity</label>
-                                    <input 
-                                        required 
-                                        type="text" 
-                                        name="name" 
-                                        value={formData.name} 
-                                        onChange={handleChange} 
-                                        className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-bold focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
-                                        placeholder="e.g. Enterprise Cloud License" 
-                                    />
-                                </div>
-                                
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Image URL</label>
-                                    <input 
-                                        type="url" 
-                                        name="image" 
-                                        value={formData.image} 
-                                        onChange={handleChange} 
-                                        className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-medium focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
-                                        placeholder="https://example.com/product-image.png" 
-                                    />
-                                     {formData.image && (
-                                        <div className="mt-2 h-24 w-full rounded-2xl border border-stone-200 overflow-hidden bg-stone-50">
-                                            <img src={formData.image} alt="Preview" className="h-full w-full object-cover" onError={(e) => e.target.style.display = 'none'} />
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6">
+                            <div className="flex-1 overflow-y-auto p-8">
+                                <form id="productForm" onSubmit={handleSubmit} className="space-y-8">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">SKU Reference</label>
+                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Product Identity</label>
                                         <input 
                                             required 
                                             type="text" 
-                                            name="sku" 
-                                            value={formData.sku} 
+                                            name="name" 
+                                            value={formData.name} 
                                             onChange={handleChange} 
-                                            className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black tracking-tight focus:border-amber-500 outline-none transition-all uppercase"
-                                            placeholder="SKU-001" 
+                                            className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-bold focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
+                                            placeholder="e.g. Enterprise Cloud License" 
                                         />
                                     </div>
+                                    
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Category</label>
-                                        <select 
-                                            name="category" 
-                                            value={formData.category} 
-                                            onChange={handleChange}
-                                            className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-white text-stone-700 font-bold focus:border-amber-500 outline-none transition-all appearance-none"
-                                        >
-                                            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
+                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Image URL</label>
+                                        <input 
+                                            type="url" 
+                                            name="image" 
+                                            value={formData.image} 
+                                            onChange={handleChange} 
+                                            className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-medium focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10 transition-all outline-none"
+                                            placeholder="https://example.com/product-image.png" 
+                                        />
+                                         {formData.image && (
+                                            <div className="mt-2 h-24 w-full rounded-2xl border border-stone-200 overflow-hidden bg-stone-50">
+                                                <img src={formData.image} alt="Preview" className="h-full w-full object-cover" onError={(e) => e.target.style.display = 'none'} />
+                                            </div>
+                                        )}
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Price (USD)</label>
-                                        <div className="relative">
-                                            <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 font-black">$</span>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">SKU Reference</label>
+                                            <input 
+                                                required 
+                                                type="text" 
+                                                name="sku" 
+                                                value={formData.sku} 
+                                                onChange={handleChange} 
+                                                className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black tracking-tight focus:border-amber-500 outline-none transition-all uppercase"
+                                                placeholder="SKU-001" 
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Category</label>
+                                            <select 
+                                                name="category" 
+                                                value={formData.category} 
+                                                onChange={handleChange}
+                                                className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-white text-stone-700 font-bold focus:border-amber-500 outline-none transition-all appearance-none"
+                                            >
+                                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Price (USD)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 font-black">$</span>
+                                                <input 
+                                                    required 
+                                                    type="number" 
+                                                    name="price" 
+                                                    value={formData.price} 
+                                                    onChange={handleChange} 
+                                                    min="0" 
+                                                    step="0.01"
+                                                    className="w-full pl-10 pr-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black focus:border-amber-500 outline-none transition-all"
+                                                    placeholder="0.00" 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Stock Availability</label>
                                             <input 
                                                 required 
                                                 type="number" 
-                                                name="price" 
-                                                value={formData.price} 
+                                                name="stock" 
+                                                value={formData.stock} 
                                                 onChange={handleChange} 
-                                                min="0" 
-                                                step="0.01"
-                                                className="w-full pl-10 pr-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-black focus:border-amber-500 outline-none transition-all"
-                                                placeholder="0.00" 
+                                                min="0"
+                                                className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-bold focus:border-amber-500 outline-none transition-all"
+                                                placeholder="0" 
                                             />
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Stock Availability</label>
-                                        <input 
-                                            required 
-                                            type="number" 
-                                            name="stock" 
-                                            value={formData.stock} 
+                                        <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Description</label>
+                                        <textarea 
+                                            name="description" 
+                                            value={formData.description} 
                                             onChange={handleChange} 
-                                            min="0"
-                                            className="w-full px-5 py-3.5 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-bold focus:border-amber-500 outline-none transition-all"
-                                            placeholder="0" 
+                                            rows={5}
+                                            className="w-full px-5 py-4 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-medium text-sm focus:border-amber-500 outline-none transition-all resize-none"
+                                            placeholder="Enter comprehensive product specifications..." 
                                         />
                                     </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1">Description</label>
-                                    <textarea 
-                                        name="description" 
-                                        value={formData.description} 
-                                        onChange={handleChange} 
-                                        rows={5}
-                                        className="w-full px-5 py-4 rounded-2xl border border-stone-200 bg-stone-50/30 text-stone-900 font-medium text-sm focus:border-amber-500 outline-none transition-all resize-none"
-                                        placeholder="Enter comprehensive product specifications..." 
-                                    />
-                                </div>
-                            </form>
-                        </div>
-                        
-                        <div className="p-8 border-t border-stone-100 bg-stone-50/50 flex gap-4">
-                            <button onClick={() => setIsDrawerOpen(false)} className="flex-1 px-6 py-4 rounded-2xl bg-white border border-stone-200 text-stone-600 font-black text-sm uppercase hover:bg-stone-100 transition-all">Cancel</button>
-                            <button form="productForm" type="submit" className="flex-[2] px-6 py-4 rounded-2xl bg-stone-900 text-white font-black text-sm uppercase tracking-widest hover:bg-amber-600 transition-all shadow-xl shadow-stone-200">
-                                {editingProduct ? 'Update Product' : 'Authorize Product'}
-                            </button>
-                        </div>
-                    </div>
-                </>
-            )}
+                                </form>
+                            </div>
+                            
+                            <div className="p-8 border-t border-stone-100 bg-stone-50/50 flex gap-4">
+                                <button onClick={() => setIsDrawerOpen(false)} className="flex-1 px-6 py-4 rounded-2xl bg-white border border-stone-200 text-stone-600 font-black text-sm uppercase hover:bg-stone-100 transition-all cursor-pointer">Cancel</button>
+                                <button form="productForm" type="submit" className="flex-[2] px-6 py-4 rounded-2xl bg-stone-900 text-white font-black text-sm uppercase tracking-widest hover:bg-amber-600 transition-all shadow-xl shadow-stone-200 cursor-pointer">
+                                    {editingProduct ? 'Update Product' : 'Authorize Product'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6">

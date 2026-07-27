@@ -5,8 +5,13 @@ const {
   getProductById,
   createProduct,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  seedProducts
 } = require('../controllers/productController');
+
+router
+  .route('/seed')
+  .post(seedProducts);
 
 router
   .route('/')

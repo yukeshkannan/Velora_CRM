@@ -9,7 +9,7 @@ exports.uploadFile = (req, res) => {
         return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
-    const fileUrl = req.file.location || `${req.protocol}://${req.get('host')}/api/documents/${req.file.filename}`;
+    const fileUrl = req.file.location || `/api/documents/${req.file.filename}`;
 
     res.status(201).json({
         success: true,

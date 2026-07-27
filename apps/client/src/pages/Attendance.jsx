@@ -93,7 +93,10 @@ const Attendance = () => {
         try {
             const endpoint = isManager ? '/api/leave' : `/api/leave?userId=${user.id}`;
             const res = await axios.get(endpoint);
-            setLeaves(res.data.data || []);
+            const data = res.data.data || [];
+            // Filter out orphan leave requests where user was deleted
+            const validLeaves = data.filter(l => l.userId != null && (typeof l.userId === 'object' ? l.userId._id : true));
+            setLeaves(validLeaves);
         } catch (err) {
             console.error("Fetch leaves error:", err);
         }
@@ -113,16 +116,33 @@ const Attendance = () => {
         }
     };
 
-    const handleDeleteLeave = async (leaveId) => {
-        if (window.confirm('Are you sure you want to delete this leave request?')) {
-            try {
-                await axios.delete(`/api/leave/${leaveId}`);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null); // { type: 'leave' | 'session', id: string }
+
+    const handleDeleteLeave = (leaveId) => {
+        setShowDeleteConfirm({ type: 'leave', id: leaveId });
+    };
+
+    const handleDeleteSession = (sessionId) => {
+        setShowDeleteConfirm({ type: 'session', id: sessionId });
+    };
+
+    const confirmDeleteAction = async () => {
+        if (!showDeleteConfirm) return;
+        try {
+            if (showDeleteConfirm.type === 'leave') {
+                await axios.delete(`/api/leave/${showDeleteConfirm.id}`);
                 toast.success('Leave request deleted successfully');
                 fetchLeaves();
-            } catch (err) {
-                console.error("Delete leave error:", err);
-                toast.error(err.response?.data?.message || 'Failed to delete leave request');
+            } else if (showDeleteConfirm.type === 'session') {
+                await axios.delete(`/api/attendance/${showDeleteConfirm.id}`);
+                toast.success('Session deleted successfully');
+                fetchAttendance();
             }
+            setShowDeleteConfirm(null);
+        } catch (err) {
+            console.error("Delete error:", err);
+            toast.error(err.response?.data?.message || 'Delete operation failed');
+            setShowDeleteConfirm(null);
         }
     };
 
@@ -424,19 +444,10 @@ const Attendance = () => {
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="p-5 text-right">
-                                                        <button 
-                                                            onClick={async (e) => {
+                                                    <td className="p-5 text-right">                                                         <button 
+                                                            onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                if(window.confirm('Delete this specific session?')) {
-                                                                    try {
-                                                                        await axios.delete(`/api/attendance/${record._id}`);
-                                                                        toast.success('Session deleted successfully');
-                                                                        fetchAttendance();
-                                                                    } catch (err) { 
-                                                                        toast.error(err.response?.data?.message || 'Failed to delete session'); 
-                                                                    }
-                                                                }
+                                                                handleDeleteSession(record._id);
                                                             }}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border-none bg-transparent cursor-pointer"
                                                         >
@@ -473,33 +484,36 @@ const Attendance = () => {
                     }}
                 />
 
-                <div className="max-w-7xl mx-auto px-8 py-12">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+                <div className="max-w-7xl mx-auto px-6 sm:px-8 py-8 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+                     style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                         <div>
-                            <h1 className="text-3xl font-black text-slate-900 tracking-tight">Attendance & Time Off</h1>
-                            <p className="text-slate-500 mt-1 text-sm font-medium">Grouped employee monitoring, session history, and leave approvals.</p>
+                            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Attendance & Time Off</h1>
+                            <p className="text-slate-500 mt-0.5 text-xs sm:text-sm font-medium">Grouped employee monitoring, session history, and leave approvals.</p>
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <button 
-                                onClick={() => setIsLeaveModalOpen(true)}
-                                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 border-none cursor-pointer"
-                            >
-                                <Plus size={16} /> Request Leave / PTO
-                            </button>
+                            {user?.role !== 'Admin' && (
+                                <button 
+                                    onClick={() => setIsLeaveModalOpen(true)}
+                                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs flex items-center gap-2 border-none cursor-pointer"
+                                >
+                                    <Plus size={16} /> Request Leave / PTO
+                                </button>
+                            )}
                             <div className="text-right pl-4 border-l border-slate-200">
-                                <p className="text-xs font-bold text-amber-600 uppercase tracking-wider">Today's Overview</p>
-                                <p className="text-sm font-black text-slate-800">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                <p className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Today's Overview</p>
+                                <p className="text-xs sm:text-sm font-extrabold text-slate-900">{new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
                             </div>
                         </div>
                     </div>
 
                     {/* Manager Tab Bar */}
-                    <div className="flex border-b border-slate-200 mb-8 bg-white rounded-2xl p-1.5 shadow-sm w-fit">
+                    <div className="flex border border-slate-200/80 mb-8 bg-slate-100 p-1.5 rounded-2xl shadow-2xs w-fit">
                         <button 
                             onClick={() => setActiveTab('attendance')}
                             className={`px-5 py-2 rounded-xl text-xs font-bold transition-all border-none cursor-pointer ${
-                                activeTab === 'attendance' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-transparent'
+                                activeTab === 'attendance' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 bg-transparent'
                             }`}
                         >
                             Attendance Register
@@ -507,12 +521,12 @@ const Attendance = () => {
                         <button 
                             onClick={() => setActiveTab('leaves')}
                             className={`px-5 py-2 rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center gap-2 ${
-                                activeTab === 'leaves' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 bg-transparent'
+                                activeTab === 'leaves' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 bg-transparent'
                             }`}
                         >
                             <span>Leave Approvals</span>
                             {leaves.filter(l => l.status === 'Pending').length > 0 && (
-                                <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-extrabold">
+                                <span className="w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-extrabold">
                                     {leaves.filter(l => l.status === 'Pending').length}
                                 </span>
                             )}
@@ -520,28 +534,28 @@ const Attendance = () => {
                     </div>
                     {/* LEAVE APPROVALS TAB */}
                     {activeTab === 'leaves' ? (
-                        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8 space-y-6">
+                        <div className="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-6 space-y-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-lg font-bold text-slate-900">Workforce Leave Requests</h3>
+                                    <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Workforce Leave Requests</h3>
                                     <p className="text-xs text-slate-500 font-medium mt-0.5">Review and approve or reject employee leave applications.</p>
                                 </div>
-                                <span className="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                                <span className="text-xs font-semibold px-3 py-1 bg-slate-100 text-slate-700 rounded-lg border border-slate-200/80">
                                     {leaves.length} Total Requests
                                 </span>
                             </div>
 
                             {leaves.length > 0 ? (
-                                <div className="overflow-x-auto rounded-2xl border border-slate-100">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 text-slate-500 text-[11px] font-black uppercase tracking-wider border-b border-slate-100">
+                                <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="bg-slate-100/70 border-b border-slate-200/80">
                                             <tr>
-                                                <th className="p-4 pl-6">Employee</th>
-                                                <th className="p-4">Leave Type</th>
-                                                <th className="p-4">Duration</th>
-                                                <th className="p-4">Reason</th>
-                                                <th className="p-4">Status</th>
-                                                <th className="p-4 text-right pr-6">Action</th>
+                                                <th className="p-4 pl-6 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Employee</th>
+                                                <th className="p-4 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Leave Type</th>
+                                                <th className="p-4 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Duration</th>
+                                                <th className="p-4 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Reason</th>
+                                                <th className="p-4 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Status</th>
+                                                <th className="p-4 text-right pr-6 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs">
@@ -551,6 +565,12 @@ const Attendance = () => {
                                                 const empRole = typeof leave.userId === 'object' ? leave.userId?.role : '';
                                                 const isHrApplicant = empRole === 'HR' || (typeof leave.userId === 'object' && (leave.userId?.department || '').toLowerCase().includes('hr'));
                                                 const isCurrentUserHrNotAdmin = user?.role === 'HR' && user?.role !== 'Admin';
+
+                                                const todayDate = new Date();
+                                                todayDate.setHours(0, 0, 0, 0);
+                                                const leaveEndDate = new Date(leave.endDate || leave.startDate);
+                                                leaveEndDate.setHours(23, 59, 59, 999);
+                                                const isLeaveExpired = leaveEndDate < todayDate;
 
                                                 return (
                                                     <tr key={leave._id} className="hover:bg-slate-50/60 transition-colors">
@@ -600,7 +620,20 @@ const Attendance = () => {
                                                             )}
                                                         </td>
                                                         <td className="p-4 text-right pr-6">
-                                                            {isHrApplicant && isCurrentUserHrNotAdmin ? (
+                                                            {isLeaveExpired ? (
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200/80">
+                                                                        Expired
+                                                                    </span>
+                                                                    <button 
+                                                                        onClick={() => handleDeleteLeave(leave._id)}
+                                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                                                        title="Delete leave request"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            ) : isHrApplicant && isCurrentUserHrNotAdmin ? (
                                                                 <div className="flex items-center justify-end gap-2">
                                                                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
                                                                         <Lock size={12} /> Admin Approval Required
@@ -854,6 +887,27 @@ const Attendance = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Delete Confirmation Modal for Manager View */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+                       <div className="bg-white p-6 rounded-2xl w-full max-w-sm text-center shadow-2xl border border-slate-200/80">
+                            <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                                <Trash2 size={24} />
+                            </div>
+                            <h2 className="text-lg font-extrabold text-slate-900 mb-1">
+                                {showDeleteConfirm.type === 'leave' ? 'Delete Leave Request?' : 'Delete Attendance Session?'}
+                            </h2>
+                            <p className="text-slate-500 text-xs font-medium mb-6 leading-relaxed">
+                                Are you sure you want to delete this record? This action cannot be undone.
+                            </p>
+                            <div className="flex gap-3">
+                                <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                                <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition-colors cursor-pointer" onClick={confirmDeleteAction}>Delete</button>
+                            </div>
+                       </div>
+                    </div>
+                )}
             </div>
         );
     }
@@ -904,12 +958,14 @@ const Attendance = () => {
                         <h1 className="text-3xl font-black text-slate-900 tracking-tight">My Attendance & Time Off</h1>
                         <p className="text-slate-500 mt-1 text-sm font-medium">Manage your active work session and PTO leave applications.</p>
                     </div>
-                    <button 
-                        onClick={() => setIsLeaveModalOpen(true)}
-                        className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 border-none cursor-pointer"
-                    >
-                        <Plus size={16} /> Request Leave / PTO
-                    </button>
+                    {user?.role !== 'Admin' && (
+                        <button 
+                            onClick={() => setIsLeaveModalOpen(true)}
+                            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 border-none cursor-pointer"
+                        >
+                            <Plus size={16} /> Request Leave / PTO
+                        </button>
+                    )}
                 </div>
 
                 {/* Leave Balances Grid */}
@@ -1044,6 +1100,26 @@ const Attendance = () => {
                     ))}
                 </div>
             </div>
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+                   <div className="bg-white p-6 rounded-2xl w-full max-w-sm text-center shadow-2xl border border-slate-200/80">
+                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                            <Trash2 size={24} />
+                        </div>
+                        <h2 className="text-lg font-extrabold text-slate-900 mb-1">
+                            {showDeleteConfirm.type === 'leave' ? 'Delete Leave Request?' : 'Delete Attendance Session?'}
+                        </h2>
+                        <p className="text-slate-500 text-xs font-medium mb-6 leading-relaxed">
+                            Are you sure you want to delete this record? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition-colors cursor-pointer" onClick={confirmDeleteAction}>Delete</button>
+                        </div>
+                   </div>
+                </div>
+            )}
         </div>
     );
 };

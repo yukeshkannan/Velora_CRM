@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
     Clock, Download, MessageSquare, Briefcase, 
     ChevronRight, Calendar, CheckCircle, CreditCard,
-    AlertCircle
+    AlertCircle, LayoutGrid, CheckCircle2, TrendingUp,
+    Shield, UserCheck, PhoneCall, ExternalLink, Filter,
+    Layers, ArrowUpRight, Plus, HelpCircle, FileText, Check,
+    Sparkles, ArrowRight, Zap, ShieldCheck, FileSpreadsheet,
+    Activity, Globe, User, Mail
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -14,6 +19,8 @@ const ClientDashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('engagements'); // 'engagements' | 'tickets' | 'invoices'
+    const [selectedProject, setSelectedProject] = useState(null);
     const [clientData, setClientData] = useState({
         contact: null,
         projects: [],
@@ -25,64 +32,69 @@ const ClientDashboard = () => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const isClient = user?.role === 'Client';
-                let contact = null;
-                let myProjects = [];
-                let myMilestones = [];
-                let myInvoices = [];
-                let myTickets = [];
-
-                if (isClient) {
-                    // Clients only query invoices and tickets (allowed by gateway)
-                    const [invRes, ticketRes] = await Promise.all([
-                        axios.get(`/api/invoices?email=${user?.email}`),
-                        axios.get(`/api/tickets?email=${user?.email}`)
-                    ]);
-                    myInvoices = invRes.data.data || [];
-                    myTickets = ticketRes.data.data || [];
-                } else {
-                    // Staff queries contacts, projects, tasks, invoices, and tickets
-                    const contactsRes = await axios.get('/api/contacts?email=' + user?.email);
-                    const allContacts = (contactsRes.data.data || []);
-                    contact = allContacts.find(c => c.email === user?.email);
-
-                    const invoiceReq = axios.get(`/api/invoices?email=${user?.email}`);
-                    const ticketReq = axios.get(`/api/tickets?email=${user?.email}`);
-                    
-                    const projectReq = contact 
-                        ? axios.get(`/api/opportunities?contactId=${contact._id}`) 
-                        : Promise.resolve({ data: { data: [] } });
-
-                    const taskReq = contact 
-                        ? axios.get(`/api/tasks?contactId=${contact._id}`) 
-                        : Promise.resolve({ data: { data: [] } });
-
-                    const [invRes, ticketRes, oppRes, taskRes] = await Promise.all([
-                        invoiceReq, ticketReq, projectReq, taskReq
-                    ]);
-
-                    myInvoices = invRes.data.data || [];
-                    myTickets = ticketRes.data.data || [];
-                    myProjects = (oppRes.data.data || []).filter(o => o.stage !== 'Lost');
-                    myMilestones = taskRes.data.data || [];
+                if (!user?.email) {
+                    setLoading(false);
+                    return;
                 }
+
+                // 1. Fetch Contact record by email
+                const contactsRes = await axios.get('/api/contacts?email=' + encodeURIComponent(user.email));
+                const allContacts = contactsRes.data.data || [];
+                const contact = allContacts[0] || null;
+
+                // 2. Parallel fetch invoices, tickets, opportunities, and tasks
+                const invReq = axios.get(`/api/invoices?email=${encodeURIComponent(user.email)}`);
+                const ticketReq = axios.get(`/api/tickets?email=${encodeURIComponent(user.email)}`);
+                const oppReq = contact 
+                    ? axios.get(`/api/opportunities?contactId=${contact._id}`) 
+                    : Promise.resolve({ data: { data: [] } });
+                const taskReq = contact 
+                    ? axios.get(`/api/tasks?contactId=${contact._id}`) 
+                    : Promise.resolve({ data: { data: [] } });
+
+                const [invRes, ticketRes, oppRes, taskRes] = await Promise.allSettled([
+                    invReq, ticketReq, oppReq, taskReq
+                ]);
+
+                const myInvoices = invRes.status === 'fulfilled' ? (invRes.value.data.data || []) : [];
+                const myTickets = ticketRes.status === 'fulfilled' ? (ticketRes.value.data.data || []) : [];
+                
+                let rawProjects = oppRes.status === 'fulfilled' ? (oppRes.value.data.data || []) : [];
+                let myProjects = rawProjects;
+
+                if (contact) {
+                    myProjects = rawProjects.filter(o => 
+                        String(o.contactId) === String(contact._id) || 
+                        (o.description && o.description.toLowerCase().includes(user.email.toLowerCase()))
+                    );
+                } else {
+                    myProjects = rawProjects.filter(o => o.description && o.description.toLowerCase().includes(user.email.toLowerCase()));
+                }
+                
+                // Exclude cancelled/lost deals
+                myProjects = myProjects.filter(o => o.stage !== 'Cancelled' && o.stage !== 'Lost');
+                const myMilestones = taskRes.status === 'fulfilled' ? (taskRes.value.data.data || []) : [];
 
                 setClientData({
                     contact,
                     projects: myProjects,
                     milestones: myMilestones,
                     invoices: myInvoices,
-                    tickets: myTickets,
-                    noContact: false 
+                    tickets: myTickets
                 });
+
+                if (myProjects.length > 0 && !selectedProject) {
+                    setSelectedProject(myProjects[0]);
+                }
+
                 setLoading(false);
             } catch (err) {
-                console.error("Dashboard Load Error:", err);
+                console.error("Failed to fetch client dashboard data:", err);
                 setLoading(false);
             }
         };
 
-        if (user?.email) fetchDashboardData();
+        fetchDashboardData();
     }, [user]);
 
     const handleExport = () => {
@@ -97,245 +109,425 @@ const ClientDashboard = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `payment_details_${user?.name}.csv`;
+        a.download = `financial_ledger_${user?.name || 'client'}.csv`;
         a.click();
-        toast.success("Finance details exported successfully.");
+        toast.success("Financial ledger downloaded successfully.");
     };
 
-    if (loading) return <LoadingSpinner message="Loading your workspace..." />;
+    if (loading) return <LoadingSpinner message="Opening your executive portal..." />;
 
-    if (clientData.noContact) {
-        return (
-            <div className="p-8 text-center bg-white rounded-3xl m-8 border-2 border-dashed border-stone-200">
-                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertCircle size={32} />
-                </div>
-                <h2 className="text-xl font-bold text-stone-900 mb-2">Workspace Inactive</h2>
-                <p className="text-stone-500 max-w-sm mx-auto">
-                    We couldn't find a client record for {user?.email}. Please contact support to link your corporate identity.
-                </p>
-            </div>
-        );
-    }
-
-    const totalInvoiced = clientData.invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
-    const activeProject = clientData.projects[0];
+    const totalInvoiced = clientData.invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const totalPaid = clientData.invoices.filter(i => i.status === 'Paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
+    const pendingBalance = totalInvoiced - totalPaid;
+    const openTicketsCount = clientData.tickets.filter(t => t.status !== 'Closed' && t.status !== 'Resolved').length;
 
     return (
-        <div className="p-8 space-y-10 min-h-screen bg-white font-sans">
+        <div className="min-h-screen flex flex-col bg-slate-50 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
             
-            {/* Header Section */}
-            <div className="flex justify-between items-end">
-                <div>
-                    <h1 className="text-3xl font-black text-stone-900 tracking-tight">Client Hub <span className="text-amber-600">.</span></h1>
-                    <p className="text-stone-500 font-medium mt-1">Hello, {user?.name}. Manage your projects and billing here.</p>
-                </div>
-                <button 
-                    onClick={handleExport}
-                    className="flex items-center gap-2 px-6 py-3 bg-stone-900 text-white rounded-xl font-bold text-sm hover:bg-amber-600 transition-all shadow-xl shadow-stone-200"
-                >
-                    <Download size={18} /> Export Finance Details
-                </button>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard 
-                    title="Active Projects" 
-                    value={clientData.projects.length} 
-                    icon={<Briefcase className="text-amber-600" />} 
-                    sub="Running deliveries"
-                    path="/app/dashboard"
-                />
-                <StatCard 
-                    title="Total Billed" 
-                    value={`$${totalInvoiced.toLocaleString()}`} 
-                    icon={<CreditCard className="text-emerald-600" />} 
-                    sub={`${clientData.invoices.length} invoices`}
-                    path="/app/invoices"
-                />
-                <StatCard 
-                    title="Open Tickets" 
-                    value={clientData.tickets.filter(t => t.status !== 'Closed').length} 
-                    icon={<MessageSquare className="text-blue-600" />} 
-                    sub="Support required"
-                    path="/app/tickets"
-                />
-                <StatCard 
-                    title="Completed Tasks" 
-                    value={clientData.milestones.filter(m => m.status === 'Completed').length} 
-                    icon={<CheckCircle className="text-stone-600" />} 
-                    sub="Total efficiency"
-                    path="/app/dashboard"
-                />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* Active Project View */}
-                <div className="lg:col-span-2 space-y-8">
-                     <ActiveProjectsSection projects={clientData.projects} milestones={clientData.milestones} />
-                </div>
-
-                {/* Billing Summary Bar */}
-                <div className="space-y-6">
-                    <div 
-                        onClick={() => navigate('/app/invoices')}
-                        className="bg-gradient-to-br from-[#0C111D] to-[#04060B] border border-zinc-800/80 rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden group cursor-pointer hover:border-[#D4AF37]/40 transition-all duration-500"
-                    >
-                        {/* Glowing backdrops */}
-                        <div className="absolute top-[-20%] right-[-20%] w-[65%] h-[65%] bg-[#D4AF37]/4 rounded-full blur-[60px] group-hover:bg-[#D4AF37]/6 transition-all duration-500 pointer-events-none" />
-                        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#0B409C]/4 rounded-full blur-[60px] pointer-events-none" />
-
-                        {/* Credit Card Bezel Icon */}
-                        <div className="absolute top-8 right-8 w-11 h-11 bg-[#D4AF37]/10 border border-[#D4AF37]/20 rounded-2xl flex items-center justify-center text-[#D4AF37] group-hover:scale-110 group-hover:bg-[#D4AF37]/15 transition-all duration-500">
-                             <CreditCard size={20} />
-                        </div>
-
-                        <h3 className="text-xl font-serif font-normal text-left text-zinc-100 mb-8 relative z-10 tracking-tight">
-                            Financial <br/> Summary
-                        </h3>
-                        
-                        <div className="space-y-6 relative z-10">
-                            <div className="text-left">
-                                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5">Outstanding Dues</p>
-                                <p className="text-3xl font-serif font-light text-[#D4AF37] tracking-wide">
-                                    ${clientData.invoices.filter(i => i.status !== 'Paid').reduce((s, i) => s + i.totalAmount, 0).toLocaleString()}
-                                </p>
-                            </div>
-                            
-                            <div className="h-px bg-zinc-800/60 w-full" />
-                            
-                            <div className="space-y-3">
-                                {clientData.invoices.slice(0, 2).map((inv, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-xs py-1.5 border-b border-zinc-900/60 last:border-b-0">
-                                        <div className="flex flex-col text-left">
-                                            <span className="text-zinc-400 font-bold">Due {new Date(inv.dueDate).toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2.5">
-                                            <span className="font-bold text-zinc-200">${inv.totalAmount.toLocaleString()}</span>
-                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
-                                                inv.status === 'Paid' 
-                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' 
-                                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/10'
-                                            }`}>
-                                                {inv.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <button className="w-full py-3 bg-[#111622] hover:bg-gradient-to-r hover:from-[#0B409C] hover:to-[#093582] text-zinc-300 hover:text-white border border-zinc-800/80 hover:border-transparent rounded-2xl text-[9px] font-bold uppercase tracking-widest hover:shadow-[0_8px_20px_rgba(11,64,156,0.15)] active:scale-98 transition-all duration-300 mt-2 cursor-pointer">
-                                View Full Ledger
-                            </button>
-                        </div>
+            {/* Top Glassmorphic Command Header */}
+            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center shadow-xs border border-slate-800 shrink-0">
+                        {user?.name?.charAt(0) || 'C'}
                     </div>
-
-                    <div 
-                        onClick={() => navigate('/app/tickets')}
-                        className="bg-amber-50 rounded-[40px] p-8 border border-amber-200 cursor-pointer hover:border-amber-400 transition-all"
-                    >
-                        <div className="flex items-center gap-4 mb-4">
-                             <div className="w-12 h-12 bg-amber-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
-                                <MessageSquare size={20} />
-                             </div>
-                             <div>
-                                <p className="text-sm font-black text-stone-900">Need Assistance?</p>
-                                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">SLA Response: 4 Hrs</p>
-                             </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                                {user?.name || 'Corporate Account'}
+                            </h1>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Client
+                            </span>
                         </div>
-                        <p className="text-xs text-amber-800 leading-relaxed font-medium">
-                            Your dedicated account manager is active. Open a ticket for high-priority requests.
+                        <p className="text-xs text-slate-500 font-medium mt-0.5 flex items-center gap-2">
+                            <span>{user?.email}</span>
+                            <span>•</span>
+                            <span className="text-slate-700 font-bold">Enterprise Client Portal</span>
                         </p>
                     </div>
                 </div>
-            </div>
 
-        </div>
-    );
-};
-
-const StatCard = ({ title, value, icon, sub, path }) => {
-    const navigate = useNavigate();
-    return (
-        <div 
-            onClick={() => path && navigate(path)}
-            className="bg-white p-8 rounded-[40px] border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group"
-        >
-            <div className="flex justify-between items-start mb-6">
-                <div className="w-12 h-12 bg-stone-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-50 group-hover:text-amber-600 transition-colors">
-                    {icon}
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => navigate('/app/tickets')}
+                        className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center gap-2 border border-slate-200/80 cursor-pointer shadow-2xs"
+                    >
+                        <Plus size={15} /> Raise Support Ticket
+                    </button>
+                    <button 
+                        onClick={handleExport}
+                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer border-none"
+                    >
+                        <Download size={15} /> Export Ledger
+                    </button>
                 </div>
             </div>
-            <h3 className="text-3xl font-black text-stone-900 mb-1 tracking-tight">{value}</h3>
-            <div className="flex flex-col">
-                <span className="text-[10px] font-black text-stone-400 uppercase tracking-[0.2em]">{title}</span>
-                <span className="text-[9px] font-bold text-stone-300 uppercase tracking-widest mt-0.5">{sub}</span>
-            </div>
-        </div>
-    );
-};
 
-/* Helper to generate mock modules based on stage */
-const generateModules = (stage) => {
-    const modules = [
-         { name: 'Requirements Analysis', status: 'Completed' },
-         { name: 'UI/UX Design', status: 'Completed' },
-         { name: 'System Architecture', status: 'Completed' },
-         { name: 'Database Setup', status: 'In Progress' },
-         { name: 'API Development', status: 'Pending' },
-         { name: 'Frontend Integration', status: 'Pending' },
-         { name: 'Quality Assurance', status: 'Pending' },
-         { name: 'UAT Deployment', status: 'Pending' },
-         { name: 'Final Release', status: 'Pending' }
-    ];
-
-    if (stage === 'New') return modules.map(m => ({...m, status: 'Pending'}));
-    if (stage === 'Discovery') return modules.map((m, i) => i < 2 ? {...m, status: 'Completed'} : {...m, status: 'Pending'});
-    if (stage === 'Proposal') return modules.map((m, i) => i < 3 ? {...m, status: 'Completed'} : {...m, status: 'Pending'});
-    if (stage === 'Negotiation') return modules.map((m, i) => i < 4 ? {...m, status: 'Completed'} : {...m, status: 'Pending'});
-    if (stage === 'Won') return modules.map((m, i) => i < 6 ? {...m, status: 'Completed'} : i === 6 ? {...m, status: 'In Progress'} : {...m, status: 'Pending'});
-    
-    return modules;
-};
-
-const ActiveProjectsSection = ({ projects }) => {
-    const [selectedProject, setSelectedProject] = useState(null);
-
-    // List View
-    if (!selectedProject) {
-        return (
-            <div className="bg-stone-50 rounded-[48px] p-10 border border-stone-100 min-h-[500px]">
-                 <div className="mb-10">
-                    <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 block">Your Portfolio</span>
-                    <h3 className="text-2xl font-black text-stone-900 uppercase italic">
-                        Active Engagements ({projects.length})
-                    </h3>
-                </div>
+            {/* Main Content Grid */}
+            <div className="flex-1 p-6 sm:p-8 max-w-[1600px] w-full mx-auto space-y-6 sm:space-y-8">
                 
-                <div className="grid grid-cols-1 gap-4">
-                    {projects.length === 0 ? (
-                        <div className="text-center py-20 text-stone-400 font-bold">No active projects found.</div>
-                    ) : (
-                        projects.map(proj => {
-                            const progKey = proj.stage === 'New' ? 5 : proj.stage === 'Won' ? 65 : 30;
-                             return (
-                                <div key={proj._id} onClick={() => setSelectedProject(proj)} className="bg-white p-6 rounded-3xl border border-stone-100 hover:border-amber-500/30 hover:shadow-xl transition-all cursor-pointer group">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h4 className="text-lg font-black text-stone-900">{proj.title}</h4>
-                                        <span className="text-[10px] bg-stone-100 px-3 py-1 rounded-full font-black uppercase tracking-widest text-stone-500">{proj.stage}</span>
+                {/* Executive KPI Overview Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <KpiCard 
+                        title="Active Projects" 
+                        value={clientData.projects.length} 
+                        icon={<Briefcase size={20} className="text-slate-900" />}
+                        sub={`${clientData.projects.length} Running Contracts`}
+                        badge="Portfolio"
+                        onClick={() => setActiveTab('engagements')}
+                    />
+                    <KpiCard 
+                        title="Total Investment" 
+                        value={`$${totalInvoiced.toLocaleString()}`} 
+                        icon={<CreditCard size={20} className="text-emerald-700" />}
+                        sub={`$${totalPaid.toLocaleString()} Paid to Date`}
+                        badge="Financial"
+                        onClick={() => setActiveTab('invoices')}
+                    />
+                    <KpiCard 
+                        title="Pending Balance" 
+                        value={`$${pendingBalance.toLocaleString()}`} 
+                        icon={<Clock size={20} className={pendingBalance > 0 ? "text-amber-700" : "text-emerald-700"} />}
+                        sub={pendingBalance > 0 ? "Due Invoices Pending" : "Zero Balance Outstanding"}
+                        badge={pendingBalance > 0 ? "Due" : "Cleared"}
+                        onClick={() => setActiveTab('invoices')}
+                    />
+                    <KpiCard 
+                        title="Support Requests" 
+                        value={openTicketsCount} 
+                        icon={<MessageSquare size={20} className="text-indigo-700" />}
+                        sub="Guaranteed SLA < 4 Hours"
+                        badge={openTicketsCount > 0 ? `${openTicketsCount} Open` : "All Clear"}
+                        onClick={() => setActiveTab('tickets')}
+                    />
+                </div>
+
+                {/* Main Workspace Dual Column */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+                    
+                    {/* Left Column (8 cols): Main Interactive Hub */}
+                    <div className="lg:col-span-8 space-y-6">
+                        
+                        {/* Tab Selector Pill */}
+                        <div className="bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setActiveTab('engagements')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                        activeTab === 'engagements'
+                                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                                            : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Active Engagements ({clientData.projects.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('tickets')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                        activeTab === 'tickets'
+                                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                                            : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Support Requests ({clientData.tickets.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('invoices')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                                        activeTab === 'invoices'
+                                            ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                                            : 'bg-transparent text-slate-600 border-transparent hover:bg-slate-100 hover:text-slate-900'
+                                    }`}
+                                >
+                                    Billing & Invoices ({clientData.invoices.length})
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ENGAGEMENTS TAB */}
+                        {activeTab === 'engagements' && (
+                            <EngagementsView 
+                                projects={clientData.projects} 
+                                selectedProject={selectedProject}
+                                setSelectedProject={setSelectedProject}
+                            />
+                        )}
+
+                        {/* SUPPORT TICKETS TAB */}
+                        {activeTab === 'tickets' && (
+                            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-slate-900">Support Requests Ledger</h3>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Track active support inquiries and resolution updates.</p>
                                     </div>
-                                    <div className="flex justify-between items-end">
-                                        <div className="text-xs text-stone-400 font-bold">Last update: Recent</div>
-                                        <div className="flex items-center gap-2 text-xs font-black text-amber-600 group-hover:translate-x-1 transition-transform">
-                                            View Progress <ChevronRight size={14} />
+                                    <button 
+                                        onClick={() => navigate('/app/tickets')}
+                                        className="px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border-none"
+                                    >
+                                        Open Tickets Portal <ChevronRight size={14} />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {clientData.tickets.length === 0 ? (
+                                        <div className="text-center py-16 text-slate-400 font-bold text-sm">
+                                            No support tickets filed yet.
                                         </div>
+                                    ) : (
+                                        clientData.tickets.map(ticket => (
+                                            <div key={ticket._id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
+                                                            ticket.priority === 'Critical' || ticket.priority === 'High'
+                                                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                                                : 'bg-slate-200 text-slate-700'
+                                                        }`}>
+                                                            {ticket.priority || 'Medium'} Priority
+                                                        </span>
+                                                        <span className="text-xs font-medium text-slate-400">• Filed {new Date(ticket.createdAt || Date.now()).toLocaleDateString()}</span>
+                                                    </div>
+                                                    <h4 className="text-sm font-extrabold text-slate-900 truncate">{ticket.title}</h4>
+                                                    <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">{ticket.description}</p>
+                                                </div>
+                                                <span className={`px-3 py-1 rounded-full text-xs font-extrabold shrink-0 ${
+                                                    ticket.status === 'Resolved' || ticket.status === 'Closed'
+                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                }`}>
+                                                    {ticket.status}
+                                                </span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* INVOICES TAB */}
+                        {activeTab === 'invoices' && (
+                            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                                    <div>
+                                        <h3 className="text-lg font-extrabold text-slate-900">Financial Invoices Ledger</h3>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Full record of corporate billing and payment receipts.</p>
                                     </div>
-                                    <div className="mt-4 h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-amber-500" style={{ width: `${progKey}%` }}></div>
+                                    <button 
+                                        onClick={() => navigate('/app/invoices')}
+                                        className="px-3.5 py-1.5 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border-none"
+                                    >
+                                        Full Invoices Module <ChevronRight size={14} />
+                                    </button>
+                                </div>
+
+                                <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="bg-slate-100/70 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                            <tr>
+                                                <th className="p-3.5 pl-4">Invoice ID</th>
+                                                <th className="p-3.5">Due Date</th>
+                                                <th className="p-3.5">Amount</th>
+                                                <th className="p-3.5 text-right pr-4">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-xs font-medium">
+                                            {clientData.invoices.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="p-8 text-center text-slate-400 font-bold">No invoices generated yet.</td>
+                                                </tr>
+                                            ) : (
+                                                clientData.invoices.map(inv => (
+                                                    <tr key={inv._id} className="hover:bg-slate-50/60 transition-colors">
+                                                        <td className="p-3.5 pl-4 font-bold text-slate-900">{inv._id?.slice(-8)}</td>
+                                                        <td className="p-3.5 text-slate-500">{new Date(inv.dueDate).toLocaleDateString()}</td>
+                                                        <td className="p-3.5 font-extrabold text-slate-900">${inv.totalAmount?.toLocaleString()}</td>
+                                                        <td className="p-3.5 text-right pr-4">
+                                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                                inv.status === 'Paid'
+                                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                            }`}>
+                                                                {inv.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Right Column (4 cols): Account Lead & Billing Card */}
+                    <div className="lg:col-span-4 space-y-6">
+                        
+                        {/* Dark Slate Financial Summary Card */}
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-white shadow-xl space-y-6">
+                            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                                <div>
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Ledger Overview</span>
+                                    <h3 className="text-lg font-extrabold text-white mt-0.5">Account Summary</h3>
+                                </div>
+                                <div className="w-10 h-10 bg-slate-800 text-emerald-400 rounded-xl flex items-center justify-center border border-slate-700">
+                                     <CreditCard size={18} />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-baseline">
+                                    <div>
+                                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Pending Balance</p>
+                                        <p className="text-3xl font-black text-emerald-400 tracking-tight mt-1">
+                                            ${pendingBalance.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase">Total Investment</p>
+                                        <p className="text-sm font-extrabold text-white">${totalInvoiced.toLocaleString()}</p>
                                     </div>
                                 </div>
-                             )
+                                
+                                <div className="h-px bg-slate-800 w-full" />
+                                
+                                <button 
+                                    onClick={() => navigate('/app/invoices')}
+                                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer border border-slate-700 flex items-center justify-center gap-2"
+                                >
+                                    Manage Invoices & Ledger <ChevronRight size={14} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Dedicated Client Success Manager Card */}
+                        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">
+                            <div className="flex items-center gap-3">
+                                 <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white font-black text-lg flex items-center justify-center border border-slate-800 shrink-0">
+                                    <UserCheck size={20} />
+                                 </div>
+                                 <div>
+                                    <h4 className="text-sm font-extrabold text-slate-900">Assigned Solutions Lead</h4>
+                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">SLA Response: &lt; 4 Hours</span>
+                                 </div>
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                                Your assigned engagement lead is active. Request a technical review or raise an inquiry ticket directly.
+                            </p>
+                            <button 
+                                onClick={() => navigate('/app/tickets')}
+                                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center justify-center gap-2"
+                            >
+                                <MessageSquare size={14} /> Contact Solutions Lead
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    );
+};
+
+const KpiCard = ({ title, value, icon, sub, badge, onClick }) => (
+    <div 
+        onClick={onClick}
+        className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-slate-300 transition-all cursor-pointer group flex items-center justify-between"
+    >
+        <div>
+            <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-400">{title}</span>
+                {badge && (
+                    <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                        {badge}
+                    </span>
+                )}
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{value}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">{sub}</p>
+        </div>
+        <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-center font-bold group-hover:scale-105 transition-transform shrink-0">
+            {icon}
+        </div>
+    </div>
+);
+
+const generatePhases = (stage) => {
+    const phases = [
+        { id: 1, name: 'Phase 1: Requirements & Discovery', status: 'Completed', date: 'Q1 Deliverable' },
+        { id: 2, name: 'Phase 2: UI/UX Spec & Architecture', status: 'Completed', date: 'Q1 Deliverable' },
+        { id: 3, name: 'Phase 3: Core API Services & DB', status: 'In Progress', date: 'Active Build' },
+        { id: 4, name: 'Phase 4: Client Web Portal Integration', status: 'In Progress', date: 'Active Build' },
+        { id: 5, name: 'Phase 5: Security Audit & QA Testing', status: 'Upcoming', date: 'Milestone 4' },
+        { id: 6, name: 'Phase 6: Production Launch & Handoff', status: 'Upcoming', date: 'Milestone 5' }
+    ];
+
+    if (stage === 'New') return phases.map(p => ({...p, status: 'Upcoming'}));
+    if (stage === 'Discovery') return phases.map((p, i) => i < 2 ? {...p, status: 'Completed'} : {...p, status: 'Upcoming'});
+    if (stage === 'Proposal') return phases.map((p, i) => i < 3 ? {...p, status: 'Completed'} : {...p, status: 'Upcoming'});
+    if (stage === 'Won' || stage === 'Completed') return phases.map((p, i) => i < 4 ? {...p, status: 'Completed'} : i === 4 ? {...p, status: 'In Progress'} : {...p, status: 'Upcoming'});
+
+    return phases;
+};
+
+const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
+    
+    // Project List View
+    if (!selectedProject) {
+        return (
+            <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
+                <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <div>
+                        <h3 className="text-lg font-extrabold text-slate-900">Active Corporate Deliverables</h3>
+                        <p className="text-xs text-slate-500 font-medium mt-0.5">Select a project to inspect milestone phases & deliverable status.</p>
+                    </div>
+                    <span className="text-xs font-bold px-3 py-1 bg-slate-100 text-slate-700 rounded-full border border-slate-200">
+                        {projects.length} Running Projects
+                    </span>
+                </div>
+
+                <div className="space-y-4">
+                    {projects.length === 0 ? (
+                        <div className="text-center py-16 text-slate-400 font-bold text-sm">No active corporate projects assigned.</div>
+                    ) : (
+                        projects.map(proj => {
+                            const progKey = proj.stage === 'New' ? 15 : proj.stage === 'Won' ? 75 : 45;
+                            return (
+                                <div 
+                                    key={proj._id} 
+                                    onClick={() => setSelectedProject(proj)} 
+                                    className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/60 hover:border-slate-300 hover:bg-slate-100/50 transition-all cursor-pointer group space-y-3"
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center">
+                                                {proj.title?.charAt(0) || 'P'}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-base font-extrabold text-slate-900">{proj.title}</h4>
+                                                <p className="text-xs text-slate-400 font-medium">Corporate Contract Engagement</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-wider">
+                                            {proj.stage}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium pt-1">
+                                        <span>Completion Status</span>
+                                        <span className="flex items-center gap-1 font-bold text-slate-900 group-hover:translate-x-1 transition-transform">
+                                            Inspect Milestones Roadmap <ChevronRight size={14} />
+                                        </span>
+                                    </div>
+
+                                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-slate-900 rounded-full transition-all duration-500" style={{ width: `${progKey}%` }}></div>
+                                    </div>
+                                </div>
+                            );
                         })
                     )}
                 </div>
@@ -343,66 +535,70 @@ const ActiveProjectsSection = ({ projects }) => {
         );
     }
 
-    // Detail View
-    const modules = selectedProject.modules && selectedProject.modules.length > 0 
-        ? selectedProject.modules.map(m => ({
-            ...m,
-            status: m.clientStatus || 'Pending' // Use clientStatus for display
-        }))
-        : generateModules(selectedProject.stage);
-
-    const completedCount = modules.filter(m => m.status === 'Completed').length;
-    const progress = Math.round((completedCount / modules.length) * 100);
+    // Detailed Project Phases View
+    const phases = generatePhases(selectedProject.stage);
+    const completedPhases = phases.filter(p => p.status === 'Completed').length;
+    const progressPercent = Math.round((completedPhases / phases.length) * 100);
 
     return (
-        <div className="bg-stone-50 rounded-[48px] p-10 border border-stone-100 min-h-[500px] animate-in slide-in-from-right duration-300">
-             <button onClick={() => setSelectedProject(null)} className="mb-6 flex items-center gap-2 text-xs font-black text-stone-400 hover:text-stone-900 transition-colors uppercase tracking-widest">
-                 <ChevronRight size={14} className="rotate-180" /> Back to List
-             </button>
+        <div className="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6 animate-in slide-in-from-right duration-300">
+            <button 
+                onClick={() => setSelectedProject(null)} 
+                className="flex items-center gap-1.5 text-xs font-extrabold text-slate-500 hover:text-slate-900 transition-colors uppercase tracking-wider cursor-pointer border-none bg-transparent"
+            >
+                <ChevronRight size={14} className="rotate-180" /> Back to Engagements List
+            </button>
 
-             <div className="flex justify-between items-start mb-10">
+            <div className="flex justify-between items-start pb-4 border-b border-slate-100">
                 <div>
-                    <span className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2 block">Project Deep Dive</span>
-                    <h3 className="text-2xl font-black text-stone-900 uppercase italic">
-                        {selectedProject.title}
-                    </h3>
+                    <h3 className="text-xl font-extrabold text-slate-900">{selectedProject.title}</h3>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Phase-by-phase execution roadmap & milestone delivery verification.</p>
                 </div>
-                <span className="px-4 py-1.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-full uppercase tracking-widest border border-amber-200">
+                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-extrabold rounded-full border border-indigo-200">
                     Stage: {selectedProject.stage}
                 </span>
             </div>
 
-            <div className="space-y-4 mb-10">
-                <div className="flex justify-between text-xs font-black text-stone-500 uppercase tracking-widest">
-                    <span>Module Completion</span>
-                    <span>{progress}%</span>
+            {/* Overall Progress Meter */}
+            <div className="space-y-2">
+                <div className="flex justify-between text-xs font-bold text-slate-700">
+                    <span>Deliverable Roadmap Progress</span>
+                    <span>{progressPercent}% Completed ({completedPhases} of {phases.length} Phases Verified)</span>
                 </div>
-                <div className="h-2.5 bg-stone-200 rounded-full overflow-hidden">
+                <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 p-0.5">
                     <div 
-                        className="h-full bg-amber-600 rounded-full transition-all duration-1000 ease-out" 
-                        style={{ width: `${progress}%` }}
-                    ></div>
+                        className="h-full bg-slate-900 rounded-full transition-all duration-700 ease-out"
+                        style={{ width: `${progressPercent}%` }}
+                    />
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                 {modules.map((mod, idx) => (
-                     <div key={idx} className="bg-white p-4 rounded-2xl border border-stone-100 flex items-center justify-between">
-                         <span className="text-xs font-bold text-stone-700">{mod.name}</span>
-                         {mod.status === 'Completed' ? (
-                             <CheckCircle size={16} className="text-emerald-500" />
-                         ) : mod.status === 'In Progress' ? (
-                             <div className="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
-                         ) : (
-                             <div className="w-4 h-4 rounded-full border-2 border-stone-200" />
-                         )}
-                     </div>
-                 ))}
+            {/* Phases Checklist Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                {phases.map((phase) => (
+                    <div key={phase.id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-xs font-extrabold text-slate-900">{phase.name}</p>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{phase.date}</span>
+                        </div>
+                        {phase.status === 'Completed' ? (
+                            <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
+                                <Check size={12} /> Verified
+                            </span>
+                        ) : phase.status === 'In Progress' ? (
+                            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                                <div className="w-2 h-2 rounded-full bg-amber-600 animate-ping" /> In Progress
+                            </span>
+                        ) : (
+                            <span className="px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">
+                                Upcoming
+                            </span>
+                        )}
+                    </div>
+                ))}
             </div>
         </div>
     );
 };
-
-
 
 export default ClientDashboard;

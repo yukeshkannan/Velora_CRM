@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    Plus, X, Trash2, Calendar, User as UserIcon, Layout, List, CheckCircle
+    Plus, X, Trash2, Calendar, User as UserIcon, Layout, List, CheckCircle2, Search, TrendingUp, AlertCircle, LayoutGrid
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -17,6 +18,8 @@ const Tasks = () => {
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('kanban'); 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [priorityFilter, setPriorityFilter] = useState('All');
 
     // Access Control
     const canManageTasks = ['Admin', 'Sales', 'HR'].includes(user?.role);
@@ -135,7 +138,8 @@ const Tasks = () => {
             }));
 
             setContacts(contactsData);
-            setUsers(usersData);
+            // Only show Employees in Assigned To Employee dropdown (Exclude Admin & Client)
+            setUsers(usersData.filter(u => u.role === 'Employee'));
         } catch (err) {
             console.error("Critical error in fetchData", err);
         } finally {
@@ -361,54 +365,53 @@ const Tasks = () => {
     const renderCard = (task) => (
         <div 
             onClick={(e) => {
-                // Ensure click works even if drag listeners are present
                 if (!e.defaultPrevented) {
                     handleEdit(task);
                 }
             }} 
-            className="cursor-pointer relative z-10"
+            className="cursor-pointer relative z-10 space-y-3"
         >
-             <div className="flex justify-between items-start mb-2">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                    task.priority === 'High' ? 'bg-red-100 text-red-600' : 
-                    task.priority === 'Medium' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+             <div className="flex justify-between items-center gap-2">
+                <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider border ${
+                    task.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200/80' : 
+                    task.priority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200/80' : 'bg-slate-100 text-slate-700 border-slate-200/80'
                 }`}>
                     {task.priority}
                 </span>
                 {task.dueDate && (
-                     <div className="flex items-center gap-1 text-slate-400 text-xs font-medium">
-                        <Calendar size={12} />
+                     <div className="flex items-center gap-1 text-slate-400 text-xs font-semibold">
+                        <Calendar size={13} />
                         {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </div>
                 )}
             </div>
             
-            <h4 className="font-bold text-slate-800 mb-2 leading-relaxed">{task.title}</h4>
+            <h4 className="font-extrabold text-sm sm:text-base text-slate-900 leading-snug hover:text-slate-700 transition-colors">{task.title}</h4>
             
-            <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
+            <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
                 <div className="flex items-center gap-2 text-xs text-slate-500">
-                     <span className="font-semibold bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{task.type}</span>
+                     <span className="font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-xs border border-slate-200/60">{task.type}</span>
                 </div>
                 {task.contactId && (
-                     <div className="flex items-center gap-1 text-xs text-slate-500 font-medium" title={task.contactId.name}>
-                        <UserIcon size={12} />
-                        <span className="max-w-[80px] truncate">{task.contactId.name}</span>
+                     <div className="flex items-center gap-1.5 text-xs text-slate-500 font-bold" title={task.contactId.name}>
+                        <UserIcon size={13} className="text-slate-400" />
+                        <span className="max-w-[100px] truncate">{task.contactId.name}</span>
                     </div>
                 )}
             </div>
 
             {/* Explicit View Button for Projects */}
             {(task.isOpportunity || rawOpportunities.some(o => o._id === task._id)) && (
-                <div className="mt-3 pt-2 border-t border-slate-100 flex justify-between items-center bg-slate-50/50 -mx-5 -mb-5 px-5 py-3">
-                    <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider flex items-center gap-1">
-                        <List size={12} /> Project
+                <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center bg-slate-50/60 -mx-5 -mb-5 px-5 py-2.5 rounded-b-2xl">
+                    <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                        <List size={13} /> Project
                     </span>
                     <button 
                         onClick={(e) => { 
                             e.stopPropagation(); 
                             handleEdit(task); 
                         }} 
-                        className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded transition-colors z-20"
+                        className="text-xs font-extrabold text-slate-900 hover:text-slate-700 hover:bg-slate-100 px-2.5 py-1 rounded-lg transition-colors z-20 cursor-pointer"
                     >
                         View Details
                     </button>
@@ -419,29 +422,44 @@ const Tasks = () => {
 
     if (loading) return <LoadingSpinner message="Loading Tasks..." />;
 
+    const filteredTasks = tasks.filter(t => {
+        const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              (t.contactId?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesPriority = priorityFilter === 'All' || t.priority === priorityFilter;
+        return matchesSearch && matchesPriority;
+    });
+
+    const totalTasksCount = tasks.length;
+    const inProgressCount = tasks.filter(t => t.status === 'In Progress').length;
+    const completedCount = tasks.filter(t => t.status === 'Completed').length;
+    const highPriorityCount = tasks.filter(t => t.priority === 'High').length;
+
     return (
-        <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center sticky top-0 z-20">
+        <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+            
+            {/* Executive Header */}
+            <div className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                 <div>
-                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Tasks</h1>
-                     <p className="text-slate-500 text-sm mt-1 font-medium">Manage your daily activities and follow-ups.</p>
+                     <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Tasks</h1>
+                     <p className="text-slate-500 text-xs sm:text-sm mt-0.5 font-medium">Manage daily activities, project milestones, and follow-ups.</p>
                 </div>
+                
                 {/* Actions */}
-                <div className="flex items-center gap-4">
-                     <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex items-center gap-3">
+                     <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
                         <button 
                             onClick={() => setViewMode('kanban')}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                                viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-none cursor-pointer ${
+                                viewMode === 'kanban' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 bg-transparent'
                             }`}
                         >
                             <Layout size={16} /> Board
                         </button>
                         <button 
                              onClick={() => setViewMode('list')}
-                             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
-                                viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-none cursor-pointer ${
+                                viewMode === 'list' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900 bg-transparent'
                             }`}
                         >
                             <List size={16} /> List
@@ -457,61 +475,139 @@ const Tasks = () => {
                                 });
                                 setIsDrawerOpen(true);
                             }}
-                            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 border-none cursor-pointer"
+                            className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs flex items-center gap-2 transition-all cursor-pointer border-none"
                         >
-                            <Plus size={18} /> New Task
+                            <Plus size={16} /> New Task
                         </button>
                     ) : (
-                        <div className="bg-stone-100 text-stone-500 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest border border-stone-200">
+                        <div className="bg-slate-100 text-slate-600 px-4 py-2.5 rounded-xl font-extrabold text-[10px] uppercase tracking-wider border border-slate-200/80">
                             View Only Mode
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Board Content */}
-            {viewMode === 'kanban' ? (
-                <KanbanBoard 
-                    columns={columns} 
-                    data={tasks} 
-                    onDragEnd={handleDragEnd}
-                    renderCard={renderCard}
-                    loading={loading}
-                    layout="grid"
-                />
-            ) : (
-                <div className="flex-1 p-8 overflow-y-auto">
-                    {/* List View Fallback */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-bold border-b border-slate-100">
+            {/* Scrollable Body Content */}
+            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+                
+                {/* KPI Metrics Summary Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Total Tasks</p>
+                            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{totalTasksCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200/60 text-slate-900 flex items-center justify-center font-bold">
+                            <LayoutGrid size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">In Progress</p>
+                            <p className="text-2xl sm:text-3xl font-black text-indigo-700 mt-1">{inProgressCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                            <TrendingUp size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Completed</p>
+                            <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">{completedCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                            <CheckCircle2 size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">High Priority</p>
+                            <p className="text-2xl sm:text-3xl font-black text-rose-700 mt-1">{highPriorityCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                            <AlertCircle size={22} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Toolbar Search & Filter Bar */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="relative max-w-md w-full">
+                        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search tasks by title or contact..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-2xs"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-400 mr-1 shrink-0">Priority:</span>
+                        {['All', 'High', 'Medium', 'Low'].map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => setPriorityFilter(p)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                    priorityFilter === p 
+                                        ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' 
+                                        : 'bg-slate-100 text-slate-600 border-slate-200/80 hover:bg-slate-200/80'
+                                }`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Board Content */}
+                {viewMode === 'kanban' ? (
+                    <KanbanBoard 
+                        columns={columns} 
+                        data={filteredTasks} 
+                        onDragEnd={handleDragEnd}
+                        renderCard={renderCard}
+                        loading={loading}
+                        layout="grid"
+                    />
+                ) : (
+                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-100/70 border-b border-slate-200/80">
                                 <tr>
-                                    <th className="px-6 py-4">Title</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Priority</th>
-                                    <th className="px-6 py-4">Due Date</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Title</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Status</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Priority</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Due Date</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {tasks.map(task => (
-                                    <tr key={task._id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-bold text-slate-800">{task.title}</td>
+                                {filteredTasks.map(task => (
+                                    <tr key={task._id} className="hover:bg-slate-50/80 transition-colors">
+                                        <td className="px-6 py-4 font-extrabold text-sm sm:text-base text-slate-900">{task.title}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' :
-                                                task.status === 'In Progress' ? 'bg-blue-50 text-blue-600' :
-                                                task.status === 'Cancelled' ? 'bg-red-50 text-red-600' :
-                                                'bg-slate-100 text-slate-600'
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                                                task.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                task.status === 'In Progress' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                task.status === 'Cancelled' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                'bg-slate-100 text-slate-700 border-slate-200'
                                             }`}>{task.status}</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                             <span className={`px-2 py-1 rounded text-xs font-bold ${getPriorityStyle(task.priority).bg} ${getPriorityStyle(task.priority).text}`}>
+                                             <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                                                task.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                                                task.priority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200'
+                                             }`}>
                                                 {task.priority}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-500">
-                                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
+                                        <td className="px-6 py-4 text-xs sm:text-sm font-bold text-slate-700">
+                                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                                         </td>
                                         <td className="px-6 py-4 text-right font-bold">
                                             <div className="flex justify-end items-center gap-3">
@@ -541,169 +637,171 @@ const Tasks = () => {
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Create/Edit Drawer */}
-            {isDrawerOpen && (
-                <>
-                <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={handleCloseDrawer} />
-                <div className="fixed top-0 right-0 bottom-0 w-[500px] bg-white z-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <div>
-                            <h2 className="text-xl font-bold text-slate-900">{editingId ? 'Edit Task' : 'New Task'}</h2>
-                            <p className="text-slate-500 text-sm mt-0.5">{editingId ? 'Update task details.' : 'Schedule a new activity.'}</p>
-                        </div>
-                        <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"><X size={20} /></button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-8">
-                        <form id="taskForm" onSubmit={handleSubmit} className="space-y-5">
+            <AnimatePresence>
+                {isDrawerOpen && (
+                    <>
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40" 
+                        onClick={handleCloseDrawer} 
+                    />
+                    <motion.div 
+                        initial={{ x: '100%', opacity: 0.5 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: '100%', opacity: 0 }}
+                        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                        className="fixed top-0 right-0 bottom-0 w-full sm:w-[500px] bg-white z-50 shadow-2xl flex flex-col border-l border-slate-200/80"
+                    >
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                             <div>
-                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Task Title <span className="text-red-500">*</span></label>
-                                <input 
-                                    required
-                                    type="text" 
-                                    placeholder="e.g. Call Client about Proposal"
-                                    value={formData.title} 
-                                    onChange={e => setFormData({...formData, title: e.target.value})}
-                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-medium"
-                                />
+                                <h2 className="text-xl font-bold text-slate-900">{editingId ? 'Edit Task' : 'New Task'}</h2>
+                                <p className="text-slate-500 text-sm mt-0.5">{editingId ? 'Update task details.' : 'Schedule a new activity.'}</p>
                             </div>
+                            <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors border-none bg-transparent cursor-pointer"><X size={20} /></button>
+                        </div>
 
-                            <div className="grid grid-cols-2 gap-5">
+                        <div className="flex-1 overflow-y-auto p-8">
+                            <form id="taskForm" onSubmit={handleSubmit} className="space-y-5">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Type</label>
-                                    <div className="relative">
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Task Title <span className="text-red-500">*</span></label>
+                                    <input 
+                                        required
+                                        type="text" 
+                                        placeholder="e.g. Call Client about Proposal"
+                                        value={formData.title} 
+                                        onChange={e => setFormData({...formData, title: e.target.value})}
+                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-medium"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Type</label>
                                         <select 
                                             value={formData.type} 
                                             onChange={e => setFormData({...formData, type: e.target.value})}
-                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 text-sm font-medium cursor-pointer"
                                         >
-                                            {['Call', 'Meeting', 'Email', 'Other'].map(t => <option key={t} value={t}>{t}</option>)}
+                                            <option value="Task">Task</option>
+                                            <option value="Call">Call</option>
+                                            <option value="Meeting">Meeting</option>
+                                            <option value="Email">Email</option>
                                         </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                        </div>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Priority</label>
-                                    <div className="relative">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Priority</label>
                                         <select 
                                             value={formData.priority} 
                                             onChange={e => setFormData({...formData, priority: e.target.value})}
-                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 text-sm font-medium cursor-pointer"
                                         >
-                                            {['Low', 'Medium', 'High'].map(p => <option key={p} value={p}>{p}</option>)}
+                                            <option value="Low">Low</option>
+                                            <option value="Medium">Medium</option>
+                                            <option value="High">High</option>
                                         </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
-                                    <div className="relative">
+                                <div className="grid grid-cols-2 gap-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
                                         <select 
                                             value={formData.status} 
                                             onChange={e => setFormData({...formData, status: e.target.value})}
-                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 text-sm font-medium cursor-pointer"
                                         >
-                                            {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                            <option value="To Do">To Do</option>
+                                            <option value="In Progress">In Progress</option>
+                                            <option value="Done">Done</option>
+                                            <option value="Cancelled">Cancelled</option>
                                         </select>
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Due Date</label>
+                                        <input 
+                                            type="date" 
+                                            value={formData.dueDate}
+                                            onChange={e => setFormData({...formData, dueDate: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 text-sm font-medium"
+                                        />
                                     </div>
                                 </div>
+                                
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Due Date</label>
-                                    <input 
-                                        type="date" 
-                                        value={formData.dueDate}
-                                        onChange={e => setFormData({...formData, dueDate: e.target.value})}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 text-sm font-medium"
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assign To</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={formData.assignedTo} 
+                                            onChange={e => setFormData({...formData, assignedTo: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                        >
+                                            <option value="">-- Assign Employee --</option>
+                                            {users.map(u => (
+                                                <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Client / Project Context</label>
+                                    <div className="relative">
+                                        <select 
+                                            value={formData.contactId} 
+                                            onChange={e => setFormData({...formData, contactId: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                        >
+                                            <option value="">-- No Related Client --</option>
+                                            {contacts.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+                                                <option key={c._id} value={c._id}>{c.name} ({c.company})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Description</label>
+                                    <textarea 
+                                        rows="4"
+                                        value={formData.description} 
+                                        onChange={e => setFormData({...formData, description: e.target.value})}
+                                        className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 outline-none resize-none text-sm"
+                                        placeholder="Add details about this task..."
                                     />
                                 </div>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assign To</label>
-                                <div className="relative">
-                                    <select 
-                                        value={formData.assignedTo} 
-                                        onChange={e => setFormData({...formData, assignedTo: e.target.value})}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                    >
-                                        <option value="">-- Assign Employee --</option>
-                                        {users.map(u => (
-                                            <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+
+                                {editingId && (
+                                    <div className="pt-4 border-t border-slate-100">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleDelete(editingId)} 
+                                            className="w-full text-red-600 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm border-none cursor-pointer"
+                                        >
+                                            <Trash2 size={16} /> Delete Task
+                                        </button>
                                     </div>
-                                </div>
-                            </div>
+                                )}
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Client / Project Context</label>
-                                <div className="relative">
-                                    <select 
-                                        value={formData.contactId} 
-                                        onChange={e => setFormData({...formData, contactId: e.target.value})}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                    >
-                                        <option value="">-- No Related Client --</option>
-                                        {contacts.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
-                                            <option key={c._id} value={c._id}>{c.name} ({c.company})</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                    </div>
-                                </div>
-                            </div>
+                            </form>
+                        </div>
 
-                            <div>
-                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Description</label>
-                                <textarea 
-                                    rows="4"
-                                    value={formData.description} 
-                                    onChange={e => setFormData({...formData, description: e.target.value})}
-                                    className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 outline-none resize-none text-sm"
-                                    placeholder="Add details about this task..."
-                                />
-                            </div>
-
-                            {editingId && (
-                                <div className="pt-4 border-t border-slate-100">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => handleDelete(editingId)} 
-                                        className="w-full text-red-600 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm"
-                                    >
-                                        <Trash2 size={16} /> Delete Task
-                                    </button>
-                                </div>
-                            )}
-
-                        </form>
-                    </div>
-
-                    <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
-                        <button onClick={handleCloseDrawer} className="flex-1 text-slate-600 font-bold hover:bg-slate-200 py-2.5 rounded-xl transition-colors text-sm">Cancel</button>
-                        <button form="taskForm" type="submit" className="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors text-sm">
-                            {editingId ? 'Save Changes' : 'Create Task'}
-                        </button>
-                    </div>
-                </div>
-                </>
-            )}
+                        <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                            <button onClick={handleCloseDrawer} className="flex-1 text-slate-600 font-bold hover:bg-slate-200 py-2.5 rounded-xl transition-colors text-sm border-none bg-transparent cursor-pointer">Cancel</button>
+                            <button form="taskForm" type="submit" className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl hover:bg-slate-800 shadow-xs transition-colors text-sm border-none cursor-pointer">
+                                {editingId ? 'Save Changes' : 'Create Task'}
+                            </button>
+                        </div>
+                    </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Project Detail Drawer */}
             {viewingProject && (

@@ -63,7 +63,20 @@ mountProxy('/api/auth/forgot-password', SERVICES.AUTH);
 mountProxy('/api/auth/reset-password', SERVICES.AUTH);
 mountProxy('/api/auth/create-user', SERVICES.AUTH, authMiddleware(['Admin']));
 
-mountProxy('/api/tasks', SERVICES.TASK, authMiddleware(STAFF_ROLES));
+app.use('/api/tasks', authMiddleware(), (req, res, next) => {
+    const isClient = req.user && req.user.role === 'Client';
+    if (isClient) {
+        if (req.method === 'GET') return next();
+        return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    }
+    if (!STAFF_ROLES.includes(req.user.role)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    next();
+}, proxy(SERVICES.TASK, {
+    parseReqBody: false,
+    proxyReqPathResolver: (req) => req.originalUrl.split('?')[0] + (req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : ''),
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+}));
+
 mountProxy('/api/notifications', SERVICES.NOTIFICATION, authMiddleware());
 mountProxy('/api/analytics', SERVICES.ANALYTICS, authMiddleware(STAFF_ROLES));
 mountProxy('/api/documents', SERVICES.DOCUMENT, authMiddleware());
@@ -109,14 +122,14 @@ app.use('/api/contacts', authMiddleware(), (req, res, next) => {
 app.use('/api/opportunities', authMiddleware(), (req, res, next) => {
     const isClient = req.user && req.user.role === 'Client';
     if (isClient) {
-        if (req.method === 'POST') return next();
+        if (req.method === 'POST' || req.method === 'GET') return next();
         return res.status(403).json({ success: false, message: 'Access Forbidden' });
     }
     if (!STAFF_ROLES.includes(req.user.role)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
     next();
 }, proxy(SERVICES.OPPORTUNITY, {
     parseReqBody: false,
-    proxyReqPathResolver: (req) => `/api/opportunities${req.url}`,
+    proxyReqPathResolver: (req) => req.originalUrl.split('?')[0] + (req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : ''),
     proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
 }));
 

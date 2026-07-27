@@ -231,12 +231,19 @@ const Payroll = () => {
         }
     };
 
-    const handleDelete = async (payrollId) => {
-        if (!window.confirm("Are you sure you want to delete this payroll record?")) return;
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+    const handleDelete = (payrollId) => {
+        setShowDeleteConfirm(payrollId);
+    };
+
+    const confirmDeletePayroll = async () => {
+        if (!showDeleteConfirm) return;
         try {
             setLoading(true);
-            await axios.delete(`/api/payroll/${payrollId}`);
+            await axios.delete(`/api/payroll/${showDeleteConfirm}`);
             toast.success('Payroll record deleted successfully');
+            setShowDeleteConfirm(null);
             await fetchAllPayrolls(); // Refresh all payrolls
             if (user?.id) {
                 await fetchMyPayroll(); // Refresh current user's payrolls
@@ -244,6 +251,7 @@ const Payroll = () => {
         } catch (err) {
             console.error("Delete payroll error:", err);
             toast.error(err.response?.data?.message || 'Delete failed');
+            setShowDeleteConfirm(null);
         } finally {
             setLoading(false);
         }
@@ -669,27 +677,24 @@ const Payroll = () => {
                 )}
             </AnimatePresence>
 
-            {/* Header section with Premium look */}
-            <div className="bg-white border-b border-slate-100 pt-12 pb-10 px-8">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            {/* Header section with Slate Monochrome look */}
+            <div className="bg-white border-b border-slate-200/80 pt-8 pb-8 px-8 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+                 style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                        <div className="flex items-center gap-2 text-[11px] font-black text-amber-600 uppercase tracking-widest mb-2.5">
-                            <Briefcase size={12} />
-                            FINANCIAL MANAGEMENT
-                        </div>
-                        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">Payroll Processing</h1>
-                        <p className="text-slate-500 text-sm font-medium mt-1">Configure compensation matrices, view past disbursements, and issue payslips.</p>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Payroll Processing</h1>
+                        <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">Configure compensation matrices, view past disbursements, and issue payslips.</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full md:w-auto">
                         {stats.map((stat, idx) => (
-                            <div key={idx} className={`bg-white px-5 py-4 rounded-2xl border ${stat.border} min-w-[180px] shadow-sm flex items-center justify-between gap-4`}>
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{stat.label}</span>
-                                    <span className="text-xl font-extrabold text-slate-955 tracking-tight">{stat.value}</span>
+                            <div key={idx} className={`bg-white px-4 py-3.5 rounded-2xl border ${stat.border || 'border-slate-200/80'} min-w-[170px] shadow-2xs flex items-center justify-between gap-4`}>
+                                <div className="space-y-0.5">
+                                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">{stat.label}</span>
+                                    <span className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">{stat.value}</span>
                                 </div>
-                                <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                                    <stat.icon size={18} className={stat.textColor} />
+                                <div className={`w-9 h-9 rounded-xl ${stat.bg || 'bg-slate-100'} flex items-center justify-center`}>
+                                    <stat.icon size={16} className={stat.textColor || 'text-slate-700'} />
                                 </div>
                             </div>
                         ))}
@@ -730,21 +735,6 @@ const Payroll = () => {
                                     ALL GENERATED RECORDS ({allPayrolls.length})
                                 </div>
                                 {activeTab === 'all_records' && (
-                                    <motion.div layoutId="tab-underline-payroll" className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-slate-900" />
-                                )}
-                            </button>
-
-                            <button 
-                                onClick={() => setActiveTab('payslips')}
-                                className={`px-6 py-5 text-xs font-bold tracking-widest transition-all relative border-none bg-transparent cursor-pointer ${
-                                    activeTab === 'payslips' ? 'text-slate-900 font-extrabold' : 'text-slate-400 hover:text-slate-600'
-                                }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <FileText size={15} />
-                                    MY PAYSLIPS
-                                </div>
-                                {activeTab === 'payslips' && (
                                     <motion.div layoutId="tab-underline-payroll" className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-slate-900" />
                                 )}
                             </button>
@@ -1313,6 +1303,25 @@ const Payroll = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+                   <div className="bg-white p-6 rounded-2xl w-full max-w-sm text-center shadow-2xl border border-slate-200/80">
+                        <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                            <Trash2 size={24} />
+                        </div>
+                        <h2 className="text-lg font-extrabold text-slate-900 mb-1">Delete Payroll Record?</h2>
+                        <p className="text-slate-500 text-xs font-medium mb-6 leading-relaxed">
+                            Are you sure you want to delete this payroll disbursement? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3">
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition-colors cursor-pointer" onClick={confirmDeletePayroll}>Delete</button>
+                        </div>
+                   </div>
+                </div>
+            )}
         </div>
     );
 };

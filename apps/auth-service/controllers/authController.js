@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Contact = require('../../contact-service/models/Contact');
+const Leave = require('../../hr-service/models/Leave');
+const Attendance = require('../../hr-service/models/Attendance');
 const { sendOTPEmail } = require('../utils/emailService');
 const { formatResponse } = require('utils'); 
 
@@ -14,14 +16,14 @@ exports.register = async (req, res) => {
       return formatResponse(res, 400, 'User already exists');
     }
 
-    // Force role to be Employee for public registration
+    // Public registration default role: Client (RBAC)
     const user = await User.create({
       name, 
       email, 
       password, 
       role: 'Client', 
-      designation, 
-      department
+      designation: designation || 'Client', 
+      department: department || 'External'
     });
 
     // Auto-create CRM Contact profile for Client users
@@ -357,13 +359,18 @@ exports.updateUser = async (req, res) => {
 // Delete User (Admin Only)
 exports.deleteUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const userId = req.params.id;
+    const user = await User.findById(userId);
     if (!user) {
       return formatResponse(res, 404, 'User not found');
     }
 
+    // Cascade delete user's associated leave applications & attendance records
+    await Leave.deleteMany({ userId });
+    await Attendance.deleteMany({ userId });
+
     await user.deleteOne();
-    formatResponse(res, 200, 'User deleted successfully');
+    formatResponse(res, 200, 'User and associated leave/attendance data deleted successfully');
   } catch (error) {
     formatResponse(res, 500, error.message);
   }

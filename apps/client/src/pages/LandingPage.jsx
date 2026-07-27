@@ -259,14 +259,15 @@ const LandingPage = () => {
             </header>
 
             {/* Hero Section */}
-            <section id="features" className="min-h-[80vh] sm:min-h-[85vh] flex flex-col justify-center items-center py-16 lg:py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center bg-white w-full overflow-x-hidden">
-                
+            <section id="features" className="min-h-[calc(100vh-5rem)] flex flex-col justify-center items-center py-20 lg:py-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center bg-white w-full relative z-10">
+               
+
                 {/* Main Heading */}
                 <motion.h1 
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.1 }}
-                    className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 max-w-5xl mx-auto leading-[1.12]"
+                    className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 max-w-5xl mx-auto leading-[1.15] mb-8"
                 >
                     The Unified CRM Built for High-Growth Sales, HR & Operations
                 </motion.h1>
@@ -276,7 +277,7 @@ const LandingPage = () => {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
-                    className="mt-6 text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-normal leading-relaxed"
+                    className="text-lg sm:text-xl text-slate-600 max-w-3xl mx-auto font-normal leading-relaxed mb-12"
                 >
                     Streamline deal pipelines, automated HR payroll, client invoicing, and customer helpdesk support into one unified enterprise workspace.
                 </motion.p>
@@ -286,13 +287,13 @@ const LandingPage = () => {
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.3 }}
-                    className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+                    className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto mb-16"
                 >
                     <Link 
                         to="/signup" 
                         className="w-full sm:w-auto px-8 py-4 rounded-xl text-base font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-all duration-200 shadow-md flex items-center justify-center gap-2 group"
                     >
-                        Start 14-Day Free Trial
+                        Get Started Free
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </Link>
                     <button 
@@ -302,6 +303,31 @@ const LandingPage = () => {
                         <Play className="w-4 h-4 fill-slate-700 text-slate-700" />
                         Explore Interactive Modules
                     </button>
+                </motion.div>
+
+                {/* Key Pillars Row */}
+                <motion.div 
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.4 }}
+                    className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 pt-8 border-t border-slate-100 text-xs sm:text-sm text-slate-700 font-semibold max-w-5xl mx-auto"
+                >
+                    <span className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-slate-900 shrink-0" />
+                        Unified Sales & Deals Pipeline
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-slate-900 shrink-0" />
+                        Automated HR & Payroll Sync
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-slate-900 shrink-0" />
+                        Instant Client PDF Invoicing
+                    </span>
+                    <span className="flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-slate-900 shrink-0" />
+                        Enterprise Role Security (RBAC)
+                    </span>
                 </motion.div>
             </section>
 
@@ -596,43 +622,6 @@ const LandingPage = () => {
                             </div>
                         ))}
                     </div>
-                </div>
-            </section>
-
-            {/* Section 5: High-Converting Bottom CTA (Pure Seamless White) */}
-            <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto bg-white text-center w-full max-w-full overflow-hidden">
-                <span className="px-3.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
-                    Get Started in 2 Minutes
-                </span>
-                <h2 className="mt-5 text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight max-w-3xl mx-auto">
-                    Ready to Scale Your Business Operations?
-                </h2>
-                <p className="mt-4 text-slate-600 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto">
-                    Start your 14-day free trial today. Join over 500+ companies closing deals faster and automating admin overhead with Velora.
-                </p>
-
-                <form onSubmit={handleFormSubmit} className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
-                    <input 
-                        type="email" 
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your work email..." 
-                        className="w-full px-5 py-3.5 rounded-xl bg-white border border-slate-300 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 text-sm shadow-2xs transition-all"
-                    />
-                    <button 
-                        type="submit" 
-                        className="w-full sm:w-auto whitespace-nowrap px-7 py-3.5 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-all duration-200 shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                        Get Started Free
-                        <ArrowRight className="w-4 h-4" />
-                    </button>
-                </form>
-
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 font-medium">
-                    <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-600" /> No credit card required</span>
-                    <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-600" /> 14-day unrestricted trial</span>
-                    <span className="flex items-center gap-1.5"><Check className="w-4 h-4 text-emerald-600" /> Instant 2-minute setup</span>
                 </div>
             </section>
 

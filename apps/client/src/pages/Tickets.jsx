@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Plus, X, User, Edit2, Trash2, Clock, CheckCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, X, User, Edit2, Trash2, Clock, CheckCircle2, Search, TrendingUp, AlertCircle, LayoutGrid } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -15,6 +16,8 @@ const Tickets = () => {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [viewMode, setViewMode] = useState('kanban');
     const [draggedTicket, setDraggedTicket] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [priorityFilter, setPriorityFilter] = useState('All');
     
     // Columns Configuration
     const columns = [
@@ -197,44 +200,79 @@ const Tickets = () => {
 
     const getPriorityStyle = (priority) => {
         switch(priority) {
-            case 'Critical': return 'bg-red-100 text-red-600';
-            case 'High': return 'bg-orange-100 text-orange-600';
-            case 'Medium': return 'bg-blue-50 text-blue-600';
-            default: return 'bg-slate-100 text-slate-600';
+            case 'Critical': return 'bg-rose-50 text-rose-700 border border-rose-200';
+            case 'High': return 'bg-amber-50 text-amber-700 border border-amber-200';
+            case 'Medium': return 'bg-indigo-50 text-indigo-700 border border-indigo-200';
+            default: return 'bg-slate-100 text-slate-700 border border-slate-200';
         }
     };
 
-
-
     if (loading) return <LoadingSpinner message="Loading Support Board..." />;
 
+    const filteredTickets = tickets.filter(t => {
+        const contact = contacts.find(c => c._id === (t.customerId?._id || t.customerId));
+        const customerName = contact ? contact.name : (t.guestName || '');
+        const matchesSearch = (t.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              (t.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              customerName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesPriority = priorityFilter === 'All' || t.priority === priorityFilter;
+        return matchesSearch && matchesPriority;
+    });
+
+    const totalTicketsCount = tickets.length;
+    const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
+    const resolvedTicketsCount = tickets.filter(t => t.status === 'Resolved').length;
+    const highPriorityCount = tickets.filter(t => t.priority === 'High' || t.priority === 'Critical').length;
+
+    const getColumnAccent = (colId) => {
+        switch(colId) {
+            case 'Open': return 'bg-indigo-600';
+            case 'In Progress': return 'bg-amber-600';
+            case 'Resolved': return 'bg-emerald-600';
+            case 'Rejected': return 'bg-rose-600';
+            default: return 'bg-slate-400';
+        }
+    };
+
+    const getColumnDotColor = (colId) => {
+        switch(colId) {
+            case 'Open': return 'bg-indigo-500';
+            case 'In Progress': return 'bg-amber-500';
+            case 'Resolved': return 'bg-emerald-500';
+            case 'Rejected': return 'bg-rose-500';
+            default: return 'bg-slate-400';
+        }
+    };
+
     return (
-        <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-8 py-5 flex justify-between items-center">
+        <div className="h-full flex flex-col bg-slate-50 overflow-hidden font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+            
+            {/* Executive Header */}
+            <div className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                 <div>
-                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Support Tickets</h1>
-                     <p className="text-slate-500 text-sm mt-1">Manage, track, and resolve customer support tickets efficiently.</p>
+                     <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Support Tickets</h1>
+                     <p className="text-slate-500 text-xs sm:text-sm font-medium mt-0.5">Manage, track, and resolve customer support tickets efficiently.</p>
                 </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     {!isClient && (
-                        <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
                             <button 
                                 onClick={() => setViewMode('kanban')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+                                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-none cursor-pointer ${
                                     viewMode === 'kanban' 
-                                    ? 'bg-white text-slate-900 shadow-sm' 
-                                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                                    ? 'bg-slate-900 text-white shadow-xs' 
+                                    : 'text-slate-600 hover:text-slate-900 bg-transparent'
                                 }`}
                             >
                                 Board
                             </button>
                             <button 
                                 onClick={() => setViewMode('list')}
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all border-none cursor-pointer ${
+                                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all border-none cursor-pointer ${
                                     viewMode === 'list' 
-                                    ? 'bg-white text-slate-900 shadow-sm' 
-                                    : 'text-slate-500 hover:text-slate-900 bg-transparent'
+                                    ? 'bg-slate-900 text-white shadow-xs' 
+                                    : 'text-slate-600 hover:text-slate-900 bg-transparent'
                                 }`}
                             >
                                 List
@@ -243,81 +281,155 @@ const Tickets = () => {
                     )}
                     <button 
                         onClick={() => { handleCloseDrawer(); setIsDrawerOpen(true); }}
-                        className="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200 flex items-center gap-2 border-none cursor-pointer"
+                        className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xs flex items-center gap-2 transition-all cursor-pointer border-none"
                     >
-                        <Plus size={18} /> New Ticket
+                        <Plus size={16} /> New Ticket
                     </button>
                 </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 p-8 overflow-y-auto">
+            {/* Scrollable Body Content Area */}
+            <div className="flex-1 p-6 sm:p-8 overflow-y-auto space-y-6 max-w-[1600px] w-full mx-auto">
+                
+                {/* KPI Metrics Summary Strip */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Total Tickets</p>
+                            <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{totalTicketsCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 border border-slate-200/60 text-slate-900 flex items-center justify-center font-bold">
+                            <LayoutGrid size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Open & Active</p>
+                            <p className="text-2xl sm:text-3xl font-black text-indigo-700 mt-1">{openTicketsCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                            <Clock size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Resolved</p>
+                            <p className="text-2xl sm:text-3xl font-black text-emerald-700 mt-1">{resolvedTicketsCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                            <CheckCircle2 size={22} />
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+                        <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Critical / High</p>
+                            <p className="text-2xl sm:text-3xl font-black text-rose-700 mt-1">{highPriorityCount}</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center justify-center font-bold">
+                            <AlertCircle size={22} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Toolbar Search & Filter Bar */}
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="relative max-w-md w-full">
+                        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Search tickets by title, customer, or description..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition-all text-xs sm:text-sm font-medium text-slate-900 placeholder:text-slate-400 shadow-2xs"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-400 mr-1 shrink-0">Priority:</span>
+                        {['All', 'Critical', 'High', 'Medium', 'Low'].map((p) => (
+                            <button
+                                key={p}
+                                onClick={() => setPriorityFilter(p)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                                    priorityFilter === p 
+                                        ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' 
+                                        : 'bg-slate-100 text-slate-600 border-slate-200/80 hover:bg-slate-200/80'
+                                }`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 {viewMode === 'list' || isClient ? (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                    <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-2xs">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-100/70 border-b border-slate-200/80">
                                 <tr>
-                                    <th className="px-6 py-4 font-bold text-slate-600">Ticket Details</th>
-                                    {!isClient && <th className="px-6 py-4 font-bold text-slate-600">Customer</th>}
-                                    {!isClient && <th className="px-6 py-4 font-bold text-slate-600">Assignee</th>}
-                                    <th className="px-6 py-4 font-bold text-slate-600">Priority</th>
-                                    <th className="px-6 py-4 font-bold text-slate-600">Status</th>
-                                    <th className="px-6 py-4 font-bold text-slate-600 text-right">Actions</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Ticket Details</th>
+                                    {!isClient && <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Customer</th>}
+                                    {!isClient && <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Assignee</th>}
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Priority</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle">Status</th>
+                                    <th className="px-6 py-4 text-xs font-black text-slate-700 uppercase tracking-wider align-middle text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {tickets.map(ticket => {
+                                {filteredTickets.map(ticket => {
                                     const contact = contacts.find(c => c._id === (ticket.customerId?._id || ticket.customerId));
                                     const assignedUser = users.find(u => u._id === (ticket.assignedTo?._id || ticket.assignedTo));
                                     return (
-                                        <tr key={ticket._id} className="hover:bg-slate-50 transition-colors group">
+                                        <tr key={ticket._id} className="hover:bg-slate-50/80 transition-colors group">
                                             <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-900">{ticket.title}</div>
-                                                <div className="text-xs text-slate-500 mt-1 truncate max-w-[200px]">{ticket.description}</div>
+                                                <div className="font-extrabold text-sm sm:text-base text-slate-900">{ticket.title}</div>
+                                                <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[240px] font-medium">{ticket.description}</div>
                                             </td>
                                             {!isClient && (
                                                 <td className="px-6 py-4">
                                                     {contact ? (
                                                         <div>
-                                                            <div className="font-bold text-slate-700">{contact.name}</div>
-                                                            <div className="text-[10px] text-slate-400">{contact.company || 'Direct'}</div>
+                                                            <div className="font-bold text-slate-900 text-xs sm:text-sm">{contact.name}</div>
+                                                            <div className="text-[11px] text-slate-400 font-medium">{contact.company || 'Direct'}</div>
                                                         </div>
-                                                    ) : <span className="text-slate-400 italic">--</span>}
+                                                    ) : <span className="text-slate-400 italic text-xs">--</span>}
                                                 </td>
                                             )}
                                             {!isClient && (
                                                 <td className="px-6 py-4">
                                                     {assignedUser ? (
                                                         <div className="flex items-center gap-2">
-                                                            <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">
+                                                            <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-[10px] font-extrabold border border-slate-200">
                                                                 {assignedUser.name.charAt(0)}
                                                             </div>
-                                                            <span className="font-medium text-slate-700">{assignedUser.name}</span>
+                                                            <span className="font-bold text-xs text-slate-800">{assignedUser.name}</span>
                                                         </div>
-                                                    ) : <span className="text-slate-400 italic">Unassigned</span>}
+                                                    ) : <span className="text-slate-400 italic text-xs">Unassigned</span>}
                                                 </td>
                                             )}
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded text-xs font-bold ${getPriorityStyle(ticket.priority)}`}>
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${getPriorityStyle(ticket.priority)}`}>
                                                     {ticket.priority}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-                                                    ticket.status === 'Resolved' ? 'bg-green-50 text-green-600 border-green-200' :
-                                                    ticket.status === 'Rejected' ? 'bg-red-50 text-red-600 border-red-200' :
-                                                    ticket.status === 'In Progress' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
-                                                    'bg-blue-50 text-blue-600 border-blue-200'
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                                                    ticket.status === 'Resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                    ticket.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                    ticket.status === 'In Progress' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                    'bg-indigo-50 text-indigo-700 border-indigo-200'
                                                 }`}>
                                                     {ticket.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end gap-1.5">
-                                                    <button onClick={() => handleEdit(ticket)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors" title="Edit Ticket">
+                                                    <button onClick={() => handleEdit(ticket)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-800 transition-colors border-none bg-transparent cursor-pointer" title="Edit Ticket">
                                                         <Edit2 size={15} />
                                                     </button>
-                                                    <button onClick={() => setShowDeleteConfirm(ticket)} className="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-600 transition-colors" title="Delete Ticket">
+                                                    <button onClick={() => setShowDeleteConfirm(ticket)} className="p-2 hover:bg-rose-50 rounded-xl text-slate-400 hover:text-rose-600 transition-colors border-none bg-transparent cursor-pointer" title="Delete Ticket">
                                                         <Trash2 size={15} />
                                                     </button>
                                                 </div>
@@ -325,48 +437,41 @@ const Tickets = () => {
                                         </tr>
                                     );
                                 })}
-                                {tickets.length === 0 && (
+                                {filteredTickets.length === 0 && (
                                     <tr>
-                                        <td colSpan="6" className="p-8 text-center text-slate-400">No tickets found.</td>
+                                        <td colSpan="6" className="p-8 text-center text-slate-400 font-bold text-sm">No support tickets found.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
                         {columns.map(col => {
-                            const colTickets = tickets.filter(t => t.status === col.id);
+                            const colTickets = filteredTickets.filter(t => t.status === col.id);
                             return (
                                 <div 
                                     key={col.id} 
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, col.id)}
-                                    className="bg-white border border-slate-200 rounded-2xl flex flex-col shadow-sm max-h-[75vh]"
+                                    className="bg-white border border-slate-200/90 rounded-2xl flex flex-col shadow-2xs overflow-hidden min-h-[460px]"
                                 >
-                                    {/* Column Header matching Opportunities style */}
-                                    <div className="p-5 border-b border-slate-200 bg-white rounded-t-2xl flex flex-col gap-2 shrink-0">
-                                        <div className="flex items-center justify-between">
-                                            <h3 className="font-extrabold text-sm text-slate-800 tracking-tight uppercase">{col.title}</h3>
-                                            <span 
-                                                className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100"
-                                                style={{ backgroundColor: col.color + '15', color: col.color, borderColor: col.color + '30' }}
-                                            >
-                                                {colTickets.length}
-                                            </span>
+                                    {/* Column Top Accent Line */}
+                                    <div className={`h-1.5 w-full ${getColumnAccent(col.id)}`} />
+
+                                    {/* Executive Column Header */}
+                                    <div className="p-4 border-b border-slate-200/80 bg-white sticky top-0 z-10 flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <span className={`w-2.5 h-2.5 rounded-full ${getColumnDotColor(col.id)}`} />
+                                            <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">{col.title}</h3>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <div className="h-1.5 flex-1 bg-slate-100 rounded-full overflow-hidden mr-4">
-                                                <div className="h-full rounded-full" style={{ width: '100%', backgroundColor: col.color }}></div>
-                                            </div>
-                                            <div className="text-sm text-slate-900 font-extrabold">
-                                                {colTickets.length}
-                                            </div>
-                                        </div>
+                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-100 text-slate-700 border border-slate-200/80">
+                                            {colTickets.length}
+                                        </span>
                                     </div>
                                     
                                     {/* Column Content Area */}
-                                    <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-[180px] bg-slate-50/50 rounded-b-2xl transition-colors duration-200">
+                                    <div className="p-4 space-y-3.5 overflow-y-auto flex-1 min-h-[200px] bg-slate-50/40 rounded-b-2xl transition-colors duration-200">
                                         {colTickets.map(t => {
                                             const contact = contacts.find(c => c._id === (t.customerId?._id || t.customerId));
                                             const assignedUser = users.find(u => u._id === (t.assignedTo?._id || t.assignedTo));
@@ -376,50 +481,50 @@ const Tickets = () => {
                                                     draggable
                                                     onDragStart={(e) => handleDragStart(e, t)}
                                                     onClick={() => handleEdit(t)}
-                                                    className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-500/30 transition-all cursor-grab active:cursor-grabbing group relative text-left"
+                                                    className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all cursor-grab active:cursor-grabbing group relative text-left"
                                                 >
                                                     {/* Action buttons on card hover */}
-                                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1" onClick={e => e.stopPropagation()}>
-                                                        <button onClick={() => handleEdit(t)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-700 transition-colors bg-transparent border-none cursor-pointer" title="Edit">
+                                                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10" onClick={e => e.stopPropagation()}>
+                                                        <button onClick={() => handleEdit(t)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors bg-transparent border-none cursor-pointer" title="Edit">
                                                             <Edit2 size={13} />
                                                         </button>
-                                                        <button onClick={() => setShowDeleteConfirm(t)} className="p-1 hover:bg-red-50 rounded text-slate-400 hover:text-red-600 transition-colors bg-transparent border-none cursor-pointer" title="Delete">
+                                                        <button onClick={() => setShowDeleteConfirm(t)} className="p-1 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors bg-transparent border-none cursor-pointer" title="Delete">
                                                             <Trash2 size={13} />
                                                         </button>
                                                     </div>
 
-                                                    <div className="mb-2.5">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider uppercase ${getPriorityStyle(t.priority)}`}>
+                                                    <div className="mb-2">
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${getPriorityStyle(t.priority)}`}>
                                                             {t.priority}
                                                         </span>
                                                     </div>
 
-                                                    <h4 className="font-bold text-slate-900 text-sm mb-1 line-clamp-1">{t.title}</h4>
-                                                    <p className="text-slate-500 text-xs line-clamp-2 mb-3.5 leading-relaxed">{t.description}</p>
+                                                    <h4 className="font-extrabold text-slate-900 text-sm mb-1 leading-snug hover:text-slate-700 transition-colors">{t.title}</h4>
+                                                    <p className="text-slate-500 text-xs line-clamp-2 mb-3 font-medium leading-relaxed">{t.description}</p>
                                                     
                                                     {/* Footer Metadata */}
-                                                    <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-[10px] text-slate-500 font-medium">
-                                                        <span className="truncate max-w-[90px]" title={contact ? contact.name : t.guestName || 'Direct'}>
+                                                    <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 text-xs text-slate-500 font-bold">
+                                                        <span className="truncate max-w-[100px]" title={contact ? contact.name : t.guestName || 'Direct'}>
                                                             {contact ? contact.name : t.guestName || 'Direct'}
                                                         </span>
                                                         {assignedUser ? (
-                                                            <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-                                                                <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px] font-bold">
+                                                            <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/60">
+                                                                <div className="w-4 h-4 rounded-full bg-slate-200 text-slate-800 flex items-center justify-center text-[8px] font-black">
                                                                     {assignedUser.name.charAt(0)}
                                                                 </div>
-                                                                <span className="font-bold text-slate-700 truncate max-w-[60px]">{assignedUser.name.split(' ')[0]}</span>
+                                                                <span className="font-extrabold text-slate-800 text-[10px] truncate max-w-[70px]">{assignedUser.name.split(' ')[0]}</span>
                                                             </div>
                                                         ) : (
-                                                            <span className="text-slate-400 italic">Unassigned</span>
+                                                            <span className="text-slate-400 italic text-[11px]">Unassigned</span>
                                                         )}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                         {colTickets.length === 0 && (
-                                            <div className="border-2 border-dashed border-slate-200 rounded-xl py-8 px-4 text-center text-slate-400 text-sm bg-white">
-                                                <p className="font-bold text-slate-700">Empty Stage</p>
-                                                <p className="text-xs text-slate-400 mt-1">Drag tickets here</p>
+                                            <div className="border-2 border-dashed border-slate-200/80 rounded-2xl py-10 px-4 text-center text-slate-400 text-xs bg-white">
+                                                <p className="font-extrabold text-slate-700 uppercase tracking-wider text-[11px]">Empty Stage</p>
+                                                <p className="text-[11px] text-slate-400 mt-1 font-medium">Drag tickets here</p>
                                             </div>
                                         )}
                                     </div>
@@ -432,162 +537,170 @@ const Tickets = () => {
 
 
             {/* Drawer */}
-            {isDrawerOpen && (
-                <>
-                    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={handleCloseDrawer} />
-                    <div className="fixed top-0 right-0 bottom-0 w-[500px] bg-white z-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                        {/* Drawer Header */}
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <div>
-                                <h2 className="text-xl font-bold text-slate-900">{editingTicket ? 'Edit Ticket' : 'New Ticket'}</h2>
-                                <p className="text-slate-500 text-sm mt-0.5">{editingTicket ? 'Update ticket details.' : 'Create a new support ticket.'}</p>
+            <AnimatePresence>
+                {isDrawerOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40" 
+                            onClick={handleCloseDrawer} 
+                        />
+                        <motion.div 
+                            initial={{ x: '100%', opacity: 0.5 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: '100%', opacity: 0 }}
+                            transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                            className="fixed top-0 right-0 bottom-0 w-full sm:w-[500px] bg-white z-50 shadow-2xl flex flex-col border-l border-slate-200/80"
+                        >
+                            {/* Drawer Header */}
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                <div>
+                                    <h2 className="text-xl font-bold text-slate-900">{editingTicket ? 'Edit Ticket' : 'New Ticket'}</h2>
+                                    <p className="text-slate-500 text-sm mt-0.5">{editingTicket ? 'Update ticket details.' : 'Create a new support ticket.'}</p>
+                                </div>
+                                <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors border-none bg-transparent cursor-pointer"><X size={20} /></button>
                             </div>
-                            <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"><X size={20} /></button>
-                        </div>
-                        
-                        {/* Drawer Body */}
-                        <div className="flex-1 overflow-y-auto p-8">
-                            <form id="ticketForm" onSubmit={handleSubmit} className="space-y-5">
-                                
-                                {/* Subject - Full Width */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Subject <span className="text-red-500">*</span></label>
-                                    <input 
-                                        required 
-                                        type="text" 
-                                        value={formData.title} 
-                                        onChange={e => setFormData({...formData, title: e.target.value})}
-                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-medium" 
-                                        placeholder="e.g. Login page error" 
-                                    />
-                                </div>
-
-                                {/* Priority & Status - Grid */}
-                                <div className="grid grid-cols-2 gap-5">
-                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Priority</label>
-                                        <div className="relative">
-                                            <select 
-                                                value={formData.priority} 
-                                                onChange={e => setFormData({...formData, priority: e.target.value})}
-                                                className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                            >
-                                                {['Low', 'Medium', 'High', 'Critical'].map(p => <option key={p} value={p}>{p}</option>)}
-                                            </select>
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                            </div>
-                                        </div>
-                                    </div>
+                            
+                            {/* Drawer Body */}
+                            <div className="flex-1 overflow-y-auto p-8">
+                                <form id="ticketForm" onSubmit={handleSubmit} className="space-y-5">
+                                    
+                                    {/* Subject - Full Width */}
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
-                                        {isClient ? (
-                                            <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 select-none">
-                                                {formData.status}
-                                            </div>
-                                        ) : (
-                                            <div className="relative">
-                                                <select 
-                                                    value={formData.status} 
-                                                    onChange={e => setFormData({...formData, status: e.target.value})}
-                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                                >
-                                                    {columns.map(c => {
-                                                        const isCurrent = formData.status === c.id;
-                                                        // Only Admin can see/select 'Rejected' (unless it's already rejected)
-                                                        if (!isCurrent && c.id === 'Rejected' && user?.role !== 'Admin') return null;
-                                                        // Only Admin and Employee can see/select 'Resolved' (unless it's already resolved)
-                                                        if (!isCurrent && c.id === 'Resolved' && !['Admin', 'Employee'].includes(user?.role)) return null;
-                                                        return <option key={c.id} value={c.id}>{c.title}</option>;
-                                                    })}
-                                                </select>
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                                </div>
-                                            </div>
-                                        )}
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Subject <span className="text-red-500">*</span></label>
+                                        <input 
+                                            required 
+                                            type="text" 
+                                            value={formData.title} 
+                                            onChange={e => setFormData({...formData, title: e.target.value})}
+                                            className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all text-sm font-medium" 
+                                            placeholder="e.g. Login page error" 
+                                        />
                                     </div>
-                                </div>
 
-                                {/* Customer & Assignee - Grid */}
-                                {!isClient && (
+                                    {/* Priority & Status - Grid */}
                                     <div className="grid grid-cols-2 gap-5">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer <span className="text-red-500">*</span></label>
+                                         <div>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Priority</label>
                                             <div className="relative">
                                                 <select 
-                                                    required={!isClient} 
-                                                    value={formData.customerId} 
-                                                    onChange={e => setFormData({...formData, customerId: e.target.value})}
-                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
+                                                    value={formData.priority} 
+                                                    onChange={e => setFormData({...formData, priority: e.target.value})}
+                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
                                                 >
-                                                    <option value="">Select Customer...</option>
-                                                    {contacts.map(c => (
-                                                        <option key={c._id} value={c._id}>
-                                                            {c.name} {c.company ? `(${c.company})` : ''}
-                                                        </option>
-                                                    ))}
+                                                    {['Low', 'Medium', 'High', 'Critical'].map(p => <option key={p} value={p}>{p}</option>)}
                                                 </select>
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                                                 </div>
                                             </div>
                                         </div>
-
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assign To</label>
-                                            <div className="relative">
-                                                <select 
-                                                    value={formData.assignedTo} 
-                                                    onChange={e => setFormData({...formData, assignedTo: e.target.value})}
-                                                    className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium"
-                                                >
-                                                    <option value="">Unassigned</option>
-                                                    {users.map(u => (
-                                                        <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
-                                                    ))}
-                                                </select>
-                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
+                                            {isClient ? (
+                                                <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 select-none">
+                                                    {formData.status}
+                                                </div>
+                                            ) : (
+                                                <div className="relative">
+                                                    <select 
+                                                        value={formData.status} 
+                                                        onChange={e => setFormData({...formData, status: e.target.value})}
+                                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                                    >
+                                                        {columns.map(c => {
+                                                            const isCurrent = formData.status === c.id;
+                                                            const isRestricted = (formData.status === 'Resolved' || formData.status === 'Rejected') && !isCurrent;
+                                                            if (isRestricted) return null;
+                                                            return <option key={c.id} value={c.id}>{c.title}</option>;
+                                                        })}
+                                                    </select>
+                                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {!isClient && (
+                                        <div className="grid grid-cols-2 gap-5">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer</label>
+                                                <div className="relative">
+                                                    <select 
+                                                        value={formData.customerId} 
+                                                        onChange={e => setFormData({...formData, customerId: e.target.value})}
+                                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                                    >
+                                                        <option value="">Select Customer...</option>
+                                                        {contacts.map(c => (
+                                                            <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>
+                                                        ))}
+                                                    </select>
+                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assignee</label>
+                                                <div className="relative">
+                                                    <select 
+                                                        value={formData.assignedTo} 
+                                                        onChange={e => setFormData({...formData, assignedTo: e.target.value})}
+                                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                                    >
+                                                        <option value="">Unassigned</option>
+                                                        {users.map(u => (
+                                                            <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                                                        ))}
+                                                    </select>
+                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Description - Full Width */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Description</label>
-                                    <textarea 
-                                        rows={5} 
-                                        value={formData.description} 
-                                        onChange={e => setFormData({...formData, description: e.target.value})}
-                                        className="w-full px-4 py-3 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all resize-none text-sm" 
-                                        placeholder="Detailed description of the issue..."
-                                    />
-                                </div>
-
-                                {editingTicket && (
-                                     <div className="pt-4 border-t border-slate-100">
-                                        <button type="button" onClick={() => setShowDeleteConfirm(editingTicket)}
-                                            className="w-full text-red-600 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm">
-                                            <Trash2 size={16} /> Delete Ticket
-                                        </button>
+                                    {/* Description - Full Width */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Description</label>
+                                        <textarea 
+                                            rows={5} 
+                                            value={formData.description} 
+                                            onChange={e => setFormData({...formData, description: e.target.value})}
+                                            className="w-full px-4 py-3 rounded-lg border border-slate-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50 transition-all resize-none text-sm" 
+                                            placeholder="Detailed description of the issue..."
+                                        />
                                     </div>
-                                )}
-                            </form>
-                        </div>
-                        
-                        {/* Drawer Footer */}
-                        <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
-                            <button onClick={handleCloseDrawer} className="flex-1 text-slate-600 font-bold hover:bg-slate-200 py-2.5 rounded-xl transition-colors text-sm">Cancel</button>
-                            <button form="ticketForm" type="submit" className="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-colors text-sm">
-                                {editingTicket ? 'Save Changes' : 'Create Ticket'}
-                            </button>
-                        </div>
-                    </div>
-                </>
-            )}
+
+                                    {editingTicket && (
+                                         <div className="pt-4 border-t border-slate-100">
+                                            <button type="button" onClick={() => setShowDeleteConfirm(editingTicket)}
+                                                className="w-full text-red-600 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 text-sm border-none cursor-pointer">
+                                                <Trash2 size={16} /> Delete Ticket
+                                            </button>
+                                        </div>
+                                    )}
+                                </form>
+                            </div>
+                            
+                            {/* Drawer Footer */}
+                            <div className="p-6 border-t border-slate-100 bg-slate-50 flex gap-3">
+                                <button onClick={handleCloseDrawer} className="flex-1 text-slate-600 font-bold hover:bg-slate-200 py-2.5 rounded-xl transition-colors text-sm border-none bg-transparent cursor-pointer">Cancel</button>
+                                <button form="ticketForm" type="submit" className="flex-1 bg-slate-900 text-white font-bold py-2.5 rounded-xl hover:bg-slate-800 shadow-xs transition-colors text-sm border-none cursor-pointer">
+                                    {editingTicket ? 'Save Changes' : 'Create Ticket'}
+                                </button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
              {/* Delete Overlay */}
              {showDeleteConfirm && (

@@ -15,6 +15,15 @@ const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
+const sanitizeUser = (u) => {
+    if (!u) return null;
+    let copy = { ...u };
+    if (copy.profilePic && typeof copy.profilePic === 'string' && copy.profilePic.includes('document-service:5007')) {
+        copy.profilePic = copy.profilePic.replace('http://document-service:5007', '');
+    }
+    return copy;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +79,7 @@ export const AuthProvider = ({ children }) => {
     
     if (token && savedUser && savedUser !== 'undefined') {
       try {
-        const parsedUser = JSON.parse(savedUser);
+        const parsedUser = sanitizeUser(JSON.parse(savedUser));
         setUser(parsedUser);
         
         // Auto Check-in on session restore
@@ -99,37 +108,60 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const url = `${API_URL}/api/auth/login`;
-      console.log("Logging in via:", url);
-      const response = await fetch(url, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      // Save to local storage
-      const { token, user } = data.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      const data = await res.json();
       
-      setUser(user);
-      
-      // Auto Check-in
-      if (user) {
-          hasAutoCheckedIn.current = false;
-          autoCheckIn(user);
-      }
+      if (res.ok && data.success) {
+        const userData = sanitizeUser(data.data);
+        const token = data.token;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
 
-      // navigate('/'); // REMOVED: Let the calling component handle navigation based on state
-      return { success: true };
-    } catch (error) {
-      return { success: false, message: error.message };
+        // Auto Check-in on Login
+        autoCheckIn(userData);
+
+        return { success: true, user: userData };
+      } else {
+        return { success: false, message: data.message || 'Login failed' };
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      return { success: false, message: 'Server connection error. Please try again.' };
+    }
+  };
+
+  const register = async (name, email, password, role = 'Client') => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        const userData = sanitizeUser(data.data);
+        const token = data.token;
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+
+        // Auto Check-in on Register
+        autoCheckIn(userData);
+
+        return { success: true, user: userData };
+      } else {
+        return { success: false, message: data.message || 'Registration failed' };
+      }
+    } catch (err) {
+      return { success: false, message: 'Server connection error. Please try again.' };
     }
   };
 
@@ -182,8 +214,7 @@ export const AuthProvider = ({ children }) => {
 
         if (res.ok && data.success) {
             const updatedUser = data.data;
-            // Merge with existing to keep token if needed, though usually user obj is enough
-            const mergedUser = { ...storedUser, ...updatedUser };
+            const mergedUser = sanitizeUser({ ...storedUser, ...updatedUser });
             
             setUser(mergedUser);
             localStorage.setItem('user', JSON.stringify(mergedUser));
@@ -194,12 +225,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserState = (updatedFields) => {
+    setUser(prev => {
+        const newObj = { ...prev, ...updatedFields };
+        localStorage.setItem('user', JSON.stringify(newObj));
+        return newObj;
+    });
+  };
+
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, checkAuth, loginWithUserData }}>
+    <AuthContext.Provider value={{ user, login, logout, checkAuth, loginWithUserData, updateUserState }}>
       {children}
     </AuthContext.Provider>
   );
