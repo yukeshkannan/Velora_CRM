@@ -117,9 +117,26 @@ const ClientDashboard = () => {
     if (loading) return <LoadingSpinner message="Opening your executive portal..." />;
 
     const totalInvoiced = clientData.invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const totalPaid = clientData.invoices.filter(i => i.status === 'Paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-    const pendingBalance = totalInvoiced - totalPaid;
+    const totalPaid = clientData.invoices.reduce((sum, inv) => {
+        if (inv.status === 'Paid') return sum + (inv.totalAmount || 0);
+        return sum + (parseFloat(inv.paidAmount) || 0);
+    }, 0);
+    const pendingBalance = Math.max(0, totalInvoiced - totalPaid);
     const openTicketsCount = clientData.tickets.filter(t => t.status !== 'Closed' && t.status !== 'Resolved').length;
+    
+    // Count invoices that are awaiting first payment / unpaid
+    const unpaidInvoices = clientData.invoices.filter(i => i.status === 'Sent' || i.status === 'Pending' || (!i.paidAmount && i.status !== 'Paid'));
+    const unpaidCount = unpaidInvoices.length;
+
+    let pendingSubtext = "Zero Balance Outstanding";
+    let pendingBadge = "Cleared";
+    if (unpaidCount > 0) {
+        pendingSubtext = `${unpaidCount} ${unpaidCount === 1 ? 'Invoice' : 'Invoices'} Awaiting Payment`;
+        pendingBadge = "Action Required";
+    } else if (pendingBalance > 0) {
+        pendingSubtext = `Current Installment Paid • $${pendingBalance.toLocaleString()} Remaining`;
+        pendingBadge = "Up To Date";
+    }
 
     return (
         <div className="min-h-screen flex flex-col bg-slate-50 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
@@ -151,17 +168,10 @@ const ClientDashboard = () => {
                 <div className="flex flex-row items-center gap-2.5 w-full md:w-auto">
                     <button 
                         onClick={() => navigate('/app/tickets')}
-                        className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 border border-slate-200/80 cursor-pointer shadow-2xs"
+                        className="flex-1 md:flex-none px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer border-none shadow-xs"
                     >
                         <Plus size={15} /> 
                         <span>Raise Ticket</span>
-                    </button>
-                    <button 
-                        onClick={handleExport}
-                        className="flex-1 md:flex-none px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer border-none"
-                    >
-                        <Download size={15} /> 
-                        <span>Export Ledger</span>
                     </button>
                 </div>
             </div>
@@ -190,9 +200,9 @@ const ClientDashboard = () => {
                     <KpiCard 
                         title="Pending Balance" 
                         value={`$${pendingBalance.toLocaleString()}`} 
-                        icon={<Clock size={20} className={pendingBalance > 0 ? "text-amber-700" : "text-emerald-700"} />}
-                        sub={pendingBalance > 0 ? "Due Invoices Pending" : "Zero Balance Outstanding"}
-                        badge={pendingBalance > 0 ? "Due" : "Cleared"}
+                        icon={<Clock size={20} className={unpaidCount > 0 ? "text-amber-700" : "text-emerald-700"} />}
+                        sub={pendingSubtext}
+                        badge={pendingBadge}
                         onClick={() => setActiveTab('invoices')}
                     />
                     <KpiCard 
@@ -261,40 +271,28 @@ const ClientDashboard = () => {
                             <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                                     <div>
-                                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Support Requests Ledger</h3>
-                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Track active support inquiries and resolution updates.</p>
+                                        <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Support Requests & SLA Tracker</h3>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Track your open technical tickets and operational queries.</p>
                                     </div>
                                     <button 
                                         onClick={() => navigate('/app/tickets')}
                                         className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none shrink-0"
                                     >
-                                        Open Tickets Portal <ChevronRight size={14} />
+                                        <Plus size={14} /> New Ticket
                                     </button>
                                 </div>
 
                                 <div className="space-y-3">
                                     {clientData.tickets.length === 0 ? (
-                                        <div className="text-center py-16 text-slate-400 font-bold text-sm">
-                                            No support tickets filed yet.
-                                        </div>
+                                        <div className="text-center py-12 text-slate-400 font-bold text-sm">No support tickets raised yet.</div>
                                     ) : (
                                         clientData.tickets.map(ticket => (
-                                            <div key={ticket._id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                            <div key={ticket._id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-3">
                                                 <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                                                            ticket.priority === 'Critical' || ticket.priority === 'High'
-                                                                ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                                                                : 'bg-slate-200 text-slate-700'
-                                                        }`}>
-                                                            {ticket.priority || 'Medium'} Priority
-                                                        </span>
-                                                        <span className="text-xs font-medium text-slate-400">• {new Date(ticket.createdAt || Date.now()).toLocaleDateString()}</span>
-                                                    </div>
-                                                    <h4 className="text-sm font-extrabold text-slate-900 truncate">{ticket.title}</h4>
-                                                    <p className="text-xs text-slate-500 font-medium line-clamp-1 mt-0.5">{ticket.description}</p>
+                                                    <h4 className="text-xs font-extrabold text-slate-900 truncate">{ticket.title}</h4>
+                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">ID: #{ticket._id?.slice(-8)} • Priority: {ticket.priority}</p>
                                                 </div>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-extrabold self-start sm:self-center shrink-0 ${
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 ${
                                                     ticket.status === 'Resolved' || ticket.status === 'Closed'
                                                         ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                                         : 'bg-amber-100 text-amber-800 border border-amber-200'
@@ -314,7 +312,7 @@ const ClientDashboard = () => {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                                     <div>
                                         <h3 className="text-base sm:text-lg font-extrabold text-slate-900">Financial Invoices Ledger</h3>
-                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Full record of corporate billing and payment receipts.</p>
+                                        <p className="text-xs text-slate-500 font-medium mt-0.5">Full record of corporate billing, payment receipts, and balance due.</p>
                                     </div>
                                     <button 
                                         onClick={() => navigate('/app/invoices')}
@@ -325,37 +323,47 @@ const ClientDashboard = () => {
                                 </div>
 
                                 <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                                    <table className="w-full text-left border-collapse min-w-[500px]">
+                                    <table className="w-full text-left border-collapse min-w-[650px]">
                                         <thead className="bg-slate-100/70 border-b border-slate-200/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
                                             <tr>
                                                 <th className="p-3.5 pl-4">Invoice ID</th>
                                                 <th className="p-3.5">Due Date</th>
-                                                <th className="p-3.5">Amount</th>
+                                                <th className="p-3.5">Total Amount</th>
+                                                <th className="p-3.5">Paid Amount</th>
+                                                <th className="p-3.5">Balance Due</th>
                                                 <th className="p-3.5 text-right pr-4">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs font-medium">
                                             {clientData.invoices.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={4} className="p-8 text-center text-slate-400 font-bold">No invoices generated yet.</td>
+                                                    <td colSpan={6} className="p-8 text-center text-slate-400 font-bold">No invoices generated yet.</td>
                                                 </tr>
                                             ) : (
-                                                clientData.invoices.map(inv => (
-                                                    <tr key={inv._id} className="hover:bg-slate-50/60 transition-colors">
-                                                        <td className="p-3.5 pl-4 font-bold text-slate-900">{inv._id?.slice(-8)}</td>
-                                                        <td className="p-3.5 text-slate-500">{new Date(inv.dueDate).toLocaleDateString()}</td>
-                                                        <td className="p-3.5 font-extrabold text-slate-900">${inv.totalAmount?.toLocaleString()}</td>
-                                                        <td className="p-3.5 text-right pr-4">
-                                                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                                inv.status === 'Paid'
-                                                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
-                                                            }`}>
-                                                                {inv.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))
+                                                clientData.invoices.map(inv => {
+                                                    const paid = inv.paidAmount || (inv.status === 'Paid' ? inv.totalAmount : 0);
+                                                    const balance = Math.max(0, (inv.totalAmount || 0) - paid);
+                                                    return (
+                                                        <tr key={inv._id} className="hover:bg-slate-50/60 transition-colors">
+                                                            <td className="p-3.5 pl-4 font-bold text-slate-900">#{inv._id?.slice(-8).toUpperCase()}</td>
+                                                            <td className="p-3.5 text-slate-500">{new Date(inv.dueDate).toLocaleDateString()}</td>
+                                                            <td className="p-3.5 font-black text-slate-900">${inv.totalAmount?.toLocaleString()}</td>
+                                                            <td className="p-3.5 font-extrabold text-emerald-700">${paid.toLocaleString()}</td>
+                                                            <td className="p-3.5 font-black text-amber-700">${balance.toLocaleString()}</td>
+                                                            <td className="p-3.5 text-right pr-4">
+                                                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                                                    inv.status === 'Paid'
+                                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                                        : inv.status === 'Partially Paid'
+                                                                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                        : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                                }`}>
+                                                                    {inv.status === 'Paid' ? 'PAID' : inv.status === 'Partially Paid' ? 'PARTIALLY PAID' : 'PENDING'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
                                             )}
                                         </tbody>
                                     </table>
@@ -390,6 +398,7 @@ const ClientDashboard = () => {
                                     <div className="text-right">
                                         <p className="text-[10px] text-slate-400 font-bold uppercase">Total Investment</p>
                                         <p className="text-sm font-extrabold text-white">${totalInvoiced.toLocaleString()}</p>
+                                        <p className="text-[10px] text-emerald-400 font-bold mt-0.5">${totalPaid.toLocaleString()} Paid</p>
                                     </div>
                                 </div>
                                 
@@ -435,24 +444,6 @@ const KpiCard = ({ title, value, icon, sub, badge, onClick }) => (
     </div>
 );
 
-const generatePhases = (stage) => {
-    const phases = [
-        { id: 1, name: 'Phase 1: Requirements & Discovery', status: 'Completed', date: 'Q1 Deliverable' },
-        { id: 2, name: 'Phase 2: UI/UX Spec & Architecture', status: 'Completed', date: 'Q1 Deliverable' },
-        { id: 3, name: 'Phase 3: Core API Services & DB', status: 'In Progress', date: 'Active Build' },
-        { id: 4, name: 'Phase 4: Client Web Portal Integration', status: 'In Progress', date: 'Active Build' },
-        { id: 5, name: 'Phase 5: Security Audit & QA Testing', status: 'Upcoming', date: 'Milestone 4' },
-        { id: 6, name: 'Phase 6: Production Launch & Handoff', status: 'Upcoming', date: 'Milestone 5' }
-    ];
-
-    if (stage === 'New') return phases.map(p => ({...p, status: 'Upcoming'}));
-    if (stage === 'Discovery') return phases.map((p, i) => i < 2 ? {...p, status: 'Completed'} : {...p, status: 'Upcoming'});
-    if (stage === 'Proposal') return phases.map((p, i) => i < 3 ? {...p, status: 'Completed'} : {...p, status: 'Upcoming'});
-    if (stage === 'Won' || stage === 'Completed') return phases.map((p, i) => i < 4 ? {...p, status: 'Completed'} : i === 4 ? {...p, status: 'In Progress'} : {...p, status: 'Upcoming'});
-
-    return phases;
-};
-
 const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
     
     // Project List View
@@ -474,7 +465,16 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
                         <div className="text-center py-16 text-slate-400 font-bold text-sm">No active corporate projects assigned.</div>
                     ) : (
                         projects.map(proj => {
-                            const progKey = proj.stage === 'New' ? 15 : proj.stage === 'Won' ? 75 : 45;
+                            const isProjectFullyCompleted = proj.stage === 'Completed' || proj.stage === 'Won' || proj.employeeTaskStatus === 'Completed';
+                            const modules = proj.modules || [];
+                            const completedCount = isProjectFullyCompleted 
+                                ? modules.length 
+                                : modules.filter(m => m.status === 'Completed').length;
+                            
+                            const progKey = isProjectFullyCompleted 
+                                ? 100 
+                                : (modules.length > 0 ? Math.round((completedCount / modules.length) * 100) : (proj.stage === 'In Execution' ? 50 : 10));
+                            
                             return (
                                 <div 
                                     key={proj._id} 
@@ -497,9 +497,9 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
                                     </div>
 
                                     <div className="flex justify-between items-center text-xs text-slate-500 font-medium pt-1">
-                                        <span>Completion Status</span>
+                                        <span>Completion Status ({modules.length} Modules)</span>
                                         <span className="flex items-center gap-1 font-bold text-slate-900 group-hover:translate-x-1 transition-transform">
-                                            Inspect Milestones Roadmap <ChevronRight size={14} />
+                                            Inspect Deliverable Modules <ChevronRight size={14} />
                                         </span>
                                     </div>
 
@@ -515,10 +515,15 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
         );
     }
 
-    // Detailed Project Phases View
-    const phases = generatePhases(selectedProject.stage);
-    const completedPhases = phases.filter(p => p.status === 'Completed').length;
-    const progressPercent = Math.round((completedPhases / phases.length) * 100);
+    // Detailed Project Modules View (Real Data Only)
+    const isProjectFullyCompleted = selectedProject.stage === 'Completed' || selectedProject.stage === 'Won' || selectedProject.employeeTaskStatus === 'Completed';
+    const modules = selectedProject.modules || [];
+    const completedCount = isProjectFullyCompleted 
+        ? modules.length 
+        : modules.filter(m => m.status === 'Completed').length;
+    const progressPercent = isProjectFullyCompleted 
+        ? 100 
+        : (modules.length > 0 ? Math.round((completedCount / modules.length) * 100) : 0);
 
     return (
         <div className="bg-white rounded-2xl p-5 sm:p-8 border border-slate-200/80 shadow-2xs space-y-6 animate-in slide-in-from-right duration-300">
@@ -532,7 +537,7 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
                     <h3 className="text-lg sm:text-xl font-extrabold text-slate-900">{selectedProject.title}</h3>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">Phase-by-phase execution roadmap & milestone delivery verification.</p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">Project execution roadmap & deliverable status verification.</p>
                 </div>
                 <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-extrabold rounded-full border border-indigo-200 w-fit">
                     Stage: {selectedProject.stage}
@@ -543,7 +548,7 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
             <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row sm:justify-between text-xs font-bold text-slate-700 gap-1">
                     <span>Deliverable Roadmap Progress</span>
-                    <span>{progressPercent}% Completed ({completedPhases} of {phases.length} Phases Verified)</span>
+                    <span>{progressPercent}% Completed ({completedCount} of {modules.length} Modules Completed)</span>
                 </div>
                 <div className="h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60 p-0.5">
                     <div 
@@ -553,30 +558,42 @@ const EngagementsView = ({ projects, selectedProject, setSelectedProject }) => {
                 </div>
             </div>
 
-            {/* Phases Checklist Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                {phases.map((phase) => (
-                    <div key={phase.id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="text-xs font-extrabold text-slate-900 truncate">{phase.name}</p>
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{phase.date}</span>
-                        </div>
-                        {phase.status === 'Completed' ? (
-                            <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
-                                <Check size={12} /> Verified
-                            </span>
-                        ) : phase.status === 'In Progress' ? (
-                            <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-amber-600 animate-ping" /> In Progress
-                            </span>
-                        ) : (
-                            <span className="px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">
-                                Upcoming
-                            </span>
-                        )}
-                    </div>
-                ))}
-            </div>
+            {/* Modules Checklist Grid */}
+            {modules.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                    {modules.map((mod, idx) => {
+                        const isModCompleted = isProjectFullyCompleted || mod.status === 'Completed';
+                        return (
+                            <div key={idx} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-xs font-extrabold text-slate-900 truncate">{mod.name}</p>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Internal Deliverable</span>
+                                </div>
+                                {isModCompleted ? (
+                                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0">
+                                        <Check size={12} /> Verified
+                                    </span>
+                                ) : mod.status === 'In Progress' ? (
+                                    <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                                        <div className="w-2 h-2 rounded-full bg-amber-600 animate-ping" /> In Progress
+                                    </span>
+                                ) : (
+                                    <span className="px-2.5 py-1 bg-slate-200 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0">
+                                        Pending
+                                    </span>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <div className="text-center py-12 px-6 border border-slate-200/80 rounded-2xl bg-slate-50/50 space-y-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-800">No Specific Sub-Modules Configured Yet</h4>
+                    <p className="text-xs font-medium text-slate-500 max-w-md mx-auto">
+                        Your assigned team (Admin & Engineers) will post specific project modules and progress updates here as development advances.
+                    </p>
+                </div>
+            )}
         </div>
     );
 };

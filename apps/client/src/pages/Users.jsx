@@ -365,8 +365,10 @@ const Users = () => {
                               <div>
                                   <label className="block mb-2 font-semibold text-slate-700">Role</label>
                                   <select name="role" value={formData.role} onChange={handleChange}
-                                      className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-white cursor-pointer">
+                                      className="w-full p-3 rounded-lg border border-slate-200 focus:border-slate-900 outline-none transition-all bg-white cursor-pointer text-xs font-extrabold text-slate-900">
                                       <option value="Employee">Employee</option>
+                                      <option value="Sales">Sales</option>
+                                      <option value="HR">HR</option>
                                       <option value="Admin">Admin</option>
                                   </select>
                               </div>

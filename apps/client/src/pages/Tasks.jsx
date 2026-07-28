@@ -79,8 +79,8 @@ const Tasks = () => {
             const usersData = userResult.status === 'fulfilled' ? (userResult.value.data.data || []) : [];
             const productsList = prodResult.status === 'fulfilled' ? (prodResult.value.data.data || []) : [];
             
-            // Filter for Employees: Only show their assigned tasks
-            if (user?.role === 'Employee') {
+            // Filter for Non-Admin Staff (Employee, Sales, HR): Only show their assigned tasks
+            if (user?.role !== 'Admin') {
                 const currentUserId = user.id || user._id;
                 
                 allTasks = allTasks.filter(t => {
@@ -88,7 +88,7 @@ const Tasks = () => {
                     return String(assignedId) === String(currentUserId);
                 });
                 
-                // Filter Opportunities for Employees
+                // Filter Opportunities for Non-Admin Staff
                 allOpportunities = allOpportunities.filter(o => {
                     const assignedId = typeof o.assignedTo === 'object' ? o.assignedTo?._id : o.assignedTo;
                     return String(assignedId) === String(currentUserId);
@@ -97,27 +97,12 @@ const Tasks = () => {
 
             // Convert Opportunities to Task format for the Kanban board
             const projectTasks = allOpportunities.map(opp => {
-                // FALLBACK LOGIC: If modules are missing, try to auto-match from Product List based on Title
-                let displayModules = opp.modules || [];
-                if (displayModules.length === 0 && productsList.length > 0) {
-                    const matchedProduct = productsList.find(p => 
-                        opp.title.toLowerCase().includes(p.name.toLowerCase())
-                    );
-                    if (matchedProduct) {
-                        displayModules = matchedProduct.modules.map(m => ({
-                             name: m.name,
-                             status: 'Pending', 
-                             clientStatus: 'Pending',
-                             // Generate a valid-looking ObjectId (24 hex chars) so Mongoose accepts it on save
-                             _id: m._id || ((new Date().getTime() / 1000 | 0).toString(16) + 'xxxxxxxxxxxxxxxx'.replace(/[x]/g, () => (Math.random() * 16 | 0).toString(16)).toLowerCase())
-                        }));
-                    }
-                }
+                const displayModules = opp.modules || [];
 
                 return {
                     _id: opp._id,
                     title: `Project: ${opp.title}`,
-                    priority: 'High',
+                    priority: opp.priority || 'Medium',
                     type: 'Project',
                     status: opp.employeeTaskStatus || (opp.stage === 'New' ? 'Pending' : opp.stage === 'Won' ? 'Completed' : 'In Progress'),
                     dueDate: opp.expectedCloseDate,
@@ -138,8 +123,8 @@ const Tasks = () => {
             }));
 
             setContacts(contactsData);
-            // Only show Employees in Assigned To Employee dropdown (Exclude Admin & Client)
-            setUsers(usersData.filter(u => u.role === 'Employee'));
+            // Filter for internal staff members (Exclude Client role users)
+            setUsers(usersData.filter(u => u.role !== 'Client'));
         } catch (err) {
             console.error("Critical error in fetchData", err);
         } finally {
@@ -306,47 +291,72 @@ const Tasks = () => {
         return timestamp + 'xxxxxxxxxxxxxxxx'.replace(/[x]/g, () => (Math.random() * 16 | 0).toString(16)).toLowerCase();
     };
 
-    // LOCAL STATE UPDATE ONLY
-    const updateProjectModule = (moduleId, newValue, field = 'status') => {
+    // LOCAL STATE UPDATE & MODULE MANAGEMENT
+    const handleAddModule = () => {
         if (!viewingProject) return;
-        
-        const updatedModules = viewingProject.modules.map(m => 
-            m._id === moduleId ? { ...m, [field]: newValue } : m
-        );
-        
-        setViewingProject({ ...viewingProject, modules: updatedModules });
+        const newMod = {
+            _id: (new Date().getTime() / 1000 | 0).toString(16) + 'xxxxxxxxxxxxxxxx'.replace(/[x]/g, () => (Math.random() * 16 | 0).toString(16)).toLowerCase(),
+            name: '',
+            status: 'Pending',
+            clientStatus: 'Pending'
+        };
+        const currentModules = viewingProject.modules || [];
+        setViewingProject({ ...viewingProject, modules: [...currentModules, newMod] });
         setHasUnsavedChanges(true);
     };
 
-    // EXPLICIT SAVE FUNCTION
+    const handleRemoveModule = (index) => {
+        if (!viewingProject) return;
+        const currentModules = [...(viewingProject.modules || [])];
+        currentModules.splice(index, 1);
+        setViewingProject({ ...viewingProject, modules: currentModules });
+        setHasUnsavedChanges(true);
+    };
+
+    const updateProjectModuleByIndex = (index, value, field = 'status') => {
+        if (!viewingProject) return;
+        const currentModules = [...(viewingProject.modules || [])];
+        currentModules[index] = { ...currentModules[index], [field]: value };
+        setViewingProject({ ...viewingProject, modules: currentModules });
+        setHasUnsavedChanges(true);
+    };
+
+    // EXPLICIT SAVE FUNCTION FOR PROJECT TASK
     const saveProjectChanges = async () => {
         if (!viewingProject) return;
         setIsSaving(true);
         
         try {
-            // NUCLEAR OPTION: The backend is fighting us.
-            // We will strip IDs completely and send a CLEAN array.
-            // And we will use a different confirmation message to debug.
-            const cleanModules = viewingProject.modules.map(({ _id, ...rest }) => ({
-                name: rest.name,
-                status: rest.status,
-                clientStatus: rest.clientStatus || 'Pending'
-            }));
+            const cleanModules = (viewingProject.modules || [])
+                .filter(m => m.name && m.name.trim() !== '')
+                .map(({ _id, ...rest }) => ({
+                    name: rest.name.trim(),
+                    status: rest.status || 'Pending',
+                    clientStatus: rest.clientStatus || 'Pending'
+                }));
             
-            console.log(`Saving Project: ${viewingProject._id}`);
-            console.log(`Payload Modules Count: ${cleanModules.length}`);
+            const assignedId = typeof viewingProject.assignedTo === 'object' ? viewingProject.assignedTo?._id : viewingProject.assignedTo;
+            const currentTaskStatus = viewingProject.employeeTaskStatus || viewingProject.status || 'Pending';
 
-            // We send the array inside the modules key.
-            const res = await axios.put(`/api/opportunities/${viewingProject._id}`, { modules: cleanModules });
+            const payload = {
+                employeeTaskStatus: currentTaskStatus,
+                stage: currentTaskStatus === 'Completed' ? 'Completed' : (currentTaskStatus === 'In Progress' ? 'In Execution' : 'New'),
+                assignedTo: assignedId || null,
+                priority: viewingProject.priority || 'Medium',
+                modules: cleanModules
+            };
+
+            const res = await axios.put(`/api/opportunities/${viewingProject._id}`, payload);
 
             if (res.status === 200) {
-                toast.success("Project status updated successfully!");
+                toast.success("Project details & modules saved successfully!");
                 setHasUnsavedChanges(false);
                 fetchData();
+                handleCloseDrawer();
             }
         } catch (err) {
-            console.error("Failed to update module", err);
-            toast.error(`Failed to save status: ${err.response?.data?.message || err.message}`);
+            console.error("Failed to update project", err);
+            toast.error(`Failed to save project: ${err.response?.data?.message || err.message}`);
         } finally {
             setIsSaving(false);
         }
@@ -720,7 +730,6 @@ const Tasks = () => {
                                             <option value="To Do">To Do</option>
                                             <option value="In Progress">In Progress</option>
                                             <option value="Done">Done</option>
-                                            <option value="Cancelled">Cancelled</option>
                                         </select>
                                     </div>
                                     <div>
@@ -743,8 +752,8 @@ const Tasks = () => {
                                             className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
                                         >
                                             <option value="">-- Assign Employee --</option>
-                                            {users.map(u => (
-                                                <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
+                                            {users.map((u, idx) => (
+                                                <option key={u._id || u.id || `user-${idx}`} value={u._id || u.id}>{u.name} ({u.role})</option>
                                             ))}
                                         </select>
                                     </div>
@@ -759,8 +768,8 @@ const Tasks = () => {
                                             className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
                                         >
                                             <option value="">-- No Related Client --</option>
-                                            {contacts.sort((a,b) => a.name.localeCompare(b.name)).map(c => (
-                                                <option key={c._id} value={c._id}>{c.name} ({c.company})</option>
+                                            {contacts.sort((a,b) => a.name.localeCompare(b.name)).map((c, idx) => (
+                                                <option key={c._id || c.id || `contact-${idx}`} value={c._id || c.id}>{c.name} ({c.company})</option>
                                             ))}
                                         </select>
                                     </div>
@@ -807,136 +816,247 @@ const Tasks = () => {
             {viewingProject && (
                  <>
                 <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40" onClick={handleCloseDrawer} />
-                <div className="fixed top-0 right-0 bottom-0 w-[600px] bg-white z-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-                    <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[620px] bg-white z-50 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 font-sans">
+                    
+                    {/* Header */}
+                    <div className="p-6 border-b border-slate-100 flex justify-between items-start bg-slate-50/50">
                         <div>
-                            <div className="text-[10px] font-bold text-blue-600 tracking-wider uppercase mb-1">Project Details</div>
-                            <h2 className="text-xl font-bold text-slate-900">{viewingProject.title.replace('Project: ', '')}</h2>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-black text-indigo-600 tracking-wider uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100">
+                                    Project Engagement
+                                </span>
+                                <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                                    (viewingProject.priority || 'Medium') === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                    (viewingProject.priority || 'Medium') === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                    'bg-sky-50 text-sky-700 border-sky-200'
+                                }`}>
+                                    {viewingProject.priority || 'Medium'} Priority
+                                </span>
+                            </div>
+                            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">{viewingProject.title.replace('Project: ', '')}</h2>
                         </div>
-                        <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors"><X size={20} /></button>
+                        <button onClick={handleCloseDrawer} className="p-2 hover:bg-slate-200 rounded-full text-slate-500 transition-colors border-none bg-transparent cursor-pointer">
+                            <X size={20} />
+                        </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-8">
-                         {/* Modules Section */}
-                         <div className="mb-8">
-                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide mb-4 flex items-center gap-2">
-                                <List size={16} /> Project Modules
-                            </h3>
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-12 gap-2 px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    <div className="col-span-5">Module Name</div>
-                                    <div className="col-span-3 text-center">Internal Status</div>
-                                    {user.role === 'Admin' && <div className="col-span-4 text-center">Client Visibility</div>}
-                                </div>
-                                {viewingProject.modules && viewingProject.modules.length > 0 ? (
-                                    viewingProject.modules.map((mod, idx) => (
-                                        <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100 grid grid-cols-12 gap-4 items-center">
-                                            {/* Module Name */}
-                                            <div className="col-span-5">
-                                                <div className="font-bold text-slate-800 text-sm">{mod.name}</div>
-                                            </div>
-                                            
-                                            {/* Internal Status (Employee & Admin) */}
-                                            <div className="col-span-3 flex justify-center">
-                                                {/* Admin View: Read Only */}
-                                                {user.role === 'Admin' ? (
-                                                     <span className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border text-center block w-full ${
-                                                        mod.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                                                        mod.status === 'In Progress' ? 'bg-blue-50 text-blue-600 border-blue-100' :
-                                                        'bg-slate-50 text-slate-400 border-slate-100'
-                                                    }`}>
-                                                        {mod.status}
-                                                    </span>
-                                                ) : (
-                                                /* Employee View: Editable */
-                                                 <select
-                                                    value={mod.status}
-                                                    onChange={(e) => updateProjectModule(mod._id, e.target.value, 'status')}
-                                                    className={`w-full px-2 py-1.5 rounded-lg text-[10px] font-bold border outline-none appearance-none text-center cursor-pointer transition-colors ${
-                                                        mod.status === 'Completed' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                                                        mod.status === 'In Progress' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                                        'bg-white text-slate-500 border-slate-200'
-                                                    }`}
-                                                 >
-                                                    <option value="Pending">Pending</option>
-                                                    <option value="In Progress">In Progress</option>
-                                                    <option value="Completed">Completed</option>
-                                                 </select>
-                                                )}
-                                            </div>
+                    <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+                         
+                         {/* Assigned Employee & Priority Information */}
+                         <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
+                             <div className="flex items-center justify-between">
+                                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                     <UserIcon size={14} className="text-slate-500" /> Assigned Representative
+                                 </label>
+                                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                                     Owner / Engineer
+                                 </span>
+                             </div>
 
-                                            {/* Client Status (Admin Only) */}
-                                            {user.role === 'Admin' && (
-                                                <div className="col-span-4 flex justify-center">
-                                                     {mod.status === 'Completed' ? (
-                                                        mod.clientStatus === 'Completed' ? (
-                                                            <button 
-                                                                onClick={() => updateProjectModule(mod._id, 'Pending', 'clientStatus')}
-                                                                className="flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-[10px] font-black border border-purple-200 hover:bg-purple-200 transition-colors"
-                                                                title="Click to Hide from Client"
-                                                            >
-                                                                <CheckCircle size={12} /> Published
-                                                            </button>
-                                                        ) : (
-                                                            <button 
-                                                                onClick={() => updateProjectModule(mod._id, 'Completed', 'clientStatus')}
-                                                                className="flex items-center gap-1 px-3 py-1.5 bg-white text-slate-400 rounded-lg text-[10px] font-bold border border-slate-200 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-all shadow-sm"
-                                                                title="Click to Publish to Client"
-                                                            >
-                                                                <Layout size={12} /> Publish
-                                                            </button>
-                                                        )
-                                                     ) : (
-                                                         <span className="text-[10px] text-slate-300 font-bold italic">
-                                                             Finish Internal First
-                                                         </span>
-                                                     )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="text-center p-8 text-slate-400 text-sm border-2 border-dashed border-slate-100 rounded-xl">
-                                        <p>No modules defined for this project.</p>
-                                        <p className="text-xs mt-2">Contact Admin to configure project modules.</p>
-                                    </div>
-                                )}
-                            </div>
+                             {canManageTasks ? (
+                                 <select 
+                                     value={typeof viewingProject.assignedTo === 'object' ? viewingProject.assignedTo?._id : (viewingProject.assignedTo || '')}
+                                     onChange={(e) => {
+                                         setViewingProject({ ...viewingProject, assignedTo: e.target.value });
+                                         setHasUnsavedChanges(true);
+                                     }}
+                                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white font-extrabold text-slate-900 text-xs outline-none focus:border-slate-900 cursor-pointer"
+                                 >
+                                     <option value="">-- Unassigned (Pending Allocation) --</option>
+                                     {users.map((u, idx) => (
+                                         <option key={u._id || u.id || `proj-user-${idx}`} value={u._id || u.id}>
+                                             {u.name} ({u.role || 'Employee'}) — {u.email}
+                                         </option>
+                                     ))}
+                                 </select>
+                             ) : (
+                                 <div className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200/80">
+                                     {(() => {
+                                         const assignedId = typeof viewingProject.assignedTo === 'object' ? viewingProject.assignedTo?._id : viewingProject.assignedTo;
+                                         const empObj = users.find(u => String(u._id || u.id) === String(assignedId));
+                                         return (
+                                             <>
+                                                 <div className="w-10 h-10 rounded-xl bg-slate-900 text-white font-black text-sm flex items-center justify-center shrink-0">
+                                                     {empObj?.name ? empObj.name.charAt(0).toUpperCase() : '?'}
+                                                 </div>
+                                                 <div>
+                                                     <p className="text-xs font-extrabold text-slate-900">{empObj?.name || 'Assigned Representative'}</p>
+                                                     <p className="text-[10px] font-medium text-slate-500">{empObj?.email || 'Corporate Team Member'}</p>
+                                                 </div>
+                                             </>
+                                         );
+                                     })()}
+                                 </div>
+                             )}
+
+                             {/* Priority Selector */}
+                             <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider">Priority Level</label>
+                                 <div className="flex items-center gap-1.5">
+                                     {['Low', 'Medium', 'High'].map(p => (
+                                         <button
+                                             key={p}
+                                             type="button"
+                                             onClick={() => {
+                                                 setViewingProject({ ...viewingProject, priority: p });
+                                                 setHasUnsavedChanges(true);
+                                             }}
+                                             className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all border-none cursor-pointer ${
+                                                 (viewingProject.priority || 'Medium') === p 
+                                                     ? p === 'High' ? 'bg-rose-600 text-white shadow-2xs' : p === 'Medium' ? 'bg-amber-500 text-white shadow-2xs' : 'bg-sky-600 text-white shadow-2xs'
+                                                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                                             }`}
+                                         >
+                                             {p}
+                                         </button>
+                                     ))}
+                                 </div>
+                             </div>
                          </div>
                          
-                         {/* Explicit Save Button */}
-                         <div className="pt-6 mt-6 border-t border-slate-100 sticky bottom-0 bg-white pb-4">
-                            <button
-                                onClick={saveProjectChanges}
-                                disabled={!hasUnsavedChanges || isSaving}
-                                className={`w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all ${
-                                    hasUnsavedChanges 
-                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-[1.02]' 
-                                    : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                }`}
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Saving Changes...
-                                    </>
-                                ) : (
-                                    <>
-                                        Update Project Status
-                                    </>
-                                )}
-                            </button>
-                            {!hasUnsavedChanges && (
-                                <p className="text-center text-[10px] text-slate-400 mt-2">
-                                    Make changes to modules to enable saving.
-                                </p>
-                            )}
+                         {/* Project Task Status Selector */}
+                         <div className="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-3">
+                             <div className="flex items-center justify-between">
+                                 <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                                     Overall Execution Status
+                                 </label>
+                                 <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-900 text-white uppercase">
+                                     {viewingProject.employeeTaskStatus || viewingProject.status || 'Pending'}
+                                 </span>
+                             </div>
+                             <div className="grid grid-cols-3 gap-2">
+                                 {[
+                                     { id: 'Pending', label: 'To Do', activeBg: 'bg-slate-900 text-white shadow-2xs' },
+                                     { id: 'In Progress', label: 'In Progress', activeBg: 'bg-blue-600 text-white shadow-2xs' },
+                                     { id: 'Completed', label: 'Completed', activeBg: 'bg-emerald-600 text-white shadow-2xs' }
+                                 ].map(st => {
+                                     const currentStatus = viewingProject.employeeTaskStatus || viewingProject.status || 'Pending';
+                                     const isSelected = currentStatus === st.id;
+                                     return (
+                                         <button
+                                             key={st.id}
+                                             type="button"
+                                             onClick={() => {
+                                                 let newMods = viewingProject.modules || [];
+                                                 if (st.id === 'Completed' && newMods.length > 0) {
+                                                     newMods = newMods.map(m => ({ ...m, status: 'Completed', clientStatus: 'Completed' }));
+                                                 }
+                                                 setViewingProject({ ...viewingProject, employeeTaskStatus: st.id, status: st.id, modules: newMods });
+                                                 setHasUnsavedChanges(true);
+                                             }}
+                                             className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all border-none cursor-pointer ${
+                                                 isSelected 
+                                                     ? st.activeBg 
+                                                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                             }`}
+                                         >
+                                             {st.label}
+                                         </button>
+                                     );
+                                 })}
+                             </div>
                          </div>
 
-                    </div>
-                </div>
-                </>
-            )}
+                         {/* Modules Section */}
+                         <div className="space-y-4">
+                             <div className="flex items-center justify-between">
+                                 <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                     <List size={16} /> Deliverable Modules
+                                 </h3>
+                                 <button
+                                     type="button"
+                                     onClick={handleAddModule}
+                                     className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 border-none cursor-pointer"
+                                 >
+                                     <Plus size={14} /> Add Module
+                                 </button>
+                             </div>
+
+                             <div className="space-y-3">
+                                 {viewingProject.modules && viewingProject.modules.length > 0 ? (
+                                     viewingProject.modules.map((mod, idx) => (
+                                         <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                             {/* Editable Module Name */}
+                                             <div className="flex-1 min-w-0">
+                                                 <input 
+                                                     type="text" 
+                                                     value={mod.name} 
+                                                     onChange={(e) => updateProjectModuleByIndex(idx, e.target.value, 'name')}
+                                                     placeholder="Enter deliverable module name..."
+                                                     className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white font-extrabold text-slate-900 text-xs outline-none focus:border-slate-900"
+                                                 />
+                                             </div>
+                                             
+                                             <div className="flex items-center gap-2 shrink-0">
+                                                 {/* Status Dropdown (Editable by Both Admin and Employee) */}
+                                                 <select
+                                                     value={mod.status || 'Pending'}
+                                                     onChange={(e) => updateProjectModuleByIndex(idx, e.target.value, 'status')}
+                                                     className={`px-3 py-2 rounded-lg text-xs font-extrabold border outline-none cursor-pointer transition-colors ${
+                                                         mod.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                         mod.status === 'In Progress' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                         'bg-white text-slate-700 border-slate-200'
+                                                     }`}
+                                                 >
+                                                     <option value="Pending">Pending</option>
+                                                     <option value="In Progress">In Progress</option>
+                                                     <option value="Completed">Completed</option>
+                                                 </select>
+
+                                                 {/* Remove Button */}
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => handleRemoveModule(idx)}
+                                                     className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                                     title="Remove Module"
+                                                 >
+                                                     <Trash2 size={16} />
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     ))
+                                 ) : (
+                                     <div className="text-center p-6 text-slate-500 text-xs border border-slate-200/80 rounded-xl bg-slate-50/50">
+                                         <p className="font-extrabold text-slate-700">No custom deliverable modules added yet.</p>
+                                         <p className="text-[11px] text-slate-400 mt-1">Click "+ Add Module" above to define specific project phases and milestones.</p>
+                                     </div>
+                                 )}
+                             </div>
+                          </div>
+                          
+                          {/* Explicit Save Button */}
+                          <div className="pt-4 border-t border-slate-100 sticky bottom-0 bg-white pb-2">
+                             <button
+                                 onClick={saveProjectChanges}
+                                 disabled={!hasUnsavedChanges || isSaving}
+                                 className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                                     hasUnsavedChanges 
+                                     ? 'bg-slate-900 text-white shadow-xs hover:bg-slate-800 border-none' 
+                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed border-none'
+                                 }`}
+                             >
+                                 {isSaving ? (
+                                     <>
+                                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                         Saving Project...
+                                     </>
+                                 ) : (
+                                     <>
+                                         Save Project Changes & Deliverables
+                                     </>
+                                 )}
+                             </button>
+                             {!hasUnsavedChanges && (
+                                 <p className="text-center text-[10px] text-slate-400 mt-1.5">
+                                     Make changes to priority, status, or modules above to enable saving.
+                                 </p>
+                             )}
+                          </div>
+
+                     </div>
+                 </div>
+                 </>
+             )}
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (

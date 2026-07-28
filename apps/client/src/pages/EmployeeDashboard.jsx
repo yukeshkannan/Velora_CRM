@@ -3,10 +3,9 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { 
     Clock, CheckCircle2, Ticket, Calendar as CalendarIcon, 
-    ArrowRight, Briefcase, ChevronRight, Zap, Target,
-    DollarSign, Users, TrendingUp, ListTodo, Plus,
-    ArrowUpRight, ShieldCheck, Layers, Package, Search, Filter,
-    UserCheck, UserPlus, FileText
+    ArrowRight, ChevronRight, Target, Plus,
+    ArrowUpRight, ShieldCheck, FileText, Check, AlertCircle,
+    UserCheck, Clock3, HeartHandshake, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -14,663 +13,460 @@ import LoadingSpinner from '../components/LoadingSpinner';
 const EmployeeDashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    
     const [stats, setStats] = useState({
         pendingTasks: 0,
         activeTickets: 0,
         attendanceDays: 0,
-        payrollStatus: 'Pending',
-        activeDeals: 0,
-        pipelineValue: '$0',
-        totalContacts: 0,
-        totalEmployees: 0,
-        todayPresent: 0,
-        monthlyPayrollCount: 0
+        leaveCount: 0,
+        pendingLeaves: 0,
+        payrollStatus: 'Active'
     });
+    
+    const [todayAttendance, setTodayAttendance] = useState(null);
     const [myTasks, setMyTasks] = useState([]);
-    const [deals, setDeals] = useState([]);
-    const [attendanceLogs, setAttendanceLogs] = useState([]);
-    const [stageCounts, setStageCounts] = useState({
-        New: 0,
-        'In Execution': 0,
-        Review: 0,
-        Completed: 0
-    });
+    const [myTickets, setMyTickets] = useState([]);
+    const [myLeaves, setMyLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const isSales = user?.role === 'Sales' || (user?.department || '').toLowerCase().includes('sales');
-    const isHR = user?.role === 'HR' || (user?.department || '').toLowerCase().includes('hr') || (user?.department || '').toLowerCase().includes('human');
-
     useEffect(() => {
-        const fetchEmployeeData = async () => {
+        const fetchDashboardData = async () => {
             try {
                 const userId = user?.id || user?._id;
-                const [tasksRes, ticketsRes, attendanceRes, oppRes, contactsRes, payrollRes, usersRes] = await Promise.all([
+                if (!userId) return;
+
+                const [tasksRes, oppsRes, ticketsRes, attendanceRes, leaveRes, payrollRes] = await Promise.all([
                     axios.get(`/api/tasks?assignedTo=${userId}`).catch(() => ({ data: { data: [] } })),
-                    axios.get(`/api/tickets?assignedTo=${userId}`).catch(() => ({ data: { data: [] } })),
+                    axios.get(`/api/opportunities?assignedTo=${userId}`).catch(() => ({ data: { data: [] } })),
+                    axios.get(`/api/tickets`).catch(() => ({ data: { data: [] } })),
                     axios.get(`/api/attendance`).catch(() => ({ data: { data: [] } })),
-                    axios.get(`/api/opportunities`).catch(() => ({ data: { data: [] } })),
-                    axios.get(`/api/contacts`).catch(() => ({ data: { data: [] } })),
-                    axios.get(`/api/payroll`).catch(() => ({ data: { data: [] } })),
-                    axios.get(`/api/auth/users`).catch(() => ({ data: { data: [] } }))
+                    axios.get(`/api/leave?userId=${userId}`).catch(() => ({ data: { data: [] } })),
+                    axios.get(`/api/payroll`).catch(() => ({ data: { data: [] } }))
                 ]);
 
                 const tasksData = tasksRes.data.data || [];
+                const oppsData = oppsRes.data.data || [];
                 const ticketsData = ticketsRes.data.data || [];
                 const attendanceData = attendanceRes.data.data || [];
-                const oppData = oppRes.data.data || [];
-                const contactsData = contactsRes.data.data || [];
+                const leaveData = leaveRes.data.data || [];
                 const payrollData = payrollRes.data.data || [];
-                const usersData = usersRes.data.data || [];
 
-                let regularTasks = tasksData.filter(t => t.status !== 'Completed');
-
-                const userOpps = oppData.filter(opp => !opp.assignedTo || opp.assignedTo._id === userId || opp.assignedTo === userId);
-                const projectTasks = userOpps.map(opp => ({
+                // Map assigned Opportunities into Project Tasks
+                const projectTasks = oppsData.map(opp => ({
                     _id: opp._id,
-                    title: `Deal: ${opp.title}`,
+                    title: `Project: ${opp.title}`,
+                    type: 'Project',
                     priority: 'High',
-                    status: opp.employeeTaskStatus || (opp.stage === 'Won' ? 'Completed' : 'In Progress'),
+                    status: opp.employeeTaskStatus || (opp.stage === 'Won' ? 'Completed' : 'Pending'),
                     dueDate: opp.expectedCloseDate,
-                    isProject: true
-                })).filter(t => t.status !== 'Completed');
+                    assignedTo: opp.assignedTo,
+                    isOpportunity: true
+                }));
 
-                const allActionItems = [...regularTasks, ...projectTasks].sort((a, b) => {
-                    if (!a.dueDate) return 1;
-                    if (!b.dueDate) return -1;
-                    return new Date(a.dueDate) - new Date(b.dueDate);
+                const allAssignedTasks = [...tasksData, ...projectTasks];
+                const userPendingTasks = allAssignedTasks.filter(t => t.status !== 'Completed');
+
+                // Filter tickets raised by or assigned to logged-in user
+                const userTickets = ticketsData.filter(t => {
+                    const raisedId = typeof t.raisedBy === 'object' ? t.raisedBy?._id : t.raisedBy;
+                    const assignedId = typeof t.assignedTo === 'object' ? t.assignedTo?._id : t.assignedTo;
+                    return String(raisedId) === String(userId) || String(assignedId) === String(userId);
                 });
+                const openTickets = userTickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed' && t.status !== 'Rejected');
 
-                const myTicketsData = ticketsData.filter(t => t.status !== 'Resolved' && t.status !== 'Rejected');
-
-                const currentMonth = new Date().getMonth();
-                const currentYear = new Date().getFullYear();
-                const todayStr = new Date().toLocaleDateString();
-
+                // Attendance processing
+                const todayStr = new Date().toDateString();
                 const myAttendanceRecords = attendanceData.filter(record => {
                     const recordUserId = typeof record.userId === 'object' ? record.userId?._id : record.userId;
                     return String(recordUserId) === String(userId);
                 });
-                const monthlyAttendanceDays = myAttendanceRecords.filter(record => {
-                    const recordDate = new Date(record.date);
-                    return recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear;
-                }).length;
 
-                // Filter out Admin and Client roles for HR employee stats
-                const staffUsers = usersData.filter(u => u.role !== 'Client' && u.role !== 'Admin');
+                const todayRecord = myAttendanceRecords.find(r => new Date(r.date).toDateString() === todayStr);
 
-                // Today Present Count for HR (Unique staff present today, excluding Admin & Client)
-                const todayPresentSet = new Set(
-                    attendanceData
+                const currentMonth = new Date().getMonth();
+                const currentYear = new Date().getFullYear();
+                const uniqueMonthlyDays = new Set(
+                    myAttendanceRecords
                         .filter(record => {
-                            const isToday = new Date(record.date).toLocaleDateString() === todayStr;
-                            const userRole = typeof record.userId === 'object' ? record.userId?.role : '';
-                            return isToday && userRole !== 'Admin' && userRole !== 'Client';
+                            const d = new Date(record.date);
+                            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
                         })
-                        .map(record => {
-                            const uId = typeof record.userId === 'object' ? record.userId?._id : record.userId;
-                            return String(uId || '');
-                        })
-                        .filter(Boolean)
+                        .map(record => new Date(record.date).toDateString())
                 );
-                const todayPresentCount = todayPresentSet.size;
+                const monthlyAttendanceDays = uniqueMonthlyDays.size;
 
-                // Payroll count for HR
-                const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
-                const monthlyPayrollRecords = payrollData.filter(p => p.month === currentMonthName && Number(p.year) === currentYear);
-                
-                let dynamicPayrollStatus = 'Pending';
-                if (monthlyPayrollRecords.length > 0) {
-                    dynamicPayrollStatus = monthlyPayrollRecords[0].status || 'Processed';
-                } else if (payrollData.length > 0) {
-                    dynamicPayrollStatus = payrollData[0].status || 'Processed';
-                }
+                // Leave processing
+                const userLeaves = leaveData.filter(l => {
+                    const lUserId = typeof l.userId === 'object' ? l.userId?._id : l.userId;
+                    return String(lUserId) === String(userId);
+                });
+                const pendingLeavesCount = userLeaves.filter(l => l.status === 'Pending').length;
 
-                const activeOpportunities = oppData.filter(opp => opp.stage !== 'Completed' && opp.stage !== 'Cancelled');
-                const totalPipelineAmt = activeOpportunities.reduce((sum, opp) => sum + (Number(opp.amount) || 0), 0);
-
-                const stages = {
-                    New: oppData.filter(o => o.stage === 'New').length,
-                    'In Execution': oppData.filter(o => o.stage === 'In Execution').length,
-                    Review: oppData.filter(o => o.stage === 'Review').length,
-                    Completed: oppData.filter(o => o.stage === 'Completed').length
-                };
-                setStageCounts(stages);
+                // Payroll processing
+                const myPayroll = payrollData.filter(p => {
+                    const pUserId = typeof p.userId === 'object' ? p.userId?._id : p.userId;
+                    return String(pUserId) === String(userId);
+                });
+                const latestPayrollStatus = myPayroll.length > 0 ? (myPayroll[0].status || 'Processed') : 'Active';
 
                 setStats({
-                    pendingTasks: allActionItems.length,
-                    activeTickets: myTicketsData.length,
+                    pendingTasks: userPendingTasks.length,
+                    activeTickets: openTickets.length,
                     attendanceDays: monthlyAttendanceDays,
-                    payrollStatus: dynamicPayrollStatus,
-                    activeDeals: activeOpportunities.length,
-                    pipelineValue: `$${Math.round(totalPipelineAmt).toLocaleString()}`,
-                    totalContacts: contactsData.length,
-                    totalEmployees: staffUsers.length,
-                    todayPresent: todayPresentCount,
-                    monthlyPayrollCount: monthlyPayrollRecords.length
+                    leaveCount: userLeaves.length,
+                    pendingLeaves: pendingLeavesCount,
+                    payrollStatus: latestPayrollStatus
                 });
-                
-                setDeals(oppData);
-                setMyTasks(allActionItems); 
 
-                // Deduplicate recent staff attendance logs (excluding Admin & Client)
-                const uniqueEmployeeLogsMap = new Map();
-                attendanceData.forEach(record => {
-                    const uId = typeof record.userId === 'object' ? record.userId?._id : record.userId;
-                    const uRole = typeof record.userId === 'object' ? record.userId?.role : '';
-                    if (!uId || uRole === 'Admin' || uRole === 'Client') return;
-                    const key = String(uId);
-                    if (!uniqueEmployeeLogsMap.has(key)) {
-                        uniqueEmployeeLogsMap.set(key, record);
-                    }
-                });
-                setAttendanceLogs(Array.from(uniqueEmployeeLogsMap.values()).slice(0, 5));
+                setTodayAttendance(todayRecord || null);
+                setMyTasks(userPendingTasks.slice(0, 5));
+                setMyTickets(userTickets.slice(0, 5));
+                setMyLeaves(userLeaves.slice(0, 5));
                 setLoading(false);
             } catch (err) {
-                console.error("Failed to fetch employee dashboard data", err);
-                setLoading(false); 
+                console.error("Error fetching employee dashboard metrics:", err);
+                setLoading(false);
             }
         };
 
         if (user) {
-            fetchEmployeeData();
+            fetchDashboardData();
         }
     }, [user]);
 
-    if (loading) return <LoadingSpinner message="Loading workspace..." />;
+    if (loading) return <LoadingSpinner message="Loading Employee Dashboard..." />;
 
-    const salesMetrics = [
-        {
-            title: 'Active Pipeline Deals',
-            value: stats.activeDeals,
-            caption: 'Open opportunities in progress',
-            icon: Briefcase,
-            path: '/app/sales'
-        },
-        {
-            title: 'Pipeline Revenue',
-            value: stats.pipelineValue,
-            caption: 'Total projected opportunity value',
-            icon: DollarSign,
-            path: '/app/sales'
-        },
-        {
-            title: 'Leads & Contacts',
-            value: stats.totalContacts,
-            caption: 'Managed client directory',
-            icon: Users,
-            path: '/app/contacts'
-        },
-        {
-            title: 'Pending Action Items',
-            value: stats.pendingTasks,
-            caption: 'Tasks requiring completion',
-            icon: Target,
-            path: '/app/tasks'
-        }
-    ];
-
-    const hrMetrics = [
-        {
-            title: 'Total Employees',
-            value: stats.totalEmployees,
-            caption: 'Active staff directory',
-            icon: UserPlus,
-            path: '/app/users'
-        },
-        {
-            title: "Today's Attendance",
-            value: `${stats.todayPresent} Logged`,
-            caption: 'Employee check-ins today',
-            icon: UserCheck,
-            path: '/app/attendance'
-        },
-        {
-            title: 'Monthly Payroll Runs',
-            value: `${stats.monthlyPayrollCount} Generated`,
-            caption: 'Disbursements this month',
-            icon: FileText,
-            path: '/app/payroll'
-        },
-        {
-            title: 'HR Tasks',
-            value: stats.pendingTasks,
-            caption: 'Pending action items',
-            icon: Target,
-            path: '/app/tasks'
-        }
-    ];
-
-    const generalMetrics = [
-        { title: 'Pending Tasks', value: stats.pendingTasks, caption: 'Action items assigned', icon: Target, path: '/app/tasks' },
-        { title: 'Active Tickets', value: stats.activeTickets, caption: 'Open support tickets', icon: Ticket, path: '/app/tickets' },
-        { title: 'Monthly Attendance', value: `${stats.attendanceDays} Days`, caption: 'Logged this month', icon: Clock, path: '/app/attendance' },
-        { title: 'Payroll Status', value: stats.payrollStatus, caption: 'Latest disbursement log', icon: Zap, path: '/app/payroll' },
-    ];
-
-    const getStageBadge = (stage) => {
-        switch (stage) {
-            case 'New': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200/60">New Lead</span>;
-            case 'In Execution': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200/60">In Progress</span>;
-            case 'Review': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200/60">In Review</span>;
-            case 'Completed': return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">Closed Won</span>;
-            default: return <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-stone-100 text-stone-600">Draft</span>;
-        }
-    };
-
-    const activeMetricsList = isHR ? hrMetrics : (isSales ? salesMetrics : generalMetrics);
-    const totalDealsCount = Object.values(stageCounts).reduce((a, b) => a + b, 0) || 1;
+    const todayDeadlineTasks = myTasks.filter(t => {
+        if (!t.dueDate) return false;
+        return new Date(t.dueDate).toDateString() === new Date().toDateString();
+    });
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-6 min-h-screen bg-[#F8FAFC] text-stone-900 font-sans">
+        <div className="min-h-screen flex flex-col bg-slate-50/50 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
             
-            {/* TOP BAR & WORKSPACE HEADER */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-stone-200/80 gap-4">
+            {/* Top Navigation Header */}
+            <div className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
                 <div>
-                    <div className="flex items-center gap-2 text-xs font-medium text-stone-500 mb-1">
-                        <span className="font-semibold text-stone-900">Velora CRM</span>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-0.5">
+                        <span className="text-slate-900 font-extrabold">Velora CRM</span>
                         <span>/</span>
-                        <span>{isHR ? 'Human Resources' : (isSales ? 'Sales Operations' : 'Workspace')}</span>
+                        <span>Employee Portal</span>
                     </div>
-                    <h1 className="text-2xl font-semibold text-stone-900 tracking-tight">
-                        {isHR ? 'HR & People Operations' : (isSales ? 'Sales Overview' : 'Employee Dashboard')}
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                        Welcome back, {user?.name || 'Employee'}
                     </h1>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {isHR ? (
-                        <>
-                            <button 
-                                onClick={() => navigate('/app/payroll')}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors"
-                            >
-                                <Plus size={15} /> Run Payroll
-                            </button>
-                            <button 
-                                onClick={() => navigate('/app/attendance')}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 rounded-lg text-xs font-medium shadow-sm transition-colors"
-                            >
-                                <Clock size={15} /> Log Attendance
-                            </button>
-                        </>
-                    ) : isSales ? (
-                        <>
-                            <button 
-                                onClick={() => navigate('/app/sales')}
-                                className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium shadow-sm transition-colors"
-                            >
-                                <Plus size={15} /> New Deal
-                            </button>
-                            <button 
-                                onClick={() => navigate('/app/contacts')}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 rounded-lg text-xs font-medium shadow-sm transition-colors"
-                            >
-                                <Users size={15} /> Add Contact
-                            </button>
-                        </>
-                    ) : null}
-
-                    <div className="px-3 py-2 bg-white border border-stone-200 text-stone-600 rounded-lg text-xs font-medium flex items-center gap-2 shadow-sm">
-                        <CalendarIcon size={14} className="text-stone-400" />
+                    <button 
+                        onClick={() => navigate('/app/attendance')}
+                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 border-none cursor-pointer"
+                    >
+                        <Clock size={15} /> My Attendance
+                    </button>
+                    <div className="px-3.5 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <CalendarIcon size={14} className="text-slate-500" />
                         <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                 </div>
             </div>
 
-            {/* METRICS OVERVIEW CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {activeMetricsList.map((m, idx) => (
+            {/* Main Content Area */}
+            <div className="flex-1 p-6 sm:p-8 max-w-6xl w-full mx-auto space-y-6">
+                
+                {/* DYNAMIC METRIC OVERVIEW CARDS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    
+                    {/* Card 1: Pending Tasks */}
                     <div 
-                        key={idx}
-                        onClick={() => m.path && navigate(m.path)}
-                        className="bg-white p-5 rounded-xl border border-stone-200/80 hover:border-stone-300 transition-all cursor-pointer shadow-sm flex flex-col justify-between"
+                        onClick={() => navigate('/app/tasks')}
+                        className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
                     >
                         <div className="flex items-center justify-between mb-3">
-                            <span className="text-xs font-medium text-stone-500">{m.title}</span>
-                            <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-600 flex items-center justify-center">
-                                <m.icon size={16} />
+                            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Assigned Tasks</span>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center border border-slate-200">
+                                <Target size={18} />
                             </div>
                         </div>
                         <div>
-                            <div className="text-2xl font-semibold text-stone-900 tracking-tight">{m.value}</div>
-                            <p className="text-[11px] text-stone-400 font-normal mt-1">{m.caption}</p>
+                            <div className="text-2xl font-black text-slate-900 tracking-tight">{stats.pendingTasks}</div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">Pending action items</p>
                         </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* PIPELINE PROGRESS SEGMENT BAR (SALES ONLY) */}
-            {isSales && (
-                <div className="bg-white rounded-xl border border-stone-200/80 p-5 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <Layers size={16} className="text-stone-500" />
-                            <h3 className="text-xs font-semibold text-stone-900 uppercase tracking-wider">Pipeline Stage Breakdown</h3>
-                        </div>
-                        <button 
-                            onClick={() => navigate('/app/sales')}
-                            className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1"
-                        >
-                            Open Board <ChevronRight size={14} />
-                        </button>
                     </div>
 
-                    <div className="h-2.5 w-full bg-stone-100 rounded-full overflow-hidden flex">
-                        <div style={{ width: `${(stageCounts.New / totalDealsCount) * 100}%` }} className="bg-amber-400" title="New Leads" />
-                        <div style={{ width: `${(stageCounts['In Execution'] / totalDealsCount) * 100}%` }} className="bg-blue-500" title="In Execution" />
-                        <div style={{ width: `${(stageCounts.Review / totalDealsCount) * 100}%` }} className="bg-purple-500" title="Review" />
-                        <div style={{ width: `${(stageCounts.Completed / totalDealsCount) * 100}%` }} className="bg-emerald-500" title="Closed Won" />
+                    {/* Card 2: Attendance */}
+                    <div 
+                        onClick={() => navigate('/app/attendance')}
+                        className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">This Month</span>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center border border-slate-200">
+                                <Clock size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-black text-slate-900 tracking-tight">
+                                {stats.attendanceDays} {stats.attendanceDays === 1 ? 'Day' : 'Days'}
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">Logged attendance sessions</p>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                            <span className="text-xs text-stone-600 font-medium">New Leads ({stageCounts.New})</span>
+                    {/* Card 3: Leave Applications */}
+                    <div 
+                        onClick={() => navigate('/app/attendance')}
+                        className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Leave / PTO</span>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center border border-slate-200">
+                                <FileText size={18} />
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                            <span className="text-xs text-stone-600 font-medium">In Execution ({stageCounts['In Execution']})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-                            <span className="text-xs text-stone-600 font-medium">In Review ({stageCounts.Review})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                            <span className="text-xs text-stone-600 font-medium">Closed Won ({stageCounts.Completed})</span>
+                        <div>
+                            <div className="text-2xl font-black text-slate-900 tracking-tight">{stats.leaveCount} Total</div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">
+                                {stats.pendingLeaves > 0 ? `${stats.pendingLeaves} pending review` : 'All requests reviewed'}
+                            </p>
                         </div>
                     </div>
+
+                    {/* Card 4: Support Tickets */}
+                    <div 
+                        onClick={() => navigate('/app/tickets')}
+                        className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all cursor-pointer shadow-2xs flex flex-col justify-between"
+                    >
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Help & Tickets</span>
+                            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center border border-slate-200">
+                                <Ticket size={18} />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-2xl font-black text-slate-900 tracking-tight">{stats.activeTickets} Active</div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">Open support requests</p>
+                        </div>
+                    </div>
+
                 </div>
-            )}
 
-            {/* TWO COLUMN CONTENT SECTION */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* LEFT 2 COLUMNS */}
-                <div className="lg:col-span-2 space-y-6">
+                {/* TODAY'S ATTENDANCE LIVE WORKSPACE BANNER */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-xs">
+                            {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Daily Attendance Status</span>
+                                {todayAttendance && !todayAttendance.checkOut ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Online
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                        Offline / Logged Out
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-sm font-bold text-slate-900">
+                                {!todayAttendance ? "You have not checked in for today yet." : 
+                                 !todayAttendance.checkOut ? `Active session started at ${new Date(todayAttendance.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}` : `Session concluded (${todayAttendance.totalHours || 0} hrs logged)`}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={() => navigate('/app/attendance')}
+                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 border-none cursor-pointer self-start md:self-auto shrink-0"
+                    >
+                        <Clock size={15} /> Go to Attendance Page
+                    </button>
+                </div>
+
+                {/* MAIN 2-COLUMN LAYOUT */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     
-                    {/* HR VIEW: Employee Attendance Logs Table */}
-                    {isHR ? (
-                        <div className="bg-white rounded-xl border border-stone-200/80 shadow-sm overflow-hidden">
-                            <div className="p-5 border-b border-stone-100 flex items-center justify-between">
+                    {/* LEFT COLUMN (8 cols) */}
+                    <div className="lg:col-span-8 space-y-6">
+                        
+                        {/* Assigned Tasks Card */}
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div>
-                                    <h3 className="text-sm font-semibold text-stone-900">Recent Employee Attendance Logs</h3>
-                                    <p className="text-xs text-stone-500 mt-0.5">Live check-ins and session records.</p>
+                                    <h3 className="text-sm font-extrabold text-slate-900">My Action Items & Assigned Tasks</h3>
+                                    <p className="text-xs text-slate-500 font-medium mt-0.5">Tasks requiring your attention.</p>
                                 </div>
                                 <button 
-                                    onClick={() => navigate('/app/attendance')}
-                                    className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                                    onClick={() => navigate('/app/tasks')}
+                                    className="text-xs font-extrabold text-slate-900 hover:text-indigo-600 flex items-center gap-1 cursor-pointer border-none bg-transparent"
                                 >
-                                    Full Register <ArrowUpRight size={14} />
+                                    View All Tasks <ArrowUpRight size={14} />
                                 </button>
                             </div>
 
-                            {attendanceLogs.length > 0 ? (
-                                <div className="divide-y divide-stone-100">
-                                    <div className="grid grid-cols-12 px-5 py-2.5 bg-stone-50 text-[11px] font-medium text-stone-500 uppercase tracking-wider">
-                                        <div className="col-span-5">Employee / User</div>
-                                        <div className="col-span-3">Status</div>
-                                        <div className="col-span-2 text-right">Hours</div>
-                                        <div className="col-span-2 text-right">Date</div>
-                                    </div>
-                                    {attendanceLogs.map((log) => {
-                                        const empName = typeof log.userId === 'object' ? log.userId?.name : 'Employee Record';
-                                        return (
-                                            <div 
-                                                key={log._id} 
-                                                onClick={() => navigate('/app/attendance')}
-                                                className="grid grid-cols-12 px-5 py-3.5 items-center hover:bg-stone-50/80 transition-colors cursor-pointer text-xs"
-                                            >
-                                                <div className="col-span-5 font-medium text-stone-900 truncate pr-2">
-                                                    {empName || 'Staff Member'}
-                                                </div>
-                                                <div className="col-span-3">
-                                                    {!log.checkOut ? (
-                                                        new Date(log.date).toDateString() === new Date().toDateString() ? (
-                                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                                Active Now
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200/60">
-                                                                Missed Checkout
-                                                            </span>
-                                                        )
-                                                    ) : (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200/60">
-                                                            Checked Out
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="col-span-2 text-right font-mono font-medium text-stone-900">
-                                                    {log.totalHours ? `${log.totalHours} hrs` : 'Active'}
-                                                </div>
-                                                <div className="col-span-2 text-right text-stone-500 text-[11px]">
-                                                    {log.date ? new Date(log.date).toLocaleDateString() : 'Today'}
+                            {myTasks.length > 0 ? (
+                                <div className="divide-y divide-slate-100">
+                                    {myTasks.map((task) => (
+                                        <div 
+                                            key={task._id} 
+                                            onClick={() => navigate('/app/tasks')}
+                                            className="p-4 hover:bg-slate-50/80 transition-colors cursor-pointer flex items-center justify-between text-xs"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${task.priority === 'High' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                                                <div>
+                                                    <p className="font-extrabold text-slate-900">{task.title}</p>
+                                                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                                        Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No deadline'} • {task.priority || 'Normal'} Priority
+                                                    </p>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                            <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase bg-slate-100 text-slate-700 border border-slate-200">
+                                                {task.status || 'Pending'}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
-                                <div className="p-8 text-center">
-                                    <Clock className="mx-auto text-stone-300 mb-2" size={32} />
-                                    <p className="text-xs font-medium text-stone-700">No attendance logs found</p>
+                                <div className="p-10 text-center">
+                                    <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
+                                    <p className="text-xs font-bold text-slate-700">No pending tasks assigned to you!</p>
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        /* SALES & GENERAL VIEW: Active Deals Table */
-                        <div className="bg-white rounded-xl border border-stone-200/80 shadow-sm overflow-hidden">
-                            <div className="p-5 border-b border-stone-100 flex items-center justify-between">
+
+                        {/* Recent Leave Requests Card */}
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                 <div>
-                                    <h3 className="text-sm font-semibold text-stone-900">Active Deals & Opportunities</h3>
-                                    <p className="text-xs text-stone-500 mt-0.5">Live records in your sales pipeline.</p>
+                                    <h3 className="text-sm font-extrabold text-slate-900">My Leave Applications</h3>
+                                    <p className="text-xs text-slate-500 font-medium mt-0.5">Recent PTO requests and manager approval statuses.</p>
                                 </div>
                                 <button 
-                                    onClick={() => navigate('/app/sales')}
-                                    className="text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                                    onClick={() => navigate('/app/attendance')}
+                                    className="text-xs font-extrabold text-slate-900 hover:text-indigo-600 flex items-center gap-1 cursor-pointer border-none bg-transparent"
                                 >
-                                    View All <ArrowUpRight size={14} />
+                                    Request PTO <Plus size={14} />
                                 </button>
                             </div>
 
-                            {deals.length > 0 ? (
-                                <div className="divide-y divide-stone-100">
-                                    <div className="grid grid-cols-12 px-5 py-2.5 bg-stone-50 text-[11px] font-medium text-stone-500 uppercase tracking-wider">
-                                        <div className="col-span-5">Deal Name</div>
-                                        <div className="col-span-3">Stage</div>
-                                        <div className="col-span-2 text-right">Amount</div>
-                                        <div className="col-span-2 text-right">Close Date</div>
-                                    </div>
-                                    {deals.slice(0, 5).map((deal) => (
-                                        <div 
-                                            key={deal._id} 
-                                            onClick={() => navigate('/app/sales')}
-                                            className="grid grid-cols-12 px-5 py-3.5 items-center hover:bg-stone-50/80 transition-colors cursor-pointer text-xs"
-                                        >
-                                            <div className="col-span-5 font-medium text-stone-900 truncate pr-2">
-                                                {deal.title}
+                            {myLeaves.length > 0 ? (
+                                <div className="divide-y divide-slate-100 text-xs">
+                                    {myLeaves.map((leave) => (
+                                        <div key={leave._id} className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors">
+                                            <div>
+                                                <p className="font-extrabold text-slate-900">{leave.leaveType}</p>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                                    {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()} ({leave.durationType})
+                                                </p>
                                             </div>
-                                            <div className="col-span-3">
-                                                {getStageBadge(deal.stage)}
-                                            </div>
-                                            <div className="col-span-2 text-right font-mono font-medium text-stone-900">
-                                                ${Number(deal.amount || 0).toLocaleString()}
-                                            </div>
-                                            <div className="col-span-2 text-right text-stone-500 text-[11px]">
-                                                {deal.expectedCloseDate ? new Date(deal.expectedCloseDate).toLocaleDateString() : '—'}
+                                            <div>
+                                                {leave.status === 'Approved' ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        Approved
+                                                    </span>
+                                                ) : leave.status === 'Rejected' ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                                                        Rejected
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                                                        Pending
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="p-8 text-center">
-                                    <Briefcase className="mx-auto text-stone-300 mb-2" size={32} />
-                                    <p className="text-xs font-medium text-stone-700">No active deals found</p>
-                                    <p className="text-[11px] text-stone-400 mt-0.5">Start tracking by adding a new deal.</p>
+                                <div className="p-10 text-center text-xs font-bold text-slate-400">
+                                    No leave requests submitted yet.
                                 </div>
                             )}
                         </div>
-                    )}
 
-                    {/* Pending Tasks */}
-                    <div className="bg-white rounded-xl border border-stone-200/80 shadow-sm p-5">
-                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-stone-100">
-                            <div>
-                                <h3 className="text-sm font-semibold text-stone-900">{isHR ? 'HR Tasks & Action Items' : 'Assigned Tasks'}</h3>
-                                <p className="text-xs text-stone-500 mt-0.5">Pending action items assigned to you.</p>
+                    </div>
+
+                    {/* RIGHT COLUMN (4 cols) */}
+                    <div className="lg:col-span-4 space-y-6">
+                        
+                        {/* Today's Schedule */}
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5">
+                            <h3 className="text-sm font-extrabold text-slate-900 mb-4 pb-3 border-b border-slate-100">Today's Deadlines</h3>
+                            <div className="space-y-3 border-l-2 border-slate-200 ml-2 pl-4">
+                                {todayDeadlineTasks.length > 0 ? (
+                                    todayDeadlineTasks.map((task, idx) => (
+                                        <div key={idx} className="relative">
+                                            <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white" />
+                                            <p className="text-[10px] font-black text-rose-600 uppercase tracking-wider">Due Today</p>
+                                            <p className="text-xs font-extrabold text-slate-900 mt-0.5">{task.title}</p>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="relative">
+                                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-slate-300 border-2 border-white" />
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Schedule Clear</p>
+                                        <p className="text-xs font-bold text-slate-600 mt-0.5">No tasks due today.</p>
+                                    </div>
+                                )}
                             </div>
+                        </div>
+
+                        {/* Employee Portal Shortcuts */}
+                        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-5 space-y-3">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Quick Navigation</span>
+                            <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                                <button 
+                                    onClick={() => navigate('/app/tasks')} 
+                                    className="p-3 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-left flex items-center gap-2 cursor-pointer bg-white"
+                                >
+                                    <Target size={15} className="text-slate-500" /> Tasks
+                                </button>
+                                <button 
+                                    onClick={() => navigate('/app/attendance')} 
+                                    className="p-3 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-left flex items-center gap-2 cursor-pointer bg-white"
+                                >
+                                    <Clock size={15} className="text-slate-500" /> Attendance
+                                </button>
+                                <button 
+                                    onClick={() => navigate('/app/calendar')} 
+                                    className="p-3 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-left flex items-center gap-2 cursor-pointer bg-white"
+                                >
+                                    <CalendarIcon size={15} className="text-slate-500" /> Calendar
+                                </button>
+                                <button 
+                                    onClick={() => navigate('/app/tickets')} 
+                                    className="p-3 rounded-xl border border-slate-200/80 hover:bg-slate-50 text-slate-700 text-left flex items-center gap-2 cursor-pointer bg-white"
+                                >
+                                    <Ticket size={15} className="text-slate-500" /> Support
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Support & Assistance */}
+                        <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-5 shadow-xl space-y-3">
+                            <div className="flex items-center gap-2 text-[11px] font-black text-emerald-400 uppercase tracking-widest">
+                                <ShieldCheck size={16} /> HR & Helpdesk
+                            </div>
+                            <p className="text-xs text-slate-300 font-medium leading-relaxed">Have questions regarding attendance, payroll, or IT support?</p>
                             <button 
-                                onClick={() => navigate('/app/tasks')}
-                                className="text-xs font-medium text-stone-500 hover:text-stone-900"
+                                onClick={() => navigate('/app/tickets')}
+                                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all border border-slate-700 cursor-pointer"
                             >
-                                Manage Tasks
+                                Raise Support Ticket
                             </button>
                         </div>
 
-                        {myTasks.length > 0 ? (
-                            <div className="space-y-2.5">
-                                {myTasks.slice(0, 4).map((task) => (
-                                    <div 
-                                        key={task._id} 
-                                        onClick={() => navigate('/app/tasks')}
-                                        className="flex items-center justify-between p-3 rounded-lg border border-stone-100 bg-stone-50/50 hover:bg-stone-100/60 transition-colors cursor-pointer"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${task.priority === 'High' ? 'bg-red-500' : 'bg-amber-500'}`} />
-                                            <div>
-                                                <p className="text-xs font-medium text-stone-900">{task.title}</p>
-                                                <p className="text-[10px] text-stone-400 mt-0.5">
-                                                    Due {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No date'} • {task.priority || 'Normal'} Priority
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={14} className="text-stone-400" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="py-6 text-center">
-                                <CheckCircle2 className="mx-auto text-emerald-500 mb-1.5" size={24} />
-                                <p className="text-xs font-medium text-stone-700">All tasks completed</p>
-                            </div>
-                        )}
                     </div>
 
                 </div>
 
-                {/* RIGHT COLUMN (1/3): SCHEDULE & SHORTCUTS */}
-                <div className="space-y-6">
-                    
-                    {/* Today's Schedule */}
-                    <div className="bg-white rounded-xl border border-stone-200/80 shadow-sm p-5">
-                        <h3 className="text-sm font-semibold text-stone-900 mb-4 pb-3 border-b border-stone-100">Today's Schedule</h3>
-                        <div className="space-y-4 border-l-2 border-stone-200 ml-2 pl-4">
-                            {myTasks.filter(t => {
-                                if (!t.dueDate) return false;
-                                return new Date(t.dueDate).toLocaleDateString() === new Date().toLocaleDateString();
-                            }).length > 0 ? (
-                                myTasks.filter(t => {
-                                    if (!t.dueDate) return false;
-                                    return new Date(t.dueDate).toLocaleDateString() === new Date().toLocaleDateString();
-                                }).map((task, idx) => (
-                                    <div key={idx} className="relative">
-                                        <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-white" />
-                                        <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Deadline</p>
-                                        <p className="text-xs font-medium text-stone-900 mt-0.5">{task.title}</p>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="relative">
-                                    <div className="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-stone-300 border-2 border-white" />
-                                    <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">Schedule</p>
-                                    <p className="text-xs font-medium text-stone-700 mt-0.5">No tasks due today.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Navigation Links */}
-                    <div className="bg-white rounded-xl border border-stone-200/80 shadow-sm p-5 space-y-2">
-                        <span className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider block mb-2">Shortcuts</span>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                            {isHR ? (
-                                <>
-                                    <button 
-                                        onClick={() => navigate('/app/attendance')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <Clock size={14} className="text-stone-500" /> Attendance
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/payroll')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <DollarSign size={14} className="text-stone-500" /> Payroll
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/users')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <UserPlus size={14} className="text-stone-500" /> Employees
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/calendar')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <CalendarIcon size={14} className="text-stone-500" /> Calendar
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button 
-                                        onClick={() => navigate('/app/sales')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <Briefcase size={14} className="text-stone-500" /> Pipeline
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/contacts')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <Users size={14} className="text-stone-500" /> Contacts
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/products')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <Package size={14} className="text-stone-500" /> Products
-                                    </button>
-                                    <button 
-                                        onClick={() => navigate('/app/calendar')} 
-                                        className="p-3 rounded-lg border border-stone-200/60 hover:bg-stone-50 font-medium text-stone-700 text-left flex items-center gap-2"
-                                    >
-                                        <CalendarIcon size={14} className="text-stone-500" /> Calendar
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Support Card */}
-                    <div className="bg-stone-900 text-white rounded-xl p-5 shadow-sm space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-amber-400 uppercase tracking-wider">
-                            <ShieldCheck size={14} /> Help & Support
-                        </div>
-                        <p className="text-xs text-stone-300 font-normal">Need assistance with access or system issues?</p>
-                        <button 
-                            onClick={() => navigate('/app/tickets')}
-                            className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-medium transition-colors"
-                        >
-                            Raise Support Ticket
-                        </button>
-                    </div>
-
-                </div>
             </div>
         </div>
     );
 };
 
 export default EmployeeDashboard;
-

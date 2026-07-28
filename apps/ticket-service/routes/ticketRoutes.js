@@ -22,6 +22,6 @@ router
   .route('/:id')
   .get(getTicketById)
   .put(updateTicket)
-  .delete(authMiddleware(['Admin', 'Employee']), deleteTicket);
+  .delete(authMiddleware(['Admin', 'Employee', 'Sales', 'HR']), deleteTicket);
 
 module.exports = router;

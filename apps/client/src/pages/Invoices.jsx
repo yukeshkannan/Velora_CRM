@@ -234,103 +234,136 @@ const Invoices = () => {
     const handleDownloadPDF = (invoice) => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) {
-            toast.error("Popup blocked! Please allow popups to download PDF.");
+            toast.error("Popup blocked! Please allow popups to download statement PDF.");
             return;
         }
         
+        const ref = invoice._id ? invoice._id.toString().slice(-6).toUpperCase() : 'INV';
         const paid = invoice.paidAmount || (invoice.status === 'Paid' ? invoice.totalAmount : 0);
-        const balance = Math.max(0, (invoice.totalAmount || 0) - paid);
+        const total = invoice.totalAmount || 0;
+        const balance = Math.max(0, total - paid);
+        const status = invoice.status || 'Sent';
+        const dueDateStr = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A';
+
+        let statusBg = '#eff6ff';
+        let statusText = '#2563eb';
+        let statusBorder = '#bfdbfe';
+        let statusLabel = 'INVOICE ISSUED';
+
+        if (status === 'Paid') {
+            statusBg = '#ecfdf5';
+            statusText = '#059669';
+            statusBorder = '#a7f3d0';
+            statusLabel = 'PAID IN FULL';
+        } else if (status === 'Partially Paid') {
+            statusBg = '#fffbeb';
+            statusText = '#d97706';
+            statusBorder = '#fde68a';
+            statusLabel = 'PARTIALLY PAID';
+        }
 
         const itemsHtml = (invoice.items || []).map(item => `
-            <tr>
-                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155;">${item.description}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155; text-align: center;">${item.quantity}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #334155; text-align: right;">$${(item.price || 0).toFixed(2)}</td>
-                <td style="padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #0f172a; text-align: right; font-weight: bold;">$${((item.price || 0) * item.quantity).toFixed(2)}</td>
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px 16px; color: #0f172a; font-weight: 600; font-size: 13px;">${item.description || 'Custom Service Item'}</td>
+                <td style="padding: 14px 16px; color: #64748b; text-align: center; font-size: 13px;">${item.quantity || 1}</td>
+                <td style="padding: 14px 16px; color: #64748b; text-align: right; font-size: 13px;">$${(item.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                <td style="padding: 14px 16px; color: #0f172a; font-weight: 700; text-align: right; font-size: 13px;">$${((item.price || 0) * (item.quantity || 1)).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
             </tr>
         `).join('');
 
         const printContent = `
+            <!DOCTYPE html>
             <html>
             <head>
-                <title>Invoice - #${(invoice._id || '').slice(-6).toUpperCase()}</title>
+                <title>Official Statement - #${ref}</title>
                 <style>
-                    @media print { body { -webkit-print-color-adjust: exact; } }
-                    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; color: #0f172a; padding: 40px; margin: 0; }
-                    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #f1f5f9; padding-bottom: 30px; margin-bottom: 30px; }
-                    .logo { font-size: 24px; font-weight: 800; color: #0f172a; }
-                    .logo span { color: #2563eb; }
-                    .invoice-details { text-align: right; }
-                    .invoice-title { font-size: 32px; font-weight: 900; color: #0f172a; margin: 0 0 10px 0; }
-                    .metadata-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-                    .bill-section h3 { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 10px; letter-spacing: 1px; }
-                    .bill-section p { font-size: 14px; margin: 4px 0; color: #0f172a; font-weight: 600; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-                    th { background-color: #f8fafc; padding: 12px; text-transform: uppercase; font-size: 11px; font-weight: 800; color: #64748b; border-bottom: 2px solid #e2e8f0; }
-                    .total-card { margin-left: auto; width: 300px; border-top: 2px solid #e2e8f0; padding-top: 20px; }
-                    .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-                    .grand-total { font-size: 20px; font-weight: 900; color: #0f172a; border-top: 1px dashed #e2e8f0; padding-top: 10px; margin-top: 10px; }
-                    .footer { margin-top: 80px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+                    @media print { 
+                        body { -webkit-print-color-adjust: exact; padding: 0; }
+                        .no-print { display: none; }
+                    }
+                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #ffffff; color: #0f172a; padding: 40px; margin: 0; }
+                    .container { max-width: 700px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; }
                 </style>
             </head>
             <body>
-                <div class="header">
-                    <div>
-                        <div class="logo">Velora<span>.</span></div>
-                        <p style="font-size: 13px; color: #64748b; margin: 5px 0 0 0;">Enterprise CRM Solutions</p>
+                <div class="container">
+                    <!-- Brand Header -->
+                    <div style="background: linear-gradient(135deg, #09090b 0%, #1e293b 100%); padding: 32px 36px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                                <td>
+                                    <div style="font-size: 26px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Velora<span style="color: #6366f1;">.</span></div>
+                                    <div style="color: #94a3b8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; margin-top: 4px;">Official Statement & Invoice</div>
+                                </td>
+                                <td style="text-align: right; vertical-align: middle;">
+                                    <span style="background-color: ${statusBg}; color: ${statusText}; border: 1px solid ${statusBorder}; padding: 6px 14px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: 0.8px; display: inline-block;">
+                                        ${statusLabel}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
-                    <div class="invoice-details">
-                        <h1 class="invoice-title">INVOICE</h1>
-                        <p style="margin: 0; font-size: 14px; font-weight: 700; color: #64748b;">Ref: #${(invoice._id || '').slice(-6).toUpperCase()}</p>
-                    </div>
-                </div>
 
-                <div class="metadata-grid">
-                    <div class="bill-section">
-                        <h3>Billed To:</h3>
-                        <p>${invoice.customerName || 'Valued Client'}</p>
-                        <p style="font-weight: 500; color: #64748b;">${invoice.customerEmail || ''}</p>
-                    </div>
-                     <div class="bill-section" style="text-align: right;">
-                         <h3>Invoice Information:</h3>
-                         <p>Date Issued: ${new Date(invoice.createdAt || Date.now()).toLocaleDateString()}</p>
-                         <p>Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
-                         <p>Status: <strong>${invoice.status}</strong></p>
-                     </div>
-                </div>
+                    <!-- Main Content -->
+                    <div style="padding: 36px;">
+                        <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Dear ${invoice.customerName || 'Valued Client'},</h2>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.65; margin: 0 0 28px 0;">
+                            ${status === 'Partially Paid' 
+                                ? `Thank you for your payment! Below is your updated official statement showing total payment progress and remaining balance due.` 
+                                : status === 'Paid'
+                                ? `Invoice <strong>#${ref}</strong> has been fully settled. Below is your official receipt statement.`
+                                : `Below is your official billing statement and line item breakdown for reference <strong>#${ref}</strong>.`}
+                        </p>
+                        
+                        <!-- Financial Summary Box -->
+                        <div style="background-color: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px; margin-bottom: 32px;">
+                            <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                                <tr>
+                                    <td style="color: #64748b; padding: 6px 0; font-weight: 500;">Invoice Reference:</td>
+                                    <td style="font-weight: 800; color: #0f172a; text-align: right; padding: 6px 0;">#${ref}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #64748b; padding: 6px 0; font-weight: 500;">Due Date:</td>
+                                    <td style="font-weight: 700; color: #0f172a; text-align: right; padding: 6px 0;">${dueDateStr}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #64748b; padding: 6px 0; font-weight: 500;">Total Invoice Amount:</td>
+                                    <td style="font-weight: 800; color: #0f172a; text-align: right; padding: 6px 0; font-size: 14px;">$${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #059669; padding: 6px 0; font-weight: 600;">Amount Paid to Date:</td>
+                                    <td style="font-weight: 800; color: #059669; text-align: right; padding: 6px 0; font-size: 14px;">-$${paid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                                <tr style="border-top: 2px dashed #cbd5e1;">
+                                    <td style="color: #0f172a; padding: 12px 0 4px 0; font-weight: 800; font-size: 14px;">Remaining Balance Due:</td>
+                                    <td style="font-weight: 900; color: ${balance > 0 ? '#d97706' : '#059669'}; text-align: right; padding: 12px 0 4px 0; font-size: 16px;">$${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            </table>
+                        </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th style="text-align: left;">Description</th>
-                            <th style="text-align: center; width: 80px;">Qty</th>
-                            <th style="text-align: right; width: 120px;">Unit Price</th>
-                            <th style="text-align: right; width: 120px;">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${itemsHtml}
-                    </tbody>
-                </table>
+                        <!-- Line Items -->
+                        <h3 style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 12px 0;">Service Items Breakdown</h3>
+                        <div style="border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px;">
+                            <table style="width: 100%; border-collapse: collapse; background-color: #ffffff;">
+                                <thead>
+                                    <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left;">
+                                        <th style="padding: 10px 16px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Description</th>
+                                        <th style="padding: 10px 16px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; text-align: center; width: 50px;">Qty</th>
+                                        <th style="padding: 10px 16px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; text-align: right; width: 90px;">Price</th>
+                                        <th style="padding: 10px 16px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; text-align: right; width: 100px;">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${itemsHtml}
+                                </tbody>
+                            </table>
+                        </div>
 
-                <div class="total-card">
-                    <div class="total-row" style="font-size: 14px; color: #64748b;">
-                        <span>Total Invoiced</span>
-                        <span>$${(invoice.totalAmount || 0).toFixed(2)}</span>
+                        <div style="margin-top: 40px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px;">
+                            <p style="margin: 0;">This official statement was automatically generated by Velora Enterprise CRM.</p>
+                            <p style="margin: 4px 0 0 0; color: #cbd5e1;">© 2026 Velora Technologies. All rights reserved.</p>
+                        </div>
                     </div>
-                    <div class="total-row" style="font-size: 14px; color: #047857;">
-                        <span>Amount Paid</span>
-                        <span>-$${paid.toFixed(2)}</span>
-                    </div>
-                    <div class="total-row grand-total">
-                        <span>Balance Due</span>
-                        <span>$${balance.toFixed(2)}</span>
-                    </div>
-                </div>
-
-                <div class="footer">
-                    <p>Thank you for your business. For billing queries, please contact billing@velora.com</p>
-                    <p style="margin-top: 5px; font-size: 10px; color: #cbd5e1;">Generated by Velora Enterprise CRM</p>
                 </div>
 
                 <script>
@@ -363,7 +396,13 @@ const Invoices = () => {
         const matchesQuery = (inv.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                              (inv.customerEmail || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                              (inv._id || '').toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === 'All' || inv.status === statusFilter;
+        
+        const matchesStatus = statusFilter === 'All' || (
+            statusFilter === 'Pending' 
+                ? (inv.status === 'Pending' || inv.status === 'Sent')
+                : inv.status === statusFilter
+        );
+
         return matchesQuery && matchesStatus;
     });
 
@@ -410,12 +449,14 @@ const Invoices = () => {
                             <Plus size={16} /> Issue New Invoice
                         </button>
                     )}
-                    <button 
-                        className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
-                        onClick={() => exportToCSV(invoices, 'invoices')}
-                    >
-                        <Download size={16} /> Export CSV
-                    </button>
+                    {!isClient && (
+                        <button 
+                            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                            onClick={() => exportToCSV(invoices, 'invoices')}
+                        >
+                            <Download size={16} /> Export CSV
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -480,7 +521,10 @@ const Invoices = () => {
 
                     {/* Status Filter Segment Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
-                        {['All', 'Paid', 'Partially Paid', 'Pending', 'Overdue', 'Sent', 'Draft'].map(status => (
+                        {(isClient 
+                            ? ['All', 'Pending', 'Partially Paid', 'Paid'] 
+                            : ['All', 'Pending', 'Partially Paid', 'Paid', 'Overdue', 'Draft']
+                        ).map(status => (
                             <button
                                 key={status}
                                 onClick={() => setStatusFilter(status)}
@@ -550,20 +594,25 @@ const Invoices = () => {
                                                     )}
                                                 </td>
                                                 <td className="p-4">
-                                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusStyle(inv.status)}`}>
-                                                        {inv.status}
-                                                    </span>
-                                                </td>
+                                                     <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${getStatusStyle(inv.status)}`}>
+                                                         {inv.status === 'Sent' ? 'PENDING' : inv.status}
+                                                     </span>
+                                                 </td>
                                                 <td className="p-4 pr-6 text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        {inv.status !== 'Paid' && (
+                                                        {isClient && (inv.status === 'Partially Paid' || inv.status === 'Paid') ? (
+                                                            <span className="px-3 py-1.5 bg-emerald-50 text-emerald-700 font-extrabold rounded-xl border border-emerald-200/80 text-xs flex items-center gap-1.5 shrink-0">
+                                                                <CheckCircle2 size={14} />
+                                                                <span>{inv.status === 'Paid' ? 'Paid in Full' : 'Installment Paid'}</span>
+                                                            </span>
+                                                        ) : isClient && (
                                                             <button 
                                                                 onClick={() => openPaymentModal(inv)}
                                                                 className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer border-none shrink-0"
-                                                                title="Record Partial / Milestone Payment"
+                                                                title="Pay / Installment Payment"
                                                             >
                                                                 <CreditCard size={14} />
-                                                                <span>{isClient ? 'Pay / Installment' : 'Record Payment'}</span>
+                                                                <span>Pay / Installment</span>
                                                             </button>
                                                         )}
                                                         {!isClient && (
@@ -666,41 +715,53 @@ const Invoices = () => {
                                 </div>
 
                                 {/* Presets Quick Selection */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        <button 
-                                            type="button"
-                                            onClick={() => {
-                                                const rem = Math.max(0, (paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0));
-                                                setPartialPayAmount((rem * 0.25).toFixed(2));
-                                            }}
-                                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all border-none cursor-pointer"
-                                        >
-                                            25% Advance
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => {
-                                                const rem = Math.max(0, (paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0));
-                                                setPartialPayAmount((rem * 0.50).toFixed(2));
-                                            }}
-                                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all border-none cursor-pointer"
-                                        >
-                                            50% Installment
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => {
-                                                const rem = Math.max(0, (paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0));
-                                                setPartialPayAmount(rem.toFixed(2));
-                                            }}
-                                            className="px-2.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold transition-all border-none cursor-pointer"
-                                        >
-                                            Full Balance
-                                        </button>
-                                    </div>
-                                </div>
+                                {(() => {
+                                    const currentPaid = paymentModalInvoice.paidAmount || (paymentModalInvoice.status === 'Paid' ? paymentModalInvoice.totalAmount : 0);
+                                    const remaining = Math.max(0, (paymentModalInvoice.totalAmount || 0) - currentPaid);
+                                    const currentVal = parseFloat(partialPayAmount) || 0;
+                                    const val25 = parseFloat((remaining * 0.25).toFixed(2));
+                                    const val50 = parseFloat((remaining * 0.50).toFixed(2));
+                                    const valFull = parseFloat(remaining.toFixed(2));
+
+                                    const is25 = Math.abs(currentVal - val25) < 0.02 && val25 > 0;
+                                    const is50 = Math.abs(currentVal - val50) < 0.02 && val50 > 0;
+                                    const isFull = Math.abs(currentVal - valFull) < 0.02 && valFull > 0;
+
+                                    return (
+                                        <div className="space-y-1.5">
+                                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quick Presets</label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setPartialPayAmount((remaining * 0.25).toFixed(2))}
+                                                    className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all border-none cursor-pointer ${
+                                                        is25 ? 'bg-slate-900 text-white shadow-xs font-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    25% Advance
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setPartialPayAmount((remaining * 0.50).toFixed(2))}
+                                                    className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all border-none cursor-pointer ${
+                                                        is50 ? 'bg-slate-900 text-white shadow-xs font-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    50% Installment
+                                                </button>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setPartialPayAmount(remaining.toFixed(2))}
+                                                    className={`px-2.5 py-2 rounded-xl text-xs font-bold transition-all border-none cursor-pointer ${
+                                                        isFull ? 'bg-slate-900 text-white shadow-xs font-black' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                                    }`}
+                                                >
+                                                    Full Balance
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 <div className="pt-4 border-t border-slate-100 flex gap-3">
                                     <button 
@@ -750,19 +811,19 @@ const Invoices = () => {
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                                <div className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-700">Client Selection <span className="text-rose-500">*</span></label>
-                                    <select 
-                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none text-xs font-bold text-slate-900 transition-all shadow-2xs"
-                                        value={formData.customerId}
-                                        onChange={handleCustomerChange}
-                                    >
-                                        <option value="">Choose Client Company...</option>
-                                        {contacts.map(c => <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>)}
-                                    </select>
-                                </div>
-
                                 <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-bold text-slate-700">Client Selection <span className="text-rose-500">*</span></label>
+                                        <select 
+                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none text-xs font-bold text-slate-900 transition-all shadow-2xs"
+                                            value={formData.customerId}
+                                            onChange={handleCustomerChange}
+                                        >
+                                            <option value="">Choose Client Company...</option>
+                                            {contacts.map(c => <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>)}
+                                        </select>
+                                    </div>
+
                                     <div className="space-y-1.5">
                                        <label className="text-xs font-bold text-slate-700">Due Date <span className="text-rose-500">*</span></label>
                                        <input 
@@ -770,17 +831,6 @@ const Invoices = () => {
                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none text-xs font-bold text-slate-900 transition-all shadow-2xs"
                                            value={formData.dueDate}
                                            onChange={e => setFormData({...formData, dueDate: e.target.value})}
-                                       />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                       <label className="text-xs font-bold text-slate-700">Initial Advance / Paid Amount ($)</label>
-                                       <input 
-                                           type="number" 
-                                           placeholder="0.00 (Advance)"
-                                           className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none text-xs font-bold text-slate-900 transition-all shadow-2xs"
-                                           value={formData.paidAmount || ''}
-                                           onChange={e => setFormData({...formData, paidAmount: parseFloat(e.target.value) || 0})}
                                        />
                                     </div>
                                 </div>
@@ -852,17 +902,9 @@ const Invoices = () => {
                                 </div>
 
                                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs font-medium">
-                                    <div className="flex justify-between text-slate-600">
-                                        <span>Calculated Service Total:</span>
-                                        <span className="font-extrabold text-slate-900">${calculateTotal().toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between text-emerald-700">
-                                        <span>Initial Paid / Advance:</span>
-                                        <span className="font-extrabold">-${(parseFloat(formData.paidAmount) || 0).toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between text-amber-700 font-bold border-t border-slate-200/60 pt-1.5">
-                                        <span>Initial Remaining Dues:</span>
-                                        <span className="font-black text-amber-700">${Math.max(0, calculateTotal() - (parseFloat(formData.paidAmount) || 0)).toLocaleString()}</span>
+                                    <div className="flex justify-between items-center text-slate-700">
+                                        <span className="font-bold">Total Service Invoice Amount:</span>
+                                        <span className="font-black text-slate-900 text-sm">${calculateTotal().toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>

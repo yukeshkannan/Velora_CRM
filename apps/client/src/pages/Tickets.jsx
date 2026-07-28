@@ -174,8 +174,10 @@ const Tickets = () => {
             setTickets(prev => prev.filter(t => t._id !== id));
             setShowDeleteConfirm(null);
             setIsDrawerOpen(false);
+            toast.success("Ticket deleted successfully!");
         } catch (err) {
-            console.error("Failed to delete", err);
+            console.error("Failed to delete ticket", err);
+            toast.error(err.response?.data?.message || "Failed to delete ticket");
         }
     };
 
@@ -600,9 +602,10 @@ const Tickets = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Status</label>
-                                            {isClient ? (
-                                                <div className="px-4 py-2.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-semibold text-slate-700 select-none">
-                                                    {formData.status}
+                                            {(!editingTicket && user?.role !== 'Admin') ? (
+                                                <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-extrabold text-indigo-700 flex items-center gap-2 select-none">
+                                                    <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+                                                    Open (Default for New Tickets)
                                                 </div>
                                             ) : (
                                                 <div className="relative">
@@ -613,8 +616,8 @@ const Tickets = () => {
                                                     >
                                                         {columns.map(c => {
                                                             const isCurrent = formData.status === c.id;
-                                                            const isRestricted = (formData.status === 'Resolved' || formData.status === 'Rejected') && !isCurrent;
-                                                            if (isRestricted) return null;
+                                                            const isRestricted = (c.id === 'Resolved' || c.id === 'Rejected') && user?.role !== 'Admin';
+                                                            if (isRestricted && !isCurrent) return null;
                                                             return <option key={c.id} value={c.id}>{c.title}</option>;
                                                         })}
                                                     </select>
@@ -626,7 +629,7 @@ const Tickets = () => {
                                         </div>
                                     </div>
 
-                                    {!isClient && (
+                                    {user?.role === 'Admin' && (
                                         <div className="grid grid-cols-2 gap-5">
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer</label>
@@ -643,7 +646,7 @@ const Tickets = () => {
                                                     </select>
                                                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                                    </div>
+                                                     </div>
                                                 </div>
                                             </div>
                                             <div>
@@ -661,7 +664,7 @@ const Tickets = () => {
                                                     </select>
                                                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
                                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-                                                    </div>
+                                                     </div>
                                                 </div>
                                             </div>
                                         </div>

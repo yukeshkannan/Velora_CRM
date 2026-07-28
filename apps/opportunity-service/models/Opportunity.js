@@ -41,6 +41,16 @@ const opportunitySchema = new mongoose.Schema({
   expectedCloseDate: {
     type: Date
   },
+  employeeTaskStatus: {
+    type: String,
+    enum: ['Pending', 'In Progress', 'Completed'],
+    default: 'Pending'
+  },
+  priority: {
+    type: String,
+    enum: ['Low', 'Medium', 'High'],
+    default: 'Medium'
+  },
   createdAt: {
     type: Date,
     default: Date.now

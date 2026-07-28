@@ -7,7 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { 
     Filter, Calendar as CalendarIcon, CheckSquare, DollarSign, 
     ChevronLeft, ChevronRight, Clock, Plus, Receipt, X, LayoutGrid, List,
-    Target, Zap, Briefcase
+    Target, Zap, Briefcase, Trash2, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -79,18 +79,15 @@ const Calendar = () => {
             const usersData = usersRes.data.data || [];
 
             setContacts(contactsData);
-            setUsers(usersData);
+            setUsers(usersData.filter(u => u.role !== 'Client'));
 
-            // Filter for Employees
+            // Filter for Employees (Employees only see their assigned tasks, no sales pipeline or invoices)
             if (user?.role === 'Employee') {
                 rawTasks = rawTasks.filter(t => {
                     const assignedId = typeof t.assignedTo === 'object' ? t.assignedTo?._id : t.assignedTo;
                     return assignedId === currentUserId;
                 });
-                rawOpps = rawOpps.filter(o => {
-                    const assignedId = typeof o.assignedTo === 'object' ? o.assignedTo?._id : o.assignedTo;
-                    return assignedId === currentUserId;
-                });
+                rawOpps = [];
             }
 
             const taskEvents = rawTasks.map(task => {
@@ -102,6 +99,7 @@ const Calendar = () => {
                     start: new Date(task.dueDate),
                     end: new Date(task.dueDate),
                     type: 'task',
+                    taskType: task.type || 'Call',
                     status: task.status,
                     priority: task.priority,
                     description: task.description || 'No description provided.',
@@ -123,7 +121,7 @@ const Calendar = () => {
                     type: 'opportunity',
                     stage: opp.stage,
                     amount: opp.amount,
-                    description: `Pipeline Opportunity. Expected close: ${new Date(opp.expectedCloseDate).toLocaleDateString()}`,
+                    description: `Sales Deal. Expected close: ${new Date(opp.expectedCloseDate).toLocaleDateString()}`,
                     contact: contactObj ? contactObj.name : 'N/A',
                     assignedTo: userObj ? userObj.name : 'N/A'
                 };
@@ -232,7 +230,7 @@ const Calendar = () => {
         setEditEventData({
             id: selectedEvent.id,
             title: selectedEvent.title,
-            type: selectedEvent.type,
+            type: selectedEvent.taskType || 'Call',
             priority: selectedEvent.priority || 'Medium',
             dueDate: selectedEvent.start ? new Date(selectedEvent.start).toISOString().split('T')[0] : '',
             hour,
@@ -408,10 +406,10 @@ const Calendar = () => {
                         <div className="space-y-1">
                             {[
                                 { id: 'tasks', label: 'Tasks', color: 'bg-[#1a73e8]', icon: Target },
-                                { id: 'opportunities', label: 'Pipeline', color: 'bg-[#7986cb]', icon: Zap },
+                                { id: 'opportunities', label: 'Sales', color: 'bg-[#7986cb]', icon: Zap },
                                 { id: 'invoices', label: 'Invoices', color: 'bg-[#33b679]', icon: Receipt },
                             ].filter(item => {
-                                if (user?.role === 'Employee' && item.id === 'invoices') return false;
+                                if (user?.role === 'Employee' && (item.id === 'opportunities' || item.id === 'invoices')) return false;
                                 return true;
                             }).map((item) => (
                                 <button 
@@ -630,7 +628,11 @@ const Calendar = () => {
                                             className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 appearance-none font-semibold text-stone-900 bg-white text-sm"
                                         >
                                             <option value="">Assign to Self (Default)</option>
-                                            {users.map(u => <option key={u._id || u.id} value={u._id || u.id}>{u.name} ({u.role})</option>)}
+                                            {users.filter(u => u.role !== 'Client').map((u, idx) => (
+                                                <option key={u._id || u.id || `create-user-${idx}`} value={u._id || u.id}>
+                                                    {u.name} ({u.role || 'Staff'})
+                                                </option>
+                                            ))}
                                         </select>
                                         <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
                                             <ChevronRight size={14} className="rotate-90" />
@@ -676,7 +678,7 @@ const Calendar = () => {
                                         selectedEvent.type === 'opportunity' ? 'bg-indigo-100 text-indigo-800' :
                                         'bg-emerald-100 text-emerald-800'
                                     }`}>
-                                        {selectedEvent.type.toUpperCase()}
+                                        {selectedEvent.type === 'opportunity' ? 'SALES DEAL' : selectedEvent.type.toUpperCase()}
                                     </span>
                                     <h3 className="text-xl font-black text-stone-900 mt-2 tracking-tight">
                                         {isEditingEvent ? 'Edit Calendar Task' : 'Event Details'}
@@ -756,8 +758,12 @@ const Calendar = () => {
                                                 onChange={e => setEditEventData({...editEventData, assignedTo: e.target.value})}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
                                             >
-                                                <option value="">Assign to Self</option>
-                                                {users.map(u => <option key={u._id || u.id} value={u._id || u.id}>{u.name}</option>)}
+                                                 <option value="">Assign to Self</option>
+                                                 {users.filter(u => u.role !== 'Client').map((u, idx) => (
+                                                     <option key={u._id || u.id || `edit-user-${idx}`} value={u._id || u.id}>
+                                                         {u.name} ({u.role || 'Staff'})
+                                                     </option>
+                                                 ))}
                                             </select>
                                         </div>
                                     </div>
@@ -780,7 +786,7 @@ const Calendar = () => {
                                                 onChange={e => setEditEventData({...editEventData, status: e.target.value})}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
                                             >
-                                                {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(s => <option key={s} value={s}>{s}</option>)}
+                                                {['Pending', 'In Progress', 'Completed'].map(s => <option key={s} value={s}>{s}</option>)}
                                             </select>
                                         </div>
                                     </div>
@@ -836,9 +842,34 @@ const Calendar = () => {
                                         </div>
                                     </div>
 
+                                    {selectedEvent.type === 'task' && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Task Type</label>
+                                                <div>
+                                                    <span className="px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 text-xs font-bold inline-block">
+                                                        {selectedEvent.taskType || 'Call'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Priority</label>
+                                                <div>
+                                                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-block ${
+                                                        selectedEvent.priority === 'High' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                                        selectedEvent.priority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        'bg-slate-100 text-slate-700 border-slate-200'
+                                                    }`}>
+                                                        {selectedEvent.priority || 'Medium'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {selectedEvent.type === 'opportunity' && selectedEvent.amount && (
                                         <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Opportunity Value</label>
+                                            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Sales Contract Value</label>
                                             <p className="text-sm font-bold text-indigo-600">₹{selectedEvent.amount.toLocaleString()}</p>
                                         </div>
                                     )}
@@ -861,7 +892,7 @@ const Calendar = () => {
                                         <div className="space-y-2 mt-4 pt-4 border-t border-stone-100">
                                             <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Update Task Status</label>
                                             <div className="flex gap-2">
-                                                {['Pending', 'In Progress', 'Completed', 'Cancelled'].map(status => (
+                                                {['Pending', 'In Progress', 'Completed'].map(status => (
                                                     <button
                                                         key={status}
                                                         type="button"
@@ -922,7 +953,7 @@ const Calendar = () => {
 
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4">
                    <div className="bg-white p-6 rounded-2xl w-full max-w-sm text-center shadow-2xl border border-slate-200/80">
                         <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100">
                             <Trash2 size={24} />

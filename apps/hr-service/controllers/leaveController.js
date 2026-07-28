@@ -22,12 +22,17 @@ exports.applyLeave = async (req, res) => {
             status: 'Pending'
         });
 
-        const populatedLeave = await Leave.findById(leave._id).populate('userId', 'name email department role');
+        let populatedLeave = leave;
+        try {
+            populatedLeave = await Leave.findById(leave._id).populate('userId', 'name email department role');
+        } catch (popErr) {
+            console.warn("[HR Service] Populate user in Leave failed:", popErr.message);
+        }
 
-        res.status(201).json({ success: true, data: populatedLeave, message: 'Leave request submitted successfully' });
+        res.status(201).json({ success: true, data: populatedLeave || leave, message: 'Leave request submitted successfully' });
     } catch (error) {
         console.error("Apply Leave Error:", error);
-        res.status(500).json({ success: false, message: error.message });
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 
@@ -51,6 +56,8 @@ exports.getLeaves = async (req, res) => {
 };
 
 // Update Leave Status (Approve / Reject by Admin or HR)
+const Attendance = require('../models/Attendance');
+
 exports.updateLeaveStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -68,6 +75,50 @@ exports.updateLeaveStatus = async (req, res) => {
 
         if (!leave) {
             return res.status(404).json({ success: false, message: 'Leave request not found' });
+        }
+
+        // If Approved, create/update attendance records so salary is NOT deducted
+        if (status === 'Approved' && leave.userId) {
+            const userId = leave.userId._id || leave.userId;
+            const start = new Date(leave.startDate);
+            const end = new Date(leave.endDate || leave.startDate);
+
+            const isWFH = leave.leaveType?.includes('Work From Home') || leave.leaveType?.includes('WFH');
+            const isHalfDay = leave.durationType === 'Half Day';
+            
+            const attendanceStatus = isWFH ? 'Present' : (isHalfDay ? 'Half-Day' : 'Leave');
+            const hoursLogged = isHalfDay ? 4.0 : 8.0;
+
+            const curr = new Date(start);
+            while (curr <= end) {
+                const dayStart = new Date(curr);
+                dayStart.setHours(0, 0, 0, 0);
+
+                const existingAtt = await Attendance.findOne({
+                    userId,
+                    date: {
+                        $gte: dayStart,
+                        $lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
+                    }
+                });
+
+                if (!existingAtt) {
+                    await Attendance.create({
+                        userId,
+                        date: dayStart,
+                        checkIn: dayStart,
+                        checkOut: new Date(dayStart.getTime() + hoursLogged * 60 * 60 * 1000),
+                        status: attendanceStatus,
+                        totalHours: hoursLogged
+                    });
+                } else {
+                    existingAtt.status = attendanceStatus;
+                    existingAtt.totalHours = Math.max(existingAtt.totalHours || 0, hoursLogged);
+                    await existingAtt.save();
+                }
+
+                curr.setDate(curr.getDate() + 1);
+            }
         }
 
         res.json({ success: true, data: leave, message: `Leave request ${status.toLowerCase()} successfully.` });

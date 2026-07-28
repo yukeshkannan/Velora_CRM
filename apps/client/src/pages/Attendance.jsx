@@ -21,8 +21,9 @@ const ActiveTimer = ({ checkIn }) => {
     }, [checkIn]);
 
     return (
-        <span className="font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg text-sm border border-emerald-100 animate-pulse">
-            {elapsed} hrs (Active Now)
+        <span className="font-extrabold text-emerald-700 bg-emerald-50/90 px-3 py-1 rounded-xl text-xs border border-emerald-200 shadow-2xs whitespace-nowrap inline-flex items-center gap-1.5 shrink-0">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            {elapsed} hrs active
         </span>
     );
 };
@@ -68,6 +69,7 @@ const Attendance = () => {
     const [selectedMonthFilter, setSelectedMonthFilter] = useState('');
     const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('attendance'); // 'attendance' | 'leaves'
+    const [empTab, setEmpTab] = useState('sessions'); // 'sessions' | 'leaves'
 
     const isManager = user?.role === 'Admin' || user?.role === 'HR' || (user?.department || '').toLowerCase().includes('hr') || (user?.department || '').toLowerCase().includes('human');
 
@@ -322,143 +324,151 @@ const Attendance = () => {
             ];
 
             return (
-                <div className="bg-slate-50 min-h-screen pb-20">
-                    <div className="max-w-7xl mx-auto px-8 py-12">
+                <div className="bg-slate-50/50 min-h-screen pb-20 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+                     style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                    <div className="max-w-6xl mx-auto px-6 sm:px-8 py-8 space-y-6">
                         <button 
                             onClick={() => { setSelectedUser(null); setSelectedMonthFilter(''); }}
-                            className="mb-6 flex items-center gap-2 text-amber-600 font-bold hover:text-amber-700 transition-colors border-none bg-transparent cursor-pointer"
+                            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 font-extrabold text-xs transition-colors border-none bg-transparent cursor-pointer"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                            Back to Employee List
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                            Back to Attendance Register
                         </button>
 
-                        <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
-                            <div className="p-8 bg-gradient-to-r from-amber-500 to-orange-600 text-white">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl font-black border border-white/30">
-                                        {selectedUser.name ? selectedUser.name.charAt(0) : '?'}
+                        <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden space-y-6 p-6 sm:p-8">
+                            
+                            {/* Executive Header Banner */}
+                            <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div className="flex items-center gap-5">
+                                    <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl font-black text-white border border-slate-700 shrink-0">
+                                        {selectedUser.name ? selectedUser.name.charAt(0).toUpperCase() : '?'}
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-3">
-                                            <h2 className="text-3xl font-black">{selectedUser.name || 'Unknown'}</h2>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">{selectedUser.name || 'Unknown'}</h2>
                                             {((selectedUser?.role || '').toLowerCase() === 'hr' || (selectedUser?.department || '').toLowerCase().includes('hr')) ? (
-                                                <span className="px-2.5 py-1 rounded-lg text-xs font-black uppercase bg-purple-500 text-white shadow-sm">
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
                                                     HR
                                                 </span>
                                             ) : ((selectedUser?.role || '').toLowerCase() === 'sales' || (selectedUser?.department || '').toLowerCase().includes('sales')) ? (
-                                                <span className="px-2.5 py-1 rounded-lg text-xs font-black uppercase bg-blue-500 text-white shadow-sm">
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-blue-500/20 text-blue-300 border border-blue-500/30">
                                                     Sales
                                                 </span>
                                             ) : (
-                                                <span className="px-2.5 py-1 rounded-lg text-xs font-black uppercase bg-emerald-500 text-white shadow-sm">
+                                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                                     {selectedUser?.role || 'Employee'}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-amber-100 font-medium opacity-90 mt-1">
+                                        <p className="text-xs font-medium text-slate-400">
                                             {selectedUser.email} {selectedUser.department ? `• ${selectedUser.department}` : ''} {selectedUser.designation ? `(${selectedUser.designation})` : ''}
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="p-8">
-                                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 pb-6 border-b border-slate-100">
-                                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center text-white font-bold">
-                                            <Clock size={24} />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Worked Duration</p>
-                                            <p className="text-xl font-black text-slate-800">{totalHoursFiltered.toFixed(1)} hrs</p>
-                                        </div>
+                            {/* Summary Bar & Filter */}
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2 pb-4 border-b border-slate-100">
+                                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex items-center gap-4 shrink-0">
+                                    <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center text-white font-bold">
+                                        <Clock size={20} />
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <label className="text-sm font-bold text-slate-600">Filter Month:</label>
-                                        <select 
-                                            value={selectedMonthFilter} 
-                                            onChange={(e) => setSelectedMonthFilter(e.target.value)}
-                                            className="px-4 py-2.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500 bg-white font-semibold text-slate-700 text-sm"
-                                        >
-                                            <option value="">All Months</option>
-                                            {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                                        </select>
+                                    <div>
+                                        <p className="text-[11px] text-slate-400 font-extrabold uppercase tracking-wider">Total Worked Duration</p>
+                                        <p className="text-lg font-black text-slate-900">{totalHoursFiltered.toFixed(1)} hrs</p>
                                     </div>
                                 </div>
 
-                                <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                    <Clock size={20} className="text-amber-500" />
+                                <div className="flex items-center gap-3 self-end sm:self-auto">
+                                    <label className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Filter Month:</label>
+                                    <select 
+                                        value={selectedMonthFilter} 
+                                        onChange={(e) => setSelectedMonthFilter(e.target.value)}
+                                        className="px-3.5 py-2 rounded-xl border border-slate-200 outline-none focus:border-slate-900 bg-slate-50 font-bold text-slate-900 text-xs cursor-pointer"
+                                    >
+                                        <option value="">All Months</option>
+                                        {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Detailed Log History Table */}
+                            <div>
+                                <h3 className="text-sm font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                                    <Clock size={16} className="text-slate-500" />
                                     Detailed Log Session History
                                 </h3>
                                 
-                                <div className="overflow-x-auto rounded-xl border border-slate-100">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-bold border-b border-slate-100">
+                                <div className="overflow-x-auto rounded-2xl border border-slate-200/80">
+                                    <table className="w-full text-left border-collapse text-xs">
+                                        <thead className="bg-slate-50/80 border-b border-slate-100 text-slate-500 uppercase tracking-wider font-extrabold text-[11px]">
                                             <tr>
-                                                <th className="p-5">Date</th>
-                                                <th className="p-5">Login Time</th>
-                                                <th className="p-5">Logout Time</th>
-                                                <th className="p-5">Duration</th>
-                                                <th className="p-5">Status</th>
-                                                <th className="p-5 text-right">Actions</th>
+                                                <th className="p-4 pl-6">Date</th>
+                                                <th className="p-4">Login Time</th>
+                                                <th className="p-4">Logout Time</th>
+                                                <th className="p-4">Duration</th>
+                                                <th className="p-4">Status</th>
+                                                <th className="p-4 pr-6 text-right">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
                                             {filteredHistory.map((record) => (
-                                                <tr key={record._id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="p-5 font-bold text-slate-700">
+                                                <tr key={record._id} className="hover:bg-slate-50/80 transition-colors">
+                                                    <td className="p-4 pl-6 font-bold text-slate-900">
                                                         {new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                                     </td>
-                                                    <td className="p-5 font-mono text-sm text-slate-600">
+                                                    <td className="p-4 font-medium text-slate-700">
                                                         {new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                                                     </td>
-                                                    <td className="p-5 font-mono text-sm text-slate-600">
-                                                        {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                                                    <td className="p-4 font-medium text-slate-700">
+                                                        {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : '—'}
                                                     </td>
-                                                    <td className="p-5">
+                                                    <td className="p-4">
                                                         {record.totalHours ? (
-                                                            <span className="font-bold text-slate-800 bg-amber-50 text-amber-700 px-3 py-1 rounded-lg text-sm">
+                                                            <span className="font-extrabold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg text-xs border border-slate-200">
                                                                 {record.totalHours} hrs
                                                             </span>
                                                         ) : new Date(record.date).toDateString() === new Date().toDateString() ? (
                                                             <ActiveTimer checkIn={record.checkIn} />
                                                         ) : (
-                                                            <span className="text-rose-600 font-bold text-sm bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-100">Missed Checkout</span>
+                                                            <span className="text-rose-700 font-extrabold text-xs bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">Missed Checkout</span>
                                                         )}
                                                     </td>
-                                                    <td className="p-5">
+                                                    <td className="p-4">
                                                         {!record.checkOut ? (
                                                             new Date(record.date).toDateString() === new Date().toDateString() ? (
-                                                                <span className="text-emerald-500 font-bold text-sm bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 flex items-center gap-1.5 w-fit">
-                                                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                                    Online
+                                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                                    Active
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-rose-500 font-bold text-sm bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100 w-fit block">
-                                                                    Missed Checkout
+                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-800 border border-rose-200">
+                                                                    Auto Closed
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            <span className="text-slate-500 font-bold text-sm bg-slate-50 px-2.5 py-1 rounded-full border border-slate-200 w-fit block">
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
                                                                 Completed
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td className="p-5 text-right">                                                         <button 
+                                                    <td className="p-4 pr-6 text-right">
+                                                        <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleDeleteSession(record._id);
                                                             }}
-                                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border-none bg-transparent cursor-pointer"
+                                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                                            title="Delete session record"
                                                         >
-                                                            <Trash2 size={18} />
+                                                            <Trash2 size={16} />
                                                         </button>
                                                     </td>
                                                 </tr>
                                             ))}
                                             {filteredHistory.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="6" className="p-10 text-center text-slate-400 font-medium">
+                                                    <td colSpan="6" className="p-10 text-center text-slate-400 font-bold text-xs">
                                                         No attendance records found for this period.
                                                     </td>
                                                 </tr>
@@ -912,37 +922,17 @@ const Attendance = () => {
         );
     }
 
-    // --- Employee View (Keeping it simple but premium) ---
+    // --- Employee View (PTO & Leave Focus • No Attendance History) ---
     const todayStr = new Date().toDateString();
     const todayRecord = attendance.find(r => new Date(r.date).toDateString() === todayStr);
-    
-    // --- Manual Actions ---
-    const handleCheckIn = async () => {
-        try {
-            setLoading(true);
-            await axios.post('/api/attendance/check-in', { userId: user.id });
-            toast.success('Successfully checked in!');
-            await fetchAttendance(); // Refresh state
-        } catch (err) {
-            console.error("Check-in failed", err);
-            toast.error("Check-in failed: " + (err.response?.data?.message || err.message));
-        } finally { setLoading(false); }
-    };
 
-    const handleCheckOut = async () => {
-        try {
-            setLoading(true);
-            await axios.post('/api/attendance/check-out', { userId: user.id });
-            toast.success('Successfully checked out!');
-            await fetchAttendance(); // Refresh state
-        } catch (err) {
-            console.error("Check-out failed", err);
-            toast.error("Check-out failed: " + (err.response?.data?.message || err.message));
-        } finally { setLoading(false); }
-    };
+    const pendingLeavesCount = leaves.filter(l => l.status === 'Pending').length;
+    const approvedLeavesCount = leaves.filter(l => l.status === 'Approved').length;
 
     return (
-        <div className="bg-slate-50 min-h-screen p-8 flex flex-col items-center pt-12 font-sans">
+        <div className="bg-slate-50/50 min-h-screen flex flex-col font-sans selection:bg-slate-200 selection:text-slate-900 antialiased"
+             style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+            
             <ApplyLeaveModal 
                 isOpen={isLeaveModalOpen} 
                 onClose={() => setIsLeaveModalOpen(false)}
@@ -952,154 +942,165 @@ const Attendance = () => {
                 }}
             />
 
-            <div className="w-full max-w-4xl space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h1 className="text-3xl font-black text-slate-900 tracking-tight">My Attendance & Time Off</h1>
-                        <p className="text-slate-500 mt-1 text-sm font-medium">Manage your active work session and PTO leave applications.</p>
+            {/* Header Navigation Bar */}
+            <div className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
+                <div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-0.5">
+                        <span className="text-slate-900 font-bold">Velora CRM</span>
+                        <span>/</span>
+                        <span>Employee Portal</span>
                     </div>
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                        My Leave & Time Off
+                    </h1>
+                </div>
+
+                <div className="flex items-center gap-3">
                     {user?.role !== 'Admin' && (
                         <button 
                             onClick={() => setIsLeaveModalOpen(true)}
-                            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 border-none cursor-pointer"
+                            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 border-none cursor-pointer"
                         >
                             <Plus size={16} /> Request Leave / PTO
                         </button>
                     )}
-                </div>
-
-                {/* Leave Balances Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Casual Leave (CL)</p>
-                        <p className="text-2xl font-black text-slate-900 mt-1">12 <span className="text-xs text-slate-400 font-normal">/ 12 days</span></p>
-                    </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Sick Leave (SL)</p>
-                        <p className="text-2xl font-black text-slate-900 mt-1">6 <span className="text-xs text-slate-400 font-normal">/ 6 days</span></p>
-                    </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Earned Leave (EL)</p>
-                        <p className="text-2xl font-black text-slate-900 mt-1">10 <span className="text-xs text-slate-400 font-normal">/ 10 days</span></p>
-                    </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Work From Home</p>
-                        <p className="text-2xl font-black text-slate-900 mt-1">12 <span className="text-xs text-slate-400 font-normal">/ 12 days</span></p>
+                    <div className="px-3.5 py-2 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-2">
+                        <Clock size={14} className="text-slate-500" />
+                        <span>{new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                 </div>
+            </div>
 
-                {/* Session Card */}
-                <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
-                    <div className="p-8 text-center bg-gradient-to-b from-amber-50/40 to-white">
-                        <div className={`w-20 h-20 mx-auto rounded-2xl flex items-center justify-center text-3xl shadow-lg mb-4 transition-all duration-500 ${
-                            !todayRecord ? 'bg-slate-200 text-slate-400' :
-                            !todayRecord.checkOut ? 'bg-emerald-500 text-white shadow-emerald-200 scale-105' :
-                            'bg-blue-500 text-white shadow-blue-200'
-                        }`}>
-                            <Clock size={36} />
-                        </div>
-                        
-                        <h2 className="text-2xl font-black text-slate-900 mb-1">
-                            {!todayRecord ? "Not Checked In" : 
-                             !todayRecord.checkOut ? "You are Online" : "Session Completed"}
-                        </h2>
-                        
-                        <p className="text-slate-500 text-xs font-medium mb-6">
-                            {todayRecord && !todayRecord.checkOut ? 
-                                `Started at ${new Date(todayRecord.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}` : 
-                                "Your session is automatically tracked upon CRM login."}
-                        </p>
+            {/* Main Content Workspace */}
+            <div className="flex-1 p-6 sm:p-8 max-w-6xl w-full mx-auto space-y-6">
 
-                        {todayRecord && !todayRecord.checkOut && (
-                            <div className="mb-6 p-4 bg-emerald-50/40 rounded-2xl border border-emerald-100/50 inline-block px-8 shadow-inner">
-                                <LargeActiveClock checkIn={todayRecord.checkIn} />
+                {/* COMPACT EXECUTIVE SESSION & PTO SUMMARY BAR (NO TEXT OVERFLOW) */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-100 gap-4 md:gap-0">
+                    
+                    {/* Active Status */}
+                    <div className="md:pr-6 flex items-center justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Current Status</span>
+                                {todayRecord && !todayRecord.checkOut ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        Active
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                        Offline
+                                    </span>
+                                )}
                             </div>
-                        )}
-
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 max-w-md mx-auto">
-                            <p className="text-xs text-slate-500 flex items-center justify-center gap-2 font-medium">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Live session auto-tracked. Log out of CRM to conclude session.
+                            <p className="text-sm font-bold text-slate-900">
+                                {!todayRecord ? "Not Checked In Today" : 
+                                 !todayRecord.checkOut ? `Online since ${new Date(todayRecord.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}` : "Session Concluded"}
                             </p>
                         </div>
+                        {todayRecord && !todayRecord.checkOut && (
+                            <div className="shrink-0">
+                                <ActiveTimer checkIn={todayRecord.checkIn} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* PTO Applications Summary */}
+                    <div className="pt-4 md:pt-0 md:pl-6 flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Leave Applications Summary</p>
+                            <p className="text-sm font-bold text-slate-900">
+                                {leaves.length} Total Requests <span className="text-slate-400 font-normal">({approvedLeavesCount} Approved)</span>
+                            </p>
+                        </div>
+                        {pendingLeavesCount > 0 ? (
+                            <span className="text-xs font-extrabold px-3 py-1 bg-amber-50 text-amber-800 rounded-xl border border-amber-200 shrink-0">
+                                {pendingLeavesCount} Pending Review
+                            </span>
+                        ) : (
+                            <span className="text-xs font-extrabold px-3 py-1 bg-slate-100 text-slate-700 rounded-xl border border-slate-200 shrink-0">
+                                All Reviewed
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                {/* My Leave Applications History */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">My Leave Applications</h3>
-                        <span className="text-xs font-semibold text-slate-500">{leaves.length} Applications</span>
+                {/* MY LEAVE APPLICATIONS TABLE (PRIMARY CONTENT FOR EMPLOYEES) */}
+                <div className="bg-white rounded-2xl shadow-2xs border border-slate-200/80 overflow-hidden">
+                    <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        <div>
+                            <h3 className="font-extrabold text-slate-900 text-sm">My Leave Requests & Time Off</h3>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">Submitted PTO applications, permissions, and approval statuses.</p>
+                        </div>
+                        <span className="text-xs font-bold px-3 py-1 bg-white text-slate-700 rounded-xl border border-slate-200/80 shadow-2xs">
+                            {leaves.length} Applications
+                        </span>
                     </div>
+
                     {leaves.length > 0 ? (
-                        <div className="divide-y divide-slate-100 text-xs">
-                            {leaves.map((leave) => (
-                                <div key={leave._id} className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors">
-                                    <div>
-                                        <div className="font-bold text-slate-900">{leave.leaveType}</div>
-                                        <div className="text-slate-500 text-[11px] mt-0.5 font-medium">
-                                            {leave.durationType === 'Half Day' ? (
-                                                <span className="font-bold text-indigo-700">Half Day • {leave.halfDaySession} ({new Date(leave.startDate).toLocaleDateString()})</span>
-                                            ) : leave.durationType === 'Short Leave' ? (
-                                                <span className="font-bold text-emerald-700">Permission • {leave.shortLeaveHours} ({new Date(leave.startDate).toLocaleDateString()})</span>
-                                            ) : (
-                                                <span className="font-mono">{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</span>
-                                            )}
-                                        </div>
-                                        <p className="text-slate-600 mt-1">{leave.reason}</p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {leave.status === 'Approved' ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                Approved
-                                            </span>
-                                        ) : leave.status === 'Rejected' ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                                                Rejected
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                Pending
-                                            </span>
-                                        )}
-                                        <button 
-                                            onClick={() => handleDeleteLeave(leave._id)}
-                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
-                                            title="Delete application"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-xs">
+                                <thead className="bg-slate-50/80 border-b border-slate-100">
+                                    <tr>
+                                        <th className="p-4 pl-6 font-extrabold text-slate-500 uppercase tracking-wider text-[11px]">Leave Type</th>
+                                        <th className="p-4 font-extrabold text-slate-500 uppercase tracking-wider text-[11px]">Duration</th>
+                                        <th className="p-4 font-extrabold text-slate-500 uppercase tracking-wider text-[11px]">Reason</th>
+                                        <th className="p-4 font-extrabold text-slate-500 uppercase tracking-wider text-[11px]">Status</th>
+                                        <th className="p-4 pr-6 text-right font-extrabold text-slate-500 uppercase tracking-wider text-[11px]">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {leaves.map((leave) => (
+                                        <tr key={leave._id} className="hover:bg-slate-50/80 transition-colors">
+                                            <td className="p-4 pl-6 font-bold text-slate-900">{leave.leaveType}</td>
+                                            <td className="p-4 font-medium text-slate-700">
+                                                {leave.durationType === 'Half Day' ? (
+                                                    <span className="text-indigo-700 font-bold">Half Day • {leave.halfDaySession} ({new Date(leave.startDate).toLocaleDateString()})</span>
+                                                ) : leave.durationType === 'Short Leave' ? (
+                                                    <span className="text-emerald-700 font-bold">Permission • {leave.shortLeaveHours} ({new Date(leave.startDate).toLocaleDateString()})</span>
+                                                ) : (
+                                                    <span>{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-slate-600 font-medium max-w-xs truncate">{leave.reason}</td>
+                                            <td className="p-4">
+                                                {leave.status === 'Approved' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                        Approved
+                                                    </span>
+                                                ) : leave.status === 'Rejected' ? (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-50 text-rose-800 border border-rose-200">
+                                                        Rejected
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                                        Pending
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 pr-6 text-right">
+                                                <button 
+                                                    onClick={() => handleDeleteLeave(leave._id)}
+                                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border-none bg-transparent cursor-pointer"
+                                                    title="Delete application"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     ) : (
-                        <div className="p-8 text-center text-slate-400 text-xs font-medium">
-                            No leave applications submitted yet. Click "Request Leave / PTO" above to apply.
+                        <div className="p-12 text-center text-slate-400 font-bold text-xs">
+                            No leave requests submitted yet. Click "Request Leave / PTO" to apply.
                         </div>
                     )}
                 </div>
 
-                {/* Session History */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="p-4 bg-slate-50 border-b border-slate-200 font-bold text-slate-600 text-xs uppercase tracking-wider">
-                        Recent Session Logs
-                    </div>
-                    {attendance.map((record) => (
-                        <div key={record._id} className="p-4 border-b border-slate-100 last:border-0 flex justify-between items-center hover:bg-slate-50 transition-colors text-xs">
-                            <div>
-                                <p className="font-bold text-slate-800">{new Date(record.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                                <p className="text-slate-400 mt-0.5">
-                                    {new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })} - {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) : 'Active'}
-                                </p>
-                            </div>
-                            <span className={!record.checkOut ? "" : `px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600`}>
-                                {record.totalHours ? `${record.totalHours} hrs` : <ActiveTimer checkIn={record.checkIn} />}
-                            </span>
-                        </div>
-                    ))}
-                </div>
             </div>
+
             {/* Delete Confirmation Modal */}
             {showDeleteConfirm && (
                 <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1114,8 +1115,8 @@ const Attendance = () => {
                             Are you sure you want to delete this record? This action cannot be undone.
                         </p>
                         <div className="flex gap-3">
-                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
-                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition-colors cursor-pointer" onClick={confirmDeleteAction}>Delete</button>
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer border-none" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                            <button className="flex-1 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-rose-600 text-white hover:bg-rose-700 shadow-xs transition-colors cursor-pointer border-none" onClick={confirmDeleteAction}>Delete</button>
                         </div>
                    </div>
                 </div>

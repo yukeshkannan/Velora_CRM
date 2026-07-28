@@ -85,12 +85,18 @@ exports.updateOpportunity = async (req, res) => {
         opportunity.modules = req.body.modules;
     }
     // Update other fields
-    const allowedUpdates = ['title', 'amount', 'stage', 'employeeTaskStatus', 'contactId', 'assignedTo', 'expectedCloseDate'];
+    const allowedUpdates = ['title', 'amount', 'stage', 'employeeTaskStatus', 'priority', 'contactId', 'assignedTo', 'expectedCloseDate'];
     allowedUpdates.forEach(update => {
         if (req.body[update] !== undefined) {
             opportunity[update] = req.body[update];
         }
     });
+
+    if (req.body.employeeTaskStatus === 'Completed') {
+        opportunity.stage = 'Completed';
+    } else if (req.body.employeeTaskStatus === 'In Progress' && (opportunity.stage === 'New' || !opportunity.stage)) {
+        opportunity.stage = 'In Execution';
+    }
 
     await opportunity.save();
     await delCachePattern('opp:*');

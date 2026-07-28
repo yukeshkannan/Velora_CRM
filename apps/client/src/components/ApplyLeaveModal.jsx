@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 
 const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
     const { user } = useAuth();
-    const [leaveType, setLeaveType] = useState('Casual Leave');
+    const [leaveType, setLeaveType] = useState('Casual Leave (CL)');
     const [durationType, setDurationType] = useState('Full Day'); // 'Full Day' | 'Half Day' | 'Short Leave'
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
@@ -63,20 +63,20 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 backdrop-blur-sm p-4 animate-fade-in font-sans">
-            <div className="bg-white rounded-2xl border border-stone-200 shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in font-sans">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl w-full max-w-lg overflow-hidden">
                 
                 {/* Modal Header */}
-                <div className="p-6 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white">
                     <div>
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">
-                            <Clock size={14} /> Time Off & PTO
+                        <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
+                            <Clock size={14} className="text-slate-500" /> Time Off & PTO
                         </div>
-                        <h3 className="text-lg font-bold text-stone-900">Request Leave / PTO</h3>
+                        <h3 className="text-lg font-black text-slate-900 tracking-tight">Request Leave / PTO</h3>
                     </div>
                     <button 
                         onClick={onClose}
-                        className="w-8 h-8 rounded-lg border border-stone-200 text-stone-400 hover:text-stone-700 hover:bg-stone-100 flex items-center justify-center transition-colors border-none bg-transparent cursor-pointer"
+                        className="w-8 h-8 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors border-none bg-transparent cursor-pointer"
                     >
                         <X size={16} />
                     </button>
@@ -85,7 +85,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                 {/* Modal Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                     {error && (
-                        <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-center gap-2">
+                        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
                             <AlertCircle size={16} className="shrink-0" />
                             <span>{error}</span>
                         </div>
@@ -93,59 +93,59 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
 
                     {/* Leave Category Select */}
                     <div>
-                        <label className="block text-xs font-semibold text-stone-700 mb-1.5">Leave Type</label>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Leave Type</label>
                         <select 
                             value={leaveType}
                             onChange={(e) => setLeaveType(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                         >
-                            <option value="Casual Leave">Casual Leave (CL)</option>
-                            <option value="Sick Leave">Sick Leave (SL)</option>
-                            <option value="Earned Leave">Earned Leave (EL)</option>
+                            <option value="Casual Leave (CL)">Casual Leave (CL)</option>
+                            <option value="Sick Leave (SL)">Sick Leave (SL)</option>
+                            <option value="Earned Leave (EL)">Earned Leave (EL)</option>
                             <option value="Work From Home">Work From Home (WFH)</option>
                         </select>
                     </div>
 
-                    {/* Duration Type Segmented Picker (Zoho / BambooHR Style) */}
+                    {/* Duration Type Segmented Picker */}
                     <div>
-                        <label className="block text-xs font-semibold text-stone-700 mb-1.5">Duration</label>
-                        <div className="grid grid-cols-3 gap-2 bg-stone-100 p-1.5 rounded-xl">
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Duration</label>
+                        <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/60">
                             <button
                                 type="button"
                                 onClick={() => setDurationType('Full Day')}
-                                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+                                className={`py-2 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
                                     durationType === 'Full Day' 
-                                        ? 'bg-white text-stone-900 shadow-sm' 
-                                        : 'text-stone-500 hover:text-stone-800 bg-transparent'
+                                        ? 'bg-slate-900 text-white shadow-2xs' 
+                                        : 'text-slate-500 hover:text-slate-900 bg-transparent'
                                 }`}
                             >
-                                <Sun size={14} className={durationType === 'Full Day' ? 'text-amber-500' : ''} />
+                                <Sun size={14} />
                                 Full Day
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setDurationType('Half Day')}
-                                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+                                className={`py-2 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
                                     durationType === 'Half Day' 
-                                        ? 'bg-white text-stone-900 shadow-sm' 
-                                        : 'text-stone-500 hover:text-stone-800 bg-transparent'
+                                        ? 'bg-slate-900 text-white shadow-2xs' 
+                                        : 'text-slate-500 hover:text-slate-900 bg-transparent'
                                 }`}
                             >
-                                <Moon size={14} className={durationType === 'Half Day' ? 'text-indigo-500' : ''} />
+                                <Moon size={14} />
                                 Half Day
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setDurationType('Short Leave')}
-                                className={`py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
+                                className={`py-2 px-3 rounded-lg text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 border-none cursor-pointer ${
                                     durationType === 'Short Leave' 
-                                        ? 'bg-white text-stone-900 shadow-sm' 
-                                        : 'text-stone-500 hover:text-stone-800 bg-transparent'
+                                        ? 'bg-slate-900 text-white shadow-2xs' 
+                                        : 'text-slate-500 hover:text-slate-900 bg-transparent'
                                 }`}
                             >
-                                <Clock size={14} className={durationType === 'Short Leave' ? 'text-emerald-500' : ''} />
+                                <Clock size={14} />
                                 Permission
                             </button>
                         </div>
@@ -156,21 +156,21 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                         <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">Start Date</label>
+                                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Start Date</label>
                                     <input 
                                         type="date"
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-semibold text-stone-700 mb-1.5">End Date</label>
+                                    <label className="block text-xs font-extrabold text-slate-700 mb-1.5">End Date</label>
                                     <input 
                                         type="date"
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                                     />
                                 </div>
                             </div>
@@ -181,42 +181,42 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                     {durationType === 'Half Day' && (
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-xs font-semibold text-stone-700 mb-1.5">Leave Date</label>
+                                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Leave Date</label>
                                 <input 
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-stone-700 mb-1.5">Select Session</label>
+                                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Select Session</label>
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setHalfDaySession('First Half (Morning)')}
-                                        className={`p-3 rounded-xl border text-left transition-all border-none cursor-pointer ${
+                                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                             halfDaySession === 'First Half (Morning)' 
-                                                ? 'bg-amber-50/80 border-2 border-amber-500 text-stone-900' 
-                                                : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' 
+                                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                                         }`}
                                     >
-                                        <div className="font-bold text-xs">First Half (Morning)</div>
-                                        <div className="text-[10px] text-stone-500 mt-0.5">09:00 AM - 01:30 PM</div>
+                                        <div className="font-black text-xs">First Half (Morning)</div>
+                                        <div className={`text-[10px] mt-0.5 ${halfDaySession === 'First Half (Morning)' ? 'text-slate-300' : 'text-slate-500'}`}>09:00 AM - 01:30 PM</div>
                                     </button>
 
                                     <button
                                         type="button"
                                         onClick={() => setHalfDaySession('Second Half (Afternoon)')}
-                                        className={`p-3 rounded-xl border text-left transition-all border-none cursor-pointer ${
+                                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                                             halfDaySession === 'Second Half (Afternoon)' 
-                                                ? 'bg-amber-50/80 border-2 border-amber-500 text-stone-900' 
-                                                : 'bg-stone-50 border-stone-200 text-stone-600 hover:bg-stone-100'
+                                                ? 'bg-slate-900 text-white border-slate-900 shadow-2xs' 
+                                                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                                         }`}
                                     >
-                                        <div className="font-bold text-xs">Second Half (Afternoon)</div>
-                                        <div className="text-[10px] text-stone-500 mt-0.5">01:30 PM - 06:00 PM</div>
+                                        <div className="font-black text-xs">Second Half (Afternoon)</div>
+                                        <div className={`text-[10px] mt-0.5 ${halfDaySession === 'Second Half (Afternoon)' ? 'text-slate-300' : 'text-slate-500'}`}>01:30 PM - 06:00 PM</div>
                                     </button>
                                 </div>
                             </div>
@@ -227,21 +227,21 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                     {durationType === 'Short Leave' && (
                         <div className="space-y-3">
                             <div>
-                                <label className="block text-xs font-semibold text-stone-700 mb-1.5">Permission Date</label>
+                                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Permission Date</label>
                                 <input 
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-stone-700 mb-1.5">Permission Duration</label>
+                                <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Permission Duration</label>
                                 <select 
                                     value={shortLeaveHours}
                                     onChange={(e) => setShortLeaveHours(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
                                 >
                                     <option value="1 Hour">1 Hour Permission</option>
                                     <option value="2 Hours">2 Hours Permission</option>
@@ -252,38 +252,38 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                     )}
 
                     {/* Calculated Days Badge */}
-                    <div className="flex items-center justify-between p-3 bg-amber-50/50 rounded-xl border border-amber-200/60 text-xs">
-                        <span className="font-semibold text-stone-700">Calculated Time Off:</span>
-                        <span className="font-black text-amber-700 bg-amber-100 px-2.5 py-1 rounded-lg">
+                    <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+                        <span className="font-extrabold text-slate-700">Calculated Time Off:</span>
+                        <span className="font-black text-slate-900 bg-white border border-slate-200 px-3 py-1 rounded-lg shadow-2xs">
                             {calculateDaysCount()}
                         </span>
                     </div>
 
                     {/* Reason */}
                     <div>
-                        <label className="block text-xs font-semibold text-stone-700 mb-1.5">Reason / Description</label>
+                        <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Reason / Description</label>
                         <textarea 
                             rows={3}
                             placeholder="Brief description for HR & Manager review..."
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs font-medium text-stone-900 outline-none focus:border-amber-600 focus:bg-white transition-colors resize-none"
+                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors resize-none"
                         />
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="pt-2 flex items-center justify-end gap-3 border-t border-stone-100">
+                    <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
                         <button 
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+                            className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button 
                             type="submit"
                             disabled={loading}
-                            className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-medium transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-sm border-none cursor-pointer"
+                            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-xs border-none cursor-pointer"
                         >
                             {loading ? 'Submitting...' : 'Submit Request'}
                         </button>
