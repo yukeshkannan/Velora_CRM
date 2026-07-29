@@ -1,20 +1,47 @@
 const mongoose = require('mongoose');
 
-const connectDB = async (uri) => {
-  if (!uri) {
-    console.error('MongoDB URI is missing');
+const connectDB = async (uri, serviceName = '') => {
+  let targetUri = uri;
+
+  if (targetUri && serviceName) {
+    const formattedName = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_service$/, '');
+    const dbName = `aura_${formattedName}_db`;
+    
+    if (targetUri.includes('/companycrm')) {
+      targetUri = targetUri.replace('/companycrm', `/${dbName}`);
+    } else {
+      const urlParts = targetUri.split('?');
+      const basePart = urlParts[0];
+      const queryPart = urlParts[1] ? `?${urlParts[1]}` : '';
+      
+      const lastSlash = basePart.lastIndexOf('/');
+      if (lastSlash > 8) {
+        const existingDb = basePart.substring(lastSlash + 1);
+        if (!existingDb || existingDb === 'test' || existingDb === 'admin') {
+          targetUri = basePart.substring(0, lastSlash + 1) + dbName + queryPart;
+        }
+      } else {
+        targetUri = `${basePart}/${dbName}${queryPart}`;
+      }
+    }
+  }
+
+  if (!targetUri) {
+    console.error(`[${serviceName || 'DB'}] MongoDB URI is missing`);
     return;
   }
+
   try {
-    await mongoose.connect(uri, {
+    await mongoose.connect(targetUri, {
       serverSelectionTimeoutMS: 5000
     });
-    console.log(`MongoDB Connected: ${mongoose.connection.host}`);
+    console.log(`[${serviceName || 'DB'}] MongoDB Connected: ${mongoose.connection.host}/${mongoose.connection.name || ''}`);
   } catch (error) {
-    console.error(`MongoDB Connection Warning: ${error.message}`);
-    console.log('Server is running in OFFLINE DEVELOPER MODE. In-memory fallback is active.');
+    console.error(`[${serviceName || 'DB'}] MongoDB Connection Warning: ${error.message}`);
+    console.log(`[${serviceName || 'DB'}] Server is running in OFFLINE DEVELOPER MODE. In-memory fallback is active.`);
   }
 };
+
 
 // ==========================================
 // OFFLINE DATABASE EMULATOR (In-Memory)

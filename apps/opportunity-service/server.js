@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const { connectDB } = require('../../packages/database');
+// Opportunity Service Entrypoint
 const opportunityRoutes = require('./routes/opportunityRoutes');
 
 const { correlationLogger } = require('../../packages/utils');
@@ -19,7 +20,7 @@ const PORT = process.env.PORT || 5003;
 
 const startServer = async () => {
     try {
-        await connectDB(process.env.MONGO_URI);
+        await connectDB(process.env.OPPORTUNITY_MONGO_URI || process.env.MONGO_URI, 'opportunity-service');
         app.listen(PORT, () => console.log(`Opportunity Service running on port ${PORT}`));
     } catch (err) {
         console.error('Failed to start server:', err);

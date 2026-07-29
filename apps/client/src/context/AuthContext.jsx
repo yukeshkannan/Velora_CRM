@@ -187,9 +187,10 @@ export const AuthProvider = ({ children }) => {
         autoCheckOut(user);
     }
     hasAutoCheckedIn.current = false;
-    localStorage.clear(); // Bulletproof reset: Wipes out all active and stale session variables
+    localStorage.clear();
+    sessionStorage.clear();
     setUser(null);
-    navigate('/');
+    navigate('/login', { replace: true, state: {} });
   };
 
   // Refresh User Data (Profile Updates)

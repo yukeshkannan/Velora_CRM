@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { User, Lock, Save, LogOut, Shield, ChevronRight, Camera, AlertCircle, Loader2, Eye, EyeOff, CheckCircle2, Building2, Briefcase, Mail } from 'lucide-react';
+import { User, Lock, Save, LogOut, Shield, ChevronRight, Camera, AlertCircle, Loader2, Eye, EyeOff, CheckCircle2, Building2, Briefcase, Mail, X, ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Settings = () => {
@@ -11,6 +11,7 @@ const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [previewImage, setPreviewImage] = useState(null);
     const fileInputRef = useRef(null);
     
     // Profile State
@@ -140,7 +141,11 @@ const Settings = () => {
                         
                         {/* Profile Brief Header */}
                         <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
-                            <div className="w-14 h-14 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center overflow-hidden shrink-0 shadow-2xs border border-slate-800">
+                            <div 
+                                onClick={() => profileData.profilePic && setPreviewImage(profileData.profilePic)}
+                                className={`w-14 h-14 rounded-2xl bg-slate-900 text-white font-black text-xl flex items-center justify-center overflow-hidden shrink-0 shadow-2xs border border-slate-800 ${profileData.profilePic ? 'cursor-pointer hover:opacity-90 transition-all' : ''}`}
+                                title={profileData.profilePic ? "Click to view full image" : ""}
+                            >
                                 {profileData.profilePic ? (
                                     <img src={profileData.profilePic} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
@@ -226,7 +231,11 @@ const Settings = () => {
                                 {/* Avatar Upload Section */}
                                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 p-5 rounded-2xl bg-slate-50/70 border border-slate-200/80">
                                     <div className="relative shrink-0">
-                                        <div className="w-20 h-20 rounded-2xl bg-slate-900 text-white font-black text-2xl flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
+                                        <div 
+                                            onClick={() => profileData.profilePic && setPreviewImage(profileData.profilePic)}
+                                            className={`w-20 h-20 rounded-2xl bg-slate-900 text-white font-black text-2xl flex items-center justify-center overflow-hidden border-2 border-white shadow-md ${profileData.profilePic ? 'cursor-pointer hover:opacity-90 transition-all' : ''}`}
+                                            title={profileData.profilePic ? "Click to view full image" : ""}
+                                        >
                                             {uploading ? (
                                                 <Loader2 size={24} className="animate-spin text-white" />
                                             ) : profileData.profilePic ? (
@@ -260,7 +269,7 @@ const Settings = () => {
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={uploading}
-                                            className="mt-3 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-800 transition-all cursor-pointer"
+                                            className="mt-3 px-3.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-800 transition-all cursor-pointer shadow-2xs"
                                         >
                                             {uploading ? 'Uploading...' : 'Choose File'}
                                         </button>
@@ -400,6 +409,50 @@ const Settings = () => {
 
                 </div>
             </div>
+
+            {/* Image Preview Lightbox Modal */}
+            {previewImage && (
+                <div 
+                    className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 transition-all"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <div 
+                        className="relative bg-white p-4 rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-full flex items-center justify-between px-2 pt-1 border-b border-slate-100 pb-3">
+                            <h3 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                                <User size={16} /> Profile Picture Preview
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                <a 
+                                    href={previewImage} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all flex items-center gap-1 text-xs font-bold"
+                                    title="Open full size in new tab"
+                                >
+                                    <ExternalLink size={14} /> Full View
+                                </a>
+                                <button 
+                                    onClick={() => setPreviewImage(null)}
+                                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer border-none"
+                                >
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="w-full max-h-[70vh] rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-200 shadow-inner">
+                            <img 
+                                src={previewImage} 
+                                alt="Profile Full Preview" 
+                                className="max-w-full max-h-[70vh] object-contain"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

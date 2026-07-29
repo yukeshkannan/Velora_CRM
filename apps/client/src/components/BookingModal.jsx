@@ -223,6 +223,7 @@ const BookingModal = ({ isOpen, onClose, user, contactId }) => {
                                                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
                                                         <input 
                                                             type="date" 
+                                                            min={new Date().toISOString().split('T')[0]}
                                                             className="w-full pl-12 pr-4 py-4 rounded-2xl border-2 border-stone-100 focus:border-amber-600 outline-none font-bold text-stone-900"
                                                             onChange={(e) => setFormData({...formData, preferredDate: e.target.value})}
                                                         />

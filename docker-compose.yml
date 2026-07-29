@@ -23,7 +23,8 @@ services:
   auth-service:
     build: { context: ., dockerfile: apps/auth-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${AUTH_MONGO_URI:-${MONGO_URI}}
+      - AUTH_MONGO_URI=${AUTH_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
       - DEFAULT_ADMIN_EMAIL=${DEFAULT_ADMIN_EMAIL:-admin@company.com}
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-Admin@123456}
@@ -37,7 +38,8 @@ services:
   contact-service:
     build: { context: ., dockerfile: apps/contact-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${CONTACT_MONGO_URI:-${MONGO_URI}}
+      - CONTACT_MONGO_URI=${CONTACT_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -46,7 +48,8 @@ services:
   opportunity-service:
     build: { context: ., dockerfile: apps/opportunity-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${OPPORTUNITY_MONGO_URI:-${MONGO_URI}}
+      - OPPORTUNITY_MONGO_URI=${OPPORTUNITY_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -55,7 +58,8 @@ services:
   task-service:
     build: { context: ., dockerfile: apps/task-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${TASK_MONGO_URI:-${MONGO_URI}}
+      - TASK_MONGO_URI=${TASK_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -64,7 +68,8 @@ services:
   notification-service:
     build: { context: ., dockerfile: apps/notification-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${NOTIFICATION_MONGO_URI:-${MONGO_URI}}
+      - NOTIFICATION_MONGO_URI=${NOTIFICATION_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
       - REDIS_URL=${REDIS_URL}
@@ -75,7 +80,8 @@ services:
   analytics-service:
     build: { context: ., dockerfile: apps/analytics-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${ANALYTICS_MONGO_URI:-${MONGO_URI}}
+      - ANALYTICS_MONGO_URI=${ANALYTICS_MONGO_URI}
       - CONTACT_SERVICE_URL=http://contact-service:5002
       - OPPORTUNITY_SERVICE_URL=http://opportunity-service:5003
       - TASK_SERVICE_URL=http://task-service:5004
@@ -89,7 +95,8 @@ services:
   document-service:
     build: { context: ., dockerfile: apps/document-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${DOCUMENT_MONGO_URI:-${MONGO_URI}}
+      - DOCUMENT_MONGO_URI=${DOCUMENT_MONGO_URI}
       - STORAGE_TYPE=${STORAGE_TYPE:-local}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -103,7 +110,8 @@ services:
   product-service:
     build: { context: ., dockerfile: apps/product-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${PRODUCT_MONGO_URI:-${MONGO_URI}}
+      - PRODUCT_MONGO_URI=${PRODUCT_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -112,7 +120,8 @@ services:
   invoice-service:
     build: { context: ., dockerfile: apps/invoice-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${INVOICE_MONGO_URI:-${MONGO_URI}}
+      - INVOICE_MONGO_URI=${INVOICE_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -121,7 +130,8 @@ services:
   ticket-service:
     build: { context: ., dockerfile: apps/ticket-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${TICKET_MONGO_URI:-${MONGO_URI}}
+      - TICKET_MONGO_URI=${TICKET_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -130,7 +140,8 @@ services:
   search-service:
     build: { context: ., dockerfile: apps/search-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${SEARCH_MONGO_URI:-${MONGO_URI}}
+      - SEARCH_MONGO_URI=${SEARCH_MONGO_URI}
       - REDIS_URL=${REDIS_URL}
       - RABBITMQ_URL=${RABBITMQ_URL}
     networks: [ aura-network ]
@@ -139,7 +150,8 @@ services:
   hr-service:
     build: { context: ., dockerfile: apps/hr-service/Dockerfile }
     environment:
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=${HR_MONGO_URI:-${MONGO_URI}}
+      - HR_MONGO_URI=${HR_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
       - REDIS_URL=${REDIS_URL}

@@ -736,6 +736,7 @@ const Tasks = () => {
                                         <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Due Date</label>
                                         <input 
                                             type="date" 
+                                            min={new Date().toISOString().split('T')[0]}
                                             value={formData.dueDate}
                                             onChange={e => setFormData({...formData, dueDate: e.target.value})}
                                             className="w-full px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:border-blue-500 text-sm font-medium"

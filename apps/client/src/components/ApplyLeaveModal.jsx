@@ -159,6 +159,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                     <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Start Date</label>
                                     <input 
                                         type="date"
+                                        min={new Date().toISOString().split('T')[0]}
                                         value={startDate}
                                         onChange={(e) => setStartDate(e.target.value)}
                                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
@@ -168,6 +169,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                     <label className="block text-xs font-extrabold text-slate-700 mb-1.5">End Date</label>
                                     <input 
                                         type="date"
+                                        min={startDate || new Date().toISOString().split('T')[0]}
                                         value={endDate}
                                         onChange={(e) => setEndDate(e.target.value)}
                                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
@@ -184,6 +186,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Leave Date</label>
                                 <input 
                                     type="date"
+                                    min={new Date().toISOString().split('T')[0]}
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"
@@ -230,6 +233,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
                                 <label className="block text-xs font-extrabold text-slate-700 mb-1.5">Permission Date</label>
                                 <input 
                                     type="date"
+                                    min={new Date().toISOString().split('T')[0]}
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                     className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:border-slate-900 focus:bg-white transition-colors"

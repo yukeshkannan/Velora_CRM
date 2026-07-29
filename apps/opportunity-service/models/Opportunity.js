@@ -51,6 +51,14 @@ const opportunitySchema = new mongoose.Schema({
     enum: ['Low', 'Medium', 'High'],
     default: 'Medium'
   },
+  description: {
+    type: String,
+    trim: true
+  },
+  preferredContactTime: {
+    type: String,
+    trim: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

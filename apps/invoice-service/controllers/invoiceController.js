@@ -218,7 +218,21 @@ exports.createInvoice = async (req, res) => {
     console.log("🔥 HIT: createInvoice");
     try {
         console.log("PAYLOAD:", req.body);
-        const invoice = new Invoice(req.body);
+        const payload = { ...req.body };
+        if (!payload.dueDate || String(payload.dueDate).trim() === '') {
+            return res.status(400).json({ success: false, error: "Due date is required." });
+        }
+        if (Array.isArray(payload.items)) {
+            payload.items = payload.items.map(item => {
+                const cleaned = { ...item };
+                if (!cleaned.productId || typeof cleaned.productId !== 'string' || cleaned.productId.trim() === '' || cleaned.productId.length !== 24) {
+                    delete cleaned.productId;
+                }
+                return cleaned;
+            });
+        }
+
+        const invoice = new Invoice(payload);
         
         // Auto-set status to Sent since we are emailing immediately if status not set
         if (!invoice.status) {
@@ -269,8 +283,18 @@ exports.updateInvoice = async (req, res) => {
     }
 
     const originalStatus = invoice.status;
+    const payload = { ...req.body };
+    if (Array.isArray(payload.items)) {
+        payload.items = payload.items.map(item => {
+            const cleaned = { ...item };
+            if (!cleaned.productId || typeof cleaned.productId !== 'string' || cleaned.productId.trim() === '' || cleaned.productId.length !== 24) {
+                delete cleaned.productId;
+            }
+            return cleaned;
+        });
+    }
 
-    invoice = await Invoice.findByIdAndUpdate(req.params.id, req.body, {
+    invoice = await Invoice.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true
     });

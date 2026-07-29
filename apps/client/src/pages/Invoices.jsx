@@ -43,6 +43,18 @@ const Invoices = () => {
     const [editingId, setEditingId] = useState(null);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
+    const [opportunities, setOpportunities] = useState([]);
+    const [clientOpps, setClientOpps] = useState([]);
+    const [selectedOppIds, setSelectedOppIds] = useState([]);
+
+    const cleanDescription = (desc) => {
+        if (!desc) return '';
+        let text = desc;
+        text = text.replace(/Service request from [^.\n]+\.?/gi, '');
+        text = text.replace(/Client Notes:\s*None/gi, '');
+        return text.trim();
+    };
+
     useEffect(() => {
         if (user) fetchData();
     }, [user]);
@@ -50,15 +62,17 @@ const Invoices = () => {
     const fetchData = async () => {
         if (!user) return;
         try {
-            const [invRes, contactRes, prodRes] = await Promise.allSettled([
+            const [invRes, contactRes, prodRes, oppRes] = await Promise.allSettled([
                 axios.get(isClient ? `/api/invoices?email=${user?.email}` : '/api/invoices'),
                 !isClient ? axios.get('/api/contacts') : Promise.resolve({ data: { data: [] } }),
-                !isClient ? axios.get('/api/products') : Promise.resolve({ data: { data: [] } })
+                !isClient ? axios.get('/api/products') : Promise.resolve({ data: { data: [] } }),
+                !isClient ? axios.get('/api/opportunities') : Promise.resolve({ data: { data: [] } })
             ]);
 
             if (invRes.status === 'fulfilled') setInvoices(invRes.value.data.data || []);
             if (contactRes.status === 'fulfilled') setContacts(contactRes.value.data.data || []);
             if (prodRes.status === 'fulfilled') setProducts(prodRes.value.data.data || []);
+            if (oppRes.status === 'fulfilled') setOpportunities(oppRes.value.data.data || []);
 
             setLoading(false);
         } catch (err) {
@@ -86,13 +100,71 @@ const Invoices = () => {
         const contactId = e.target.value;
         const contact = contacts.find(c => c._id === contactId);
         if (contact) {
+            // Find opportunities matching this client
+            const matchedOpps = opportunities.filter(opp => 
+                (opp.contactName && opp.contactName.toLowerCase().trim() === contact.name.toLowerCase().trim()) ||
+                (opp.contactEmail && opp.contactEmail.toLowerCase().trim() === contact.email.toLowerCase().trim()) ||
+                (opp.company && contact.company && opp.company.toLowerCase().trim() === contact.company.toLowerCase().trim()) ||
+                (opp.contactId && String(opp.contactId) === String(contact._id))
+            );
+
+            setClientOpps(matchedOpps);
+            const allIds = matchedOpps.map(o => o._id);
+            setSelectedOppIds(allIds);
+
+            let autoItems = [{ serviceName: '', description: '', quantity: 1, price: 0 }];
+            if (matchedOpps.length > 0) {
+                autoItems = matchedOpps.map(opp => ({
+                    oppId: opp._id,
+                    productId: '',
+                    serviceName: opp.title,
+                    description: cleanDescription(opp.description) || opp.title,
+                    quantity: 1,
+                    price: opp.amount || 0
+                }));
+            }
+
             setFormData(prev => ({
                 ...prev,
                 customerId: contact._id,
                 customerName: contact.name,
-                customerEmail: contact.email
+                customerEmail: contact.email,
+                items: autoItems
             }));
+        } else {
+            setClientOpps([]);
+            setSelectedOppIds([]);
         }
+    };
+
+    const toggleOpportunitySelection = (oppToToggle) => {
+        let updatedIds;
+        if (selectedOppIds.includes(oppToToggle._id)) {
+            updatedIds = selectedOppIds.filter(id => id !== oppToToggle._id);
+        } else {
+            updatedIds = [...selectedOppIds, oppToToggle._id];
+        }
+        setSelectedOppIds(updatedIds);
+
+        const selectedOpps = clientOpps.filter(o => updatedIds.includes(o._id));
+        let newItems = [];
+        if (selectedOpps.length > 0) {
+            newItems = selectedOpps.map(opp => ({
+                oppId: opp._id,
+                productId: '',
+                serviceName: opp.title,
+                description: cleanDescription(opp.description) || opp.title,
+                quantity: 1,
+                price: opp.amount || 0
+            }));
+        } else {
+            newItems = [{ serviceName: '', description: '', quantity: 1, price: 0 }];
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            items: newItems
+        }));
     };
 
     const handleItemChange = (index, field, value) => {
@@ -112,9 +184,40 @@ const Invoices = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const resetForm = () => {
+        setEditingId(null);
+        setFormData({
+            customerId: '', 
+            customerName: '', 
+            customerEmail: '', 
+            dueDate: '',
+            items: [{ serviceName: '', description: '', quantity: 1, price: 0 }],
+            paidAmount: 0,
+            status: 'Sent'
+        });
+        setClientOpps([]);
+        setSelectedOppIds([]);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (isSubmitting) return;
+
+        if (!formData.customerId || !formData.customerName || !formData.customerEmail) {
+            toast.error("Please select a Client before issuing the invoice!");
+            return;
+        }
+
+        if (!formData.dueDate) {
+            toast.error("Please select a Due Date for the invoice!");
+            return;
+        }
+
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (formData.dueDate < todayStr) {
+            toast.error("Due Date cannot be set to a past date!");
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -128,8 +231,22 @@ const Invoices = () => {
                 computedStatus = 'Partially Paid';
             }
 
+            const sanitizedItems = formData.items.map(item => {
+                const itemCopy = {
+                    description: item.serviceName || item.description || 'Custom Service Item',
+                    quantity: parseFloat(item.quantity) || 1,
+                    price: parseFloat(item.price) || 0
+                };
+                if (item.productId && typeof item.productId === 'string' && item.productId.length === 24) {
+                    itemCopy.productId = item.productId;
+                }
+                return itemCopy;
+            });
+
             const payload = { 
-                ...formData, 
+                ...formData,
+                dueDate: formData.dueDate,
+                items: sanitizedItems,
                 totalAmount: total,
                 paidAmount: paid,
                 status: computedStatus 
@@ -143,6 +260,7 @@ const Invoices = () => {
                 toast.success("Invoice issued successfully!");
             }
             setIsDrawerOpen(false);
+            resetForm();
             fetchData();
         } catch (err) {
             toast.error("Error saving invoice");
@@ -796,7 +914,7 @@ const Invoices = () => {
                             exit={{ opacity: 0 }} 
                             transition={{ duration: 0.2 }} 
                             className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40" 
-                            onClick={() => setIsDrawerOpen(false)} 
+                            onClick={() => { setIsDrawerOpen(false); resetForm(); }} 
                         />
                         <motion.div 
                             initial={{ x: '100%', opacity: 0.5 }} 
@@ -807,7 +925,7 @@ const Invoices = () => {
                         >
                             <div className="px-6 py-5 border-b border-slate-200/80 flex justify-between items-center bg-slate-50">
                                 <h2 className="text-lg font-extrabold text-slate-900">{editingId ? 'Modify Invoice' : 'Issue New Invoice'}</h2>
-                                <button onClick={() => setIsDrawerOpen(false)} className="text-slate-400 hover:text-slate-900 border-none bg-transparent cursor-pointer"><X size={20} /></button>
+                                <button onClick={() => { setIsDrawerOpen(false); resetForm(); }} className="text-slate-400 hover:text-slate-900 border-none bg-transparent cursor-pointer"><X size={20} /></button>
                             </div>
 
                             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -828,6 +946,8 @@ const Invoices = () => {
                                        <label className="text-xs font-bold text-slate-700">Due Date <span className="text-rose-500">*</span></label>
                                        <input 
                                            type="date" 
+                                           required
+                                           min={new Date().toISOString().split('T')[0]}
                                            className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none text-xs font-bold text-slate-900 transition-all shadow-2xs"
                                            value={formData.dueDate}
                                            onChange={e => setFormData({...formData, dueDate: e.target.value})}
@@ -836,67 +956,89 @@ const Invoices = () => {
                                 </div>
 
                                 <div className="space-y-4">
-                                   <div className="flex justify-between items-center pb-1 border-b border-slate-100">
-                                       <label className="text-xs font-extrabold text-slate-900">Line Items & Custom Service Price</label>
-                                       <button 
-                                           type="button"
-                                           onClick={() => setFormData({ ...formData, items: [...formData.items, { productId: '', description: '', quantity: 1, price: 0 }] })}
-                                           className="text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-transparent border-none cursor-pointer flex items-center gap-1"
-                                       >
-                                           <Plus size={14} /> Add Service Item
-                                       </button>
+                                   {/* Interactive Inquired Services Checkbox Selector */}
+                                   {Boolean(formData.customerId) && clientOpps.length > 0 && (
+                                       <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                                           <div className="flex items-center justify-between">
+                                               <label className="text-[10px] font-extrabold text-slate-900 uppercase tracking-wider block">
+                                                   Select Inquired Service(s) to Include in Invoice ({selectedOppIds.length} of {clientOpps.length} Selected)
+                                               </label>
+                                           </div>
+                                           <div className="space-y-2">
+                                               {clientOpps.map(opp => {
+                                                   const isChecked = selectedOppIds.includes(opp._id);
+                                                   return (
+                                                       <div 
+                                                           key={opp._id} 
+                                                           onClick={() => toggleOpportunitySelection(opp)}
+                                                           className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
+                                                               isChecked 
+                                                                   ? 'bg-white border-slate-900 shadow-2xs' 
+                                                                   : 'bg-slate-100/60 border-slate-200 opacity-60 hover:opacity-100'
+                                                           }`}
+                                                       >
+                                                           <div className="flex items-center gap-3">
+                                                               <input 
+                                                                   type="checkbox"
+                                                                   checked={isChecked}
+                                                                   onChange={() => {}} 
+                                                                   className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                                                               />
+                                                               <div>
+                                                                   <p className="text-xs font-extrabold text-slate-900">{opp.title}</p>
+                                                                   {opp.preferredContactTime && (
+                                                                       <p className="text-[10px] font-bold text-slate-500 mt-0.5">🕒 Preferred Time: {opp.preferredContactTime}</p>
+                                                                   )}
+                                                               </div>
+                                                           </div>
+                                                           <span className="text-xs font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200/80 shrink-0">
+                                                               ${(opp.amount || 0).toLocaleString()}
+                                                           </span>
+                                                       </div>
+                                                   );
+                                               })}
+                                           </div>
+                                       </div>
+                                   )}
+
+                                   <div className="pb-1 border-b border-slate-100">
+                                       <label className="text-xs font-extrabold text-slate-900">Invoiced Services & Billing Items ({formData.items.length})</label>
                                    </div>
 
                                    {formData.items.map((item, index) => (
-                                       <div key={index} className="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3 relative">
+                                       <div key={index} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
                                            <div className="grid grid-cols-12 gap-3 items-center">
-                                               <div className="col-span-7">
-                                                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Service Catalog</label>
-                                                   <select 
-                                                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold bg-white text-slate-900 outline-none shadow-2xs focus:border-slate-900"
-                                                       value={item.productId}
-                                                       onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                                                   >
-                                                       <option value="">Select Service Catalog...</option>
-                                                       {products.map(p => <option key={p._id} value={p._id}>{p.name} (${p.price})</option>)}
-                                                   </select>
+                                               <div className="col-span-8">
+                                                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Inquired Service Title</label>
+                                                   <input 
+                                                       type="text"
+                                                       placeholder="Service Title..."
+                                                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold bg-slate-50 focus:bg-white focus:border-slate-900 text-slate-900 outline-none transition-all"
+                                                       value={item.serviceName || item.description || ''}
+                                                       onChange={(e) => {
+                                                           const newItems = [...formData.items];
+                                                           newItems[index].serviceName = e.target.value;
+                                                           if (!newItems[index].description) newItems[index].description = e.target.value;
+                                                           setFormData({ ...formData, items: newItems });
+                                                       }}
+                                                   />
                                                </div>
-                                               <div className="col-span-5">
-                                                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Custom Service Price ($)</label>
+                                               <div className="col-span-4">
+                                                   <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block mb-1">Price ($)</label>
                                                    <input 
                                                        type="number" 
                                                        step="any"
                                                        placeholder="0.00"
-                                                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-900 bg-white outline-none shadow-2xs focus:border-slate-900"
+                                                       className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-900 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all"
                                                        value={item.price || ''}
-                                                       onChange={(e) => handleItemChange(index, 'price', parseFloat(e.target.value) || 0)}
+                                                       onChange={(e) => {
+                                                           const newItems = [...formData.items];
+                                                           newItems[index].price = parseFloat(e.target.value) || 0;
+                                                           setFormData({ ...formData, items: newItems });
+                                                       }}
                                                    />
                                                </div>
                                            </div>
-
-                                           <div>
-                                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Full Service Scope & Description</label>
-                                               <textarea 
-                                                   rows={2}
-                                                   placeholder="Enter full scope of work, deliverables, and service terms..."
-                                                   className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-900 bg-white outline-none shadow-2xs focus:border-slate-900 resize-none"
-                                                   value={item.description}
-                                                   onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                               />
-                                           </div>
-
-                                           {formData.items.length > 1 && (
-                                               <button 
-                                                   type="button"
-                                                   onClick={() => {
-                                                       const newItems = formData.items.filter((_, i) => i !== index);
-                                                       setFormData({ ...formData, items: newItems });
-                                                   }}
-                                                   className="text-rose-600 hover:text-rose-800 text-xs font-bold border-none bg-transparent cursor-pointer flex items-center gap-1 pt-1"
-                                               >
-                                                   <Trash2 size={13} /> Remove Item
-                                               </button>
-                                           )}
                                        </div>
                                    ))}
                                 </div>
@@ -910,7 +1052,7 @@ const Invoices = () => {
                             </div>
 
                             <div className="px-6 py-4 border-t border-slate-200/80 bg-slate-50 flex gap-3">
-                                <button onClick={() => setIsDrawerOpen(false)} className="flex-1 py-2.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-100 transition-all cursor-pointer">Cancel</button>
+                                <button onClick={() => { setIsDrawerOpen(false); resetForm(); }} className="flex-1 py-2.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-100 transition-all cursor-pointer">Cancel</button>
                                 <button 
                                     onClick={handleSubmit} 
                                     disabled={isSubmitting}

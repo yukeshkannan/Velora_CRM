@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 5010;
 
 const startServer = async () => {
     try {
-        await connectDB(process.env.MONGO_URI);
+        await connectDB(process.env.TICKET_MONGO_URI || process.env.MONGO_URI, 'ticket-service');
         app.listen(PORT, () => console.log(`Ticket Service running on port ${PORT}`));
     } catch (err) {
         console.error('Failed to start server:', err);

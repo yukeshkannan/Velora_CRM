@@ -26,8 +26,7 @@ const PORT = process.env.PORT || 5009;
 
 const startServer = async () => {
     try {
-        await connectDB(process.env.MONGO_URI);
-        console.log("Invoice Database Connected");
+        await connectDB(process.env.INVOICE_MONGO_URI || process.env.MONGO_URI, 'invoice-service');
         
         const server = app.listen(PORT, () => {
              console.log(`Invoice Service running on port ${PORT}`);

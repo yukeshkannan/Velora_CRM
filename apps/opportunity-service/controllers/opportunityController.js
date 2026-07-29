@@ -1,5 +1,6 @@
 const Opportunity = require('../models/Opportunity');
-const { formatResponse, getCache, setCache, delCachePattern } = require('../../../packages/utils');
+const axios = require('axios');
+const { formatResponse, getCache, setCache, delCachePattern, publishToQueue } = require('../../../packages/utils');
 
 // @desc    Get all opportunities
 // @route   GET /api/opportunities
@@ -63,6 +64,38 @@ exports.createOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.create(req.body);
     await delCachePattern('opp:*');
+
+    // Asynchronous Event Bus Dispatch via RabbitMQ to Admin/Sales team
+    try {
+        const adminEmail = process.env.SENDER_EMAIL || "admin@companycrm.com";
+        const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5005';
+        
+        const emailPayload = {
+            to: adminEmail,
+            subject: `⚡ New Quote Inquiry: ${opportunity.title} ($${(opportunity.amount || 0).toLocaleString()})`,
+            message: `
+                <div style="font-family: Arial, sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                    <h2 style="color: #0f172a; margin-top: 0;">New Product Quote Request Received!</h2>
+                    <p style="color: #475569; font-size: 14px;">A client has requested a quote inquiry on the portal:</p>
+                    <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                        <p style="margin: 4px 0;"><strong>Service/Product:</strong> ${opportunity.title}</p>
+                        <p style="margin: 4px 0;"><strong>Estimated Amount:</strong> $${(opportunity.amount || 0).toLocaleString()}</p>
+                        <p style="margin: 4px 0;"><strong>Client Name:</strong> ${opportunity.contactName || 'Valued Client'}</p>
+                        <p style="margin: 4px 0;"><strong>Client Email:</strong> ${opportunity.contactEmail || 'N/A'}</p>
+                        <p style="margin: 4px 0;"><strong>Contact Preference:</strong> ${opportunity.preferredContactTime || 'Flexible'}</p>
+                    </div>
+                    <p style="color: #64748b; font-size: 12px;">Please log in to the Sales Pipeline to assign a sales representative and follow up with the client.</p>
+                </div>
+            `
+        };
+
+        const fallbackSend = () => axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/email`, emailPayload);
+        await publishToQueue('email_notifications', emailPayload, fallbackSend);
+        console.log(`[Opportunity Service] RabbitMQ quote inquiry notification dispatched for Admin (${adminEmail})`);
+    } catch (notifyErr) {
+        console.error('[Opportunity Service] Failed to send quote inquiry notification:', notifyErr.message);
+    }
+
     formatResponse(res, 201, 'Opportunity created successfully', opportunity);
   } catch (err) {
     formatResponse(res, 400, 'Invalid data', err.message);
@@ -85,7 +118,7 @@ exports.updateOpportunity = async (req, res) => {
         opportunity.modules = req.body.modules;
     }
     // Update other fields
-    const allowedUpdates = ['title', 'amount', 'stage', 'employeeTaskStatus', 'priority', 'contactId', 'assignedTo', 'expectedCloseDate'];
+    const allowedUpdates = ['title', 'amount', 'stage', 'employeeTaskStatus', 'priority', 'contactId', 'assignedTo', 'expectedCloseDate', 'description', 'preferredContactTime'];
     allowedUpdates.forEach(update => {
         if (req.body[update] !== undefined) {
             opportunity[update] = req.body[update];

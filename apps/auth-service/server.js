@@ -46,8 +46,7 @@ const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {
-    await connectDB(process.env.MONGO_URI);
-    console.log('MongoDB Connected');
+    await connectDB(process.env.AUTH_MONGO_URI || process.env.MONGO_URI, 'auth-service');
     await seedAdminUser();
     
     app.listen(PORT, () => console.log(`Auth Service running on port ${PORT}`));

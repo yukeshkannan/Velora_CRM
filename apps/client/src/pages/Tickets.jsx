@@ -629,46 +629,55 @@ const Tickets = () => {
                                         </div>
                                     </div>
 
-                                    {user?.role === 'Admin' && (
-                                        <div className="grid grid-cols-2 gap-5">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Customer</label>
-                                                <div className="relative">
-                                                    <select 
-                                                        value={formData.customerId} 
-                                                        onChange={e => setFormData({...formData, customerId: e.target.value})}
-                                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
-                                                    >
-                                                        <option value="">Select Customer...</option>
-                                                        {contacts.map(c => (
-                                                            <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>
-                                                        ))}
-                                                    </select>
-                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                    {(!isClient || user?.role === 'Admin') && (
+                                         <div className="grid grid-cols-2 gap-5">
+                                             <div>
+                                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Ticket Submitter</label>
+                                                 {editingTicket ? (
+                                                     <div className="px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 font-extrabold text-xs text-slate-900 flex flex-col justify-center">
+                                                         <span>
+                                                             {contacts.find(c => c._id === (editingTicket.customerId?._id || editingTicket.customerId))?.name || editingTicket.guestName || editingTicket.guestEmail || 'Client Request'}
+                                                         </span>
+                                                         {editingTicket.guestEmail && <span className="text-[10px] text-slate-400 font-bold">{editingTicket.guestEmail}</span>}
                                                      </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assignee</label>
-                                                <div className="relative">
-                                                    <select 
-                                                        value={formData.assignedTo} 
-                                                        onChange={e => setFormData({...formData, assignedTo: e.target.value})}
-                                                        className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
-                                                    >
-                                                        <option value="">Unassigned</option>
-                                                        {users.map(u => (
-                                                            <option key={u._id} value={u._id}>{u.name} ({u.role})</option>
-                                                        ))}
-                                                    </select>
-                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                 ) : (
+                                                     <div className="relative">
+                                                         <select 
+                                                             value={formData.customerId} 
+                                                             onChange={e => setFormData({...formData, customerId: e.target.value})}
+                                                             className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                                         >
+                                                             <option value="">Select Customer...</option>
+                                                             {contacts.map(c => (
+                                                                 <option key={c._id} value={c._id}>{c.name} ({c.company || c.email})</option>
+                                                             ))}
+                                                         </select>
+                                                         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                         </div>
                                                      </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                                 )}
+                                             </div>
+                                             <div>
+                                                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Assignee Staff</label>
+                                                 <div className="relative">
+                                                     <select 
+                                                         value={formData.assignedTo} 
+                                                         onChange={e => setFormData({...formData, assignedTo: e.target.value})}
+                                                         className="w-full px-4 py-2.5 rounded-lg border border-slate-200 bg-white outline-none focus:border-blue-500 appearance-none text-sm font-medium cursor-pointer"
+                                                     >
+                                                         <option value="">Unassigned</option>
+                                                         {users.filter(u => u.role && u.role !== 'Client').map(u => (
+                                                             <option key={u._id} value={u._id}>{u.name} ({u.role || 'Staff'})</option>
+                                                         ))}
+                                                     </select>
+                                                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     )}
 
                                     {/* Description - Full Width */}
                                     <div>

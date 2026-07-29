@@ -18,7 +18,7 @@ const PORT = process.env.PORT || 5002;
 
 const startServer = async () => {
     try {
-        await connectDB(process.env.MONGO_URI);
+        await connectDB(process.env.CONTACT_MONGO_URI || process.env.MONGO_URI, 'contact-service');
         app.listen(PORT, () => console.log(`Contact Service running on port ${PORT}`));
     } catch (err) {
         console.error('Failed to start server:', err);

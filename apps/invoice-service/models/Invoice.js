@@ -2,9 +2,8 @@ const { mongoose } = require('../../../packages/database');
 
 const invoiceSchema = new mongoose.Schema({
   customerId: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.Mixed,
     required: true
-    // ref: 'Contact'
   },
   customerName: {
       type: String,
@@ -16,8 +15,7 @@ const invoiceSchema = new mongoose.Schema({
   },
   items: [{
     productId: {
-      type: mongoose.Schema.Types.ObjectId
-      // ref: 'Product'
+      type: mongoose.Schema.Types.Mixed
     },
     description: String,
     quantity: Number,

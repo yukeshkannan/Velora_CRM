@@ -252,40 +252,6 @@ const EmployeeDashboard = () => {
 
                 </div>
 
-                {/* TODAY'S ATTENDANCE LIVE WORKSPACE BANNER */}
-                <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-xs">
-                            {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">Daily Attendance Status</span>
-                                {todayAttendance && !todayAttendance.checkOut ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Active Online
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-slate-100 text-slate-600 border border-slate-200">
-                                        Offline / Logged Out
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-sm font-bold text-slate-900">
-                                {!todayAttendance ? "You have not checked in for today yet." : 
-                                 !todayAttendance.checkOut ? `Active session started at ${new Date(todayAttendance.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}` : `Session concluded (${todayAttendance.totalHours || 0} hrs logged)`}
-                            </p>
-                        </div>
-                    </div>
-
-                    <button 
-                        onClick={() => navigate('/app/attendance')}
-                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-2 border-none cursor-pointer self-start md:self-auto shrink-0"
-                    >
-                        <Clock size={15} /> Go to Attendance Page
-                    </button>
-                </div>
-
                 {/* MAIN 2-COLUMN LAYOUT */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     

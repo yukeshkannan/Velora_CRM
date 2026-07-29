@@ -26,7 +26,7 @@ app.use('/api/leave', require('./routes/leaveRoutes'));
 // Connect to Database and Start Server
 const startServer = async () => {
     try {
-        await connectDB(process.env.MONGO_URI);
+        await connectDB(process.env.HR_MONGO_URI || process.env.MONGO_URI, 'hr-service');
         app.listen(PORT, () => console.log(`HR Service running on port ${PORT}`));
     } catch (err) {
         console.error('Failed to start HR Service:', err);

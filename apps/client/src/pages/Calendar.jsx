@@ -569,6 +569,7 @@ const Calendar = () => {
                                         <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Date *</label>
                                         <input 
                                             required type="date" 
+                                            min={new Date().toISOString().split('T')[0]}
                                             value={newEventData.dueDate}
                                             onChange={e => setNewEventData({...newEventData, dueDate: e.target.value})}
                                             className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"
@@ -706,6 +707,7 @@ const Calendar = () => {
                                             <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Due Date *</label>
                                             <input 
                                                 required type="date" 
+                                                min={new Date().toISOString().split('T')[0]}
                                                 value={editEventData.dueDate}
                                                 onChange={e => setEditEventData({...editEventData, dueDate: e.target.value})}
                                                 className="w-full px-4 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-amber-600 font-semibold text-stone-900 bg-white text-sm"

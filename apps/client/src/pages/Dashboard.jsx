@@ -324,32 +324,6 @@ const Dashboard = () => {
                                 </div>
                             ))}
                         </div>
-
-                        {/* Visual Stage Share Bar */}
-                        <div className="space-y-2 pt-2">
-                            <div className="flex justify-between text-xs font-extrabold text-slate-700">
-                                <span>Overall Completion Rate</span>
-                                <span>
-                                    {opportunities.length > 0 
-                                        ? Math.round((stageCounts['Completed'] / opportunities.length) * 100) 
-                                        : 0}%
-                                </span>
-                            </div>
-                            <div className="h-3 bg-slate-100 rounded-full overflow-hidden flex border border-slate-200/80 p-0.5">
-                                <div 
-                                    className="h-full bg-emerald-600 rounded-l-full transition-all duration-500" 
-                                    style={{ width: `${opportunities.length > 0 ? (stageCounts['Completed'] / opportunities.length) * 100 : 0}%` }}
-                                />
-                                <div 
-                                    className="h-full bg-blue-600 transition-all duration-500" 
-                                    style={{ width: `${opportunities.length > 0 ? (stageCounts['In Execution'] / opportunities.length) * 100 : 0}%` }}
-                                />
-                                <div 
-                                    className="h-full bg-amber-500 transition-all duration-500" 
-                                    style={{ width: `${opportunities.length > 0 ? (stageCounts['Review'] / opportunities.length) * 100 : 0}%` }}
-                                />
-                            </div>
-                        </div>
                     </div>
 
                     {/* Recent Sales Deals & Projects Table */}

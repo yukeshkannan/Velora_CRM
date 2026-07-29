@@ -31,7 +31,7 @@ const Login = () => {
       if (res.data.success) {
         const { token, user } = res.data.data;
         loginWithUserData(user, token);
-        navigate('/app');
+        navigate('/app/dashboard', { replace: true });
       } else {
         setError(res.data.message || 'Google Login failed');
         setIsLoading(false);
@@ -97,11 +97,7 @@ const Login = () => {
     const result = await login(email, password);
     
     if (result.success) {
-      if (location.state?.from) {
-        navigate(location.state.from);
-      } else {
-        navigate('/app');
-      }
+      navigate('/app/dashboard', { replace: true });
     } else {
       setError(result.message);
     }

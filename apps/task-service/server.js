@@ -23,7 +23,7 @@ app.use('/api/tasks', taskRoutes);
 // Connect to database and start server
 const startServer = async () => {
   try {
-    await connectDB(process.env.MONGO_URI);
+    await connectDB(process.env.TASK_MONGO_URI || process.env.MONGO_URI, 'task-service');
     
     const server = app.listen(PORT, () => {
       console.log(`Task Service running on port ${PORT}`);

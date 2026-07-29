@@ -79,7 +79,17 @@ app.use('/api/tasks', authMiddleware(), (req, res, next) => {
 
 mountProxy('/api/notifications', SERVICES.NOTIFICATION, authMiddleware());
 mountProxy('/api/analytics', SERVICES.ANALYTICS, authMiddleware(STAFF_ROLES));
-mountProxy('/api/documents', SERVICES.DOCUMENT, authMiddleware());
+app.use('/api/documents', (req, res, next) => {
+    // GET requests for viewing uploaded files (like images in <img> tags) bypass JWT header check
+    if (req.method === 'GET') {
+        return next();
+    }
+    return authMiddleware()(req, res, next);
+}, proxy(SERVICES.DOCUMENT, {
+    parseReqBody: false,
+    proxyReqPathResolver: (req) => req.originalUrl.split('?')[0] + (req.originalUrl.includes('?') ? '?' + req.originalUrl.split('?')[1] : ''),
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Document Service Unavailable' })
+}));
 mountProxy('/api/tickets', SERVICES.TICKET, authMiddleware());
 mountProxy('/api/search', SERVICES.SEARCH, authMiddleware(STAFF_ROLES));
 mountProxy('/api/attendance', SERVICES.HR, authMiddleware(STAFF_ROLES));

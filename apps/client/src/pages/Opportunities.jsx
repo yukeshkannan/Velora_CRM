@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, DollarSign, User, TrendingUp, LayoutGrid, Pencil, X, Trash2, Download, Building2, ChevronDown, Check, Sparkles, Play, Eye, CheckCircle2, XCircle, Calendar } from 'lucide-react';
+import { Plus, Search, DollarSign, User, TrendingUp, LayoutGrid, Pencil, X, Trash2, Download, Building2, ChevronDown, Check, Sparkles, Play, Eye, CheckCircle2, XCircle, Calendar, Clock } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
@@ -10,192 +10,55 @@ import { useAuth } from '../context/AuthContext';
 const STAGES = ['New', 'In Execution', 'Review', 'Completed', 'Cancelled'];
 
 const StageDropdown = ({ currentStage, onSelect }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [coords, setCoords] = useState({ top: 0, left: 0 });
-    const buttonRef = useRef(null);
-
-    const toggleDropdown = (e) => {
-        e.stopPropagation();
-        if (!isOpen && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            setCoords({
-                top: rect.bottom + 6,
-                left: rect.left + rect.width / 2
-            });
-        }
-        setIsOpen(!isOpen);
-    };
-
-    useEffect(() => {
-        const handleOutsideClick = () => setIsOpen(false);
-        if (isOpen) {
-            window.addEventListener('click', handleOutsideClick);
-            window.addEventListener('scroll', handleOutsideClick, true);
-        }
-        return () => {
-            window.removeEventListener('click', handleOutsideClick);
-            window.removeEventListener('scroll', handleOutsideClick, true);
-        };
-    }, [isOpen]);
-
     const getStageStyle = (s) => {
         switch(s) {
-            case 'New': return { bg: 'bg-slate-100 hover:bg-slate-200', text: 'text-slate-800', border: 'border-slate-300', dot: 'bg-slate-500' };
-            case 'In Execution': return { bg: 'bg-indigo-50 hover:bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-200', dot: 'bg-indigo-600' };
-            case 'Review': return { bg: 'bg-amber-50 hover:bg-amber-100', text: 'text-amber-800', border: 'border-amber-200', dot: 'bg-amber-600' };
-            case 'Completed': return { bg: 'bg-emerald-50 hover:bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-200', dot: 'bg-emerald-600' };
-            case 'Cancelled': return { bg: 'bg-rose-50 hover:bg-rose-100', text: 'text-rose-800', border: 'border-rose-200', dot: 'bg-rose-600' };
-            default: return { bg: 'bg-slate-100 hover:bg-slate-200', text: 'text-slate-800', border: 'border-slate-300', dot: 'bg-slate-500' };
+            case 'New': return 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200';
+            case 'In Execution': return 'bg-indigo-50 text-indigo-800 border-indigo-200 hover:bg-indigo-100';
+            case 'Review': return 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100';
+            case 'Completed': return 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100';
+            case 'Cancelled': return 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100';
+            default: return 'bg-slate-100 text-slate-800 border-slate-300';
         }
     };
 
-    const currentStyle = getStageStyle(currentStage);
-
     return (
-        <div className="relative inline-block text-left">
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={toggleDropdown}
-                className={`inline-flex items-center justify-between gap-2.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition-all cursor-pointer shadow-2xs ${currentStyle.bg} ${currentStyle.text} ${currentStyle.border} hover:shadow-xs min-w-[150px]`}
-            >
-                <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${currentStyle.dot}`} />
-                    <span className="tracking-tight">{currentStage}</span>
-                </div>
-                <ChevronDown size={14} className={`transition-transform duration-200 text-slate-500 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Unclipped Floating Fixed Menu */}
-            {isOpen && (
-                <div 
-                    style={{ 
-                        position: 'fixed', 
-                        top: `${coords.top}px`, 
-                        left: `${coords.left}px`,
-                        transform: 'translateX(-50%)'
-                    }}
-                    className="w-48 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {STAGES.map((s) => {
-                        const style = getStageStyle(s);
-                        const isSelected = s === currentStage;
-                        return (
-                            <button
-                                key={s}
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onSelect(s);
-                                    setIsOpen(false);
-                                }}
-                                className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm font-bold rounded-xl transition-colors cursor-pointer text-left ${
-                                    isSelected ? 'bg-slate-100 text-slate-900 font-extrabold' : 'hover:bg-slate-50 text-slate-700'
-                                }`}
-                            >
-                                <div className="flex items-center gap-2.5">
-                                    <span className={`w-2.5 h-2.5 rounded-full ${style.dot}`} />
-                                    <span>{s}</span>
-                                </div>
-                                {isSelected && <Check size={16} className="text-slate-900 stroke-[3]" />}
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
+        <select
+            value={currentStage}
+            onChange={(e) => onSelect(e.target.value)}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition-all cursor-pointer shadow-2xs outline-none ${getStageStyle(currentStage)}`}
+        >
+            {STAGES.map((s) => (
+                <option key={s} value={s} className="bg-white text-slate-900 font-bold py-1">
+                    {s}
+                </option>
+            ))}
+        </select>
     );
 };
 
 const AssignEmployeeDropdown = ({ opp, users, onAssign }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [coords, setCoords] = useState({ top: 0, left: 0 });
-    const buttonRef = useRef(null);
-
-    const assignedId = typeof opp.assignedTo === 'object' ? opp.assignedTo?._id : opp.assignedTo;
-    const assignedUser = users.find(u => String(u._id || u.id) === String(assignedId));
-
-    const toggleDropdown = (e) => {
-        e.stopPropagation();
-        if (!isOpen && buttonRef.current) {
-            const rect = buttonRef.current.getBoundingClientRect();
-            setCoords({
-                top: rect.bottom + 6,
-                left: rect.left + rect.width / 2
-            });
-        }
-        setIsOpen(!isOpen);
-    };
-
-    useEffect(() => {
-        const handleOutsideClick = () => setIsOpen(false);
-        if (isOpen) {
-            window.addEventListener('click', handleOutsideClick);
-            window.addEventListener('scroll', handleOutsideClick, true);
-        }
-        return () => {
-            window.removeEventListener('click', handleOutsideClick);
-            window.removeEventListener('scroll', handleOutsideClick, true);
-        };
-    }, [isOpen]);
+    const assignedId = typeof opp.assignedTo === 'object' ? opp.assignedTo?._id : (opp.assignedTo || '');
 
     return (
-        <div className="relative inline-block text-left">
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={toggleDropdown}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
-                    assignedUser 
-                        ? 'bg-slate-100 border-slate-200/80 text-slate-800 hover:bg-slate-200' 
-                        : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
-                }`}
-            >
-                <User size={13} className={assignedUser ? 'text-indigo-600' : 'text-amber-600'} />
-                <span className="truncate max-w-[110px]">{assignedUser ? assignedUser.name : 'Unassigned Lead'}</span>
-                <ChevronDown size={13} className={`transition-transform duration-200 text-slate-400 shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {/* Unclipped Floating Fixed Menu */}
-            {isOpen && (
-                <div 
-                    style={{ 
-                        position: 'fixed', 
-                        top: `${coords.top}px`, 
-                        left: `${coords.left}px`,
-                        transform: 'translateX(-50%)'
-                    }}
-                    className="w-56 rounded-2xl bg-white shadow-2xl border border-slate-200/90 p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-150"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="px-3 py-1.5 border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                        Assign to Employee
-                    </div>
-                    <div className="max-h-48 overflow-y-auto space-y-0.5">
-                        {users.length === 0 ? (
-                            <div className="px-3 py-2 text-xs font-bold text-slate-400">No Employees Found</div>
-                        ) : (
-                            users.map(u => (
-                                <button
-                                    key={u._id || u.id}
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onAssign(opp._id, u._id || u.id, u.name);
-                                        setIsOpen(false);
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-colors border-none bg-transparent cursor-pointer"
-                                >
-                                    <span>{u.name}</span>
-                                    <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{u.role}</span>
-                                </button>
-                            ))
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
+        <select
+            value={assignedId}
+            onChange={(e) => {
+                const selectedUser = users.find(u => String(u._id || u.id) === String(e.target.value));
+                onAssign(opp._id, e.target.value, selectedUser?.name);
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-2xs outline-none max-w-[150px] truncate ${
+                assignedId 
+                    ? 'bg-slate-100 border-slate-200/80 text-slate-800 hover:bg-slate-200' 
+                    : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+            }`}
+        >
+            <option value="" className="bg-white text-slate-900 font-bold">👤 Unassigned Lead</option>
+            {users.map((u) => (
+                <option key={u._id || u.id} value={u._id || u.id} className="bg-white text-slate-900 font-bold">
+                    {u.name} ({u.role})
+                </option>
+            ))}
+        </select>
     );
 };
 
@@ -354,7 +217,9 @@ const Opportunities = () => {
             contactId: contactId,
             assignedTo: assignedTo,
             expectedCloseDate: opp.expectedCloseDate ? opp.expectedCloseDate.split('T')[0] : '',
-            modules: opp.modules || []
+            modules: opp.modules || [],
+            description: opp.description || '',
+            preferredContactTime: opp.preferredContactTime || ''
         });
         setIsDrawerOpen(true);
     };
@@ -399,7 +264,7 @@ const Opportunities = () => {
                 toast.success('Opportunity created successfully');
             }
             
-            setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [] });
+            setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [], description: '', preferredContactTime: '' });
             setIsDrawerOpen(false);
             setEditingOpportunity(null);
             fetchData(); 
@@ -411,7 +276,7 @@ const Opportunities = () => {
 
     const openCreateDrawer = () => {
         setEditingOpportunity(null);
-        setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [] });
+        setFormData({ title: '', amount: '', stage: 'New', contactId: '', assignedTo: '', expectedCloseDate: '', modules: [], description: '', preferredContactTime: 'As soon as possible' });
         setIsDrawerOpen(true);
     };
 
@@ -552,15 +417,29 @@ const Opportunities = () => {
                                             
                                             {/* Deal Title */}
                                             <td className="px-5 py-4 align-middle">
-                                                <div className="flex flex-col pr-3">
+                                                <div className="flex flex-col pr-3 space-y-1">
                                                     <span 
                                                         onClick={() => handleEdit(opp)}
                                                         className="font-extrabold text-xs sm:text-sm text-slate-900 hover:text-slate-700 cursor-pointer transition-colors leading-snug"
                                                     >
                                                         {opp.title}
                                                     </span>
+
+                                                    {/* Preferred Follow-up Time Badge (Ultra-Sleek SaaS Pill) */}
+                                                    {Boolean(opp.preferredContactTime || (opp.description && (opp.description.includes('Preferred Follow-up Time:') || opp.description.includes('Preferred Contact:')))) && (
+                                                        <div className="flex items-center gap-1.5 mt-1">
+                                                            <span 
+                                                                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-900 text-white shadow-2xs whitespace-nowrap cursor-default border border-slate-800"
+                                                                title={`Client Preferred Follow-up Time: ${opp.preferredContactTime || opp.description?.match(/Preferred (?:Follow-up Time|Contact):\s*([^\n]+)/)?.[1] || 'As soon as possible'}`}
+                                                            >
+                                                                <Clock size={11} className="text-amber-400 shrink-0" />
+                                                                <span className="tracking-tight">{opp.preferredContactTime || opp.description?.match(/Preferred (?:Follow-up Time|Contact):\s*([^\n]+)/)?.[1] || 'As soon as possible'}</span>
+                                                            </span>
+                                                        </div>
+                                                    )}
+
                                                     {totalModules > 0 && (
-                                                        <span className="text-[11px] font-semibold text-slate-400 mt-0.5">
+                                                        <span className="text-[11px] font-semibold text-slate-400">
                                                             Modules: {completedModules}/{totalModules} completed
                                                         </span>
                                                     )}
@@ -608,6 +487,7 @@ const Opportunities = () => {
                                                     <Calendar size={13} className="text-slate-500 shrink-0" />
                                                     <input 
                                                         type="date" 
+                                                        min={new Date().toISOString().split('T')[0]}
                                                         value={opp.expectedCloseDate ? new Date(opp.expectedCloseDate).toISOString().split('T')[0] : ''} 
                                                         onChange={(e) => handleDateChange(opp._id, e.target.value)} 
                                                         className="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer p-0"
@@ -740,6 +620,24 @@ const Opportunities = () => {
                                             ))}
                                         </select>
                                     </div>
+
+                                    {/* Read-Only Client Contact Preference & Notes (Corporate Slate Theme) */}
+                                    {(editingOpportunity?.preferredContactTime || editingOpportunity?.description) && (
+                                        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+                                            <div className="flex items-center gap-1.5 font-extrabold text-slate-900 uppercase tracking-wider text-[10px]">
+                                                <Clock size={12} className="text-slate-600" />
+                                                <span>Client Contact Preference & Notes</span>
+                                            </div>
+                                            {editingOpportunity.preferredContactTime && (
+                                                <p className="font-bold text-slate-700">
+                                                    Preferred Time: <span className="font-extrabold text-slate-900">{editingOpportunity.preferredContactTime}</span>
+                                                </p>
+                                            )}
+                                            {editingOpportunity.description && (
+                                                <p className="font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">{editingOpportunity.description}</p>
+                                            )}
+                                        </div>
+                                    )}
                                 </form>
                             </div>
 

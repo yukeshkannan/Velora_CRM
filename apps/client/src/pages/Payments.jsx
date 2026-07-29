@@ -254,6 +254,7 @@ const Payments = () => {
                                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 600 }}>Payment Date</label>
                                     <input 
                                         required type="date"
+                                        min={new Date().toISOString().split('T')[0]}
                                         value={formData.date}
                                         onChange={e => setFormData({...formData, date: e.target.value})}
                                         style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
