@@ -19,12 +19,7 @@ exports.generatePayroll = async (req, res) => {
         return res.status(400).json({ success: false, message: "User ID and Base Salary required" });
     }
 
-    // Check if payroll already exists
-    const existing = await Payroll.findOne({ userId, month, year });
-    if (existing) {
-         console.warn(`[Payroll Generate] Already exists for User ${userId} in ${month} ${year}`);
-         return res.status(400).json({ success: false, message: `Payroll for ${month} ${year} already generated.` });
-    }
+
 
     // Month mapping helper
     const monthMap = {
@@ -65,6 +60,9 @@ exports.generatePayroll = async (req, res) => {
         const monthIndex = monthMap[month];
         
         const monthlyAttendance = attendanceRecords.filter(r => {
+            const rUserId = typeof r.userId === 'object' && r.userId !== null ? (r.userId._id || r.userId.id) : r.userId;
+            if (String(rUserId) !== String(userId)) return false;
+
             const d = new Date(r.date);
             return d.getMonth() === monthIndex && d.getFullYear() === Number(year);
         });
@@ -134,21 +132,60 @@ exports.generatePayroll = async (req, res) => {
     }
     netSalary = netSalary + reqAllowances - reqDeductions;
     
-    // Create Record
-    const payroll = await Payroll.create({
-        userId,
-        month,
-        year,
-        baseSalary: Number(baseSalary),
-        allowances: reqAllowances,
-        deductions: reqDeductions,
-        netSalary: Math.round(netSalary),
-        status: 'Generated',
-        details: JSON.stringify({ presentDays: calculatedPresentDays, totalDays: calculatedTotalDays })
+    // Upsert Record (Update if exists for this month/year, create if new)
+    let payroll = await Payroll.findOne({ 
+        userId, 
+        month: { $regex: new RegExp(`^${month}$`, 'i') }, 
+        year: Number(year) 
     });
 
-    // Fetch user details for email
-    const user = await User.findById(userId);
+    if (payroll) {
+        payroll.baseSalary = Number(baseSalary);
+        payroll.allowances = reqAllowances;
+        payroll.deductions = reqDeductions;
+        payroll.netSalary = Math.round(netSalary);
+        payroll.status = 'Generated';
+        payroll.details = JSON.stringify({ presentDays: calculatedPresentDays, totalDays: calculatedTotalDays });
+        await payroll.save();
+    } else {
+        payroll = await Payroll.create({
+            userId,
+            month,
+            year: Number(year),
+            baseSalary: Number(baseSalary),
+            allowances: reqAllowances,
+            deductions: reqDeductions,
+            netSalary: Math.round(netSalary),
+            status: 'Generated',
+            details: JSON.stringify({ presentDays: calculatedPresentDays, totalDays: calculatedTotalDays })
+        });
+    }
+
+    // Fetch user details for email (syncing from Auth Service if missing in HR Service)
+    let user = await User.findById(userId);
+    if (!user || !user.email) {
+        try {
+            const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
+            const authRes = await axios.get(`${authUrl}/api/auth/users/${userId}`);
+            if (authRes.data && authRes.data.data) {
+                const userData = authRes.data.data;
+                user = await User.findByIdAndUpdate(
+                    userId,
+                    { 
+                      name: userData.name, 
+                      email: userData.email, 
+                      role: userData.role || 'Employee',
+                      department: userData.department || 'General',
+                      designation: userData.designation || ''
+                    },
+                    { upsert: true, new: true }
+                );
+                console.log(`[HR Service] Synced user ${userData.email} from Auth Service to HR Service`);
+            }
+        } catch (fetchErr) {
+            console.error(`[HR Service] Failed to fetch user ${userId} from Auth Service:`, fetchErr.message);
+        }
+    }
     
     if (user && user.email) {
         // Send Email asynchronously (don't block response)
@@ -167,13 +204,13 @@ exports.generatePayroll = async (req, res) => {
                 calculatedTotalDays, 
                 perDay
             )
-                .then(success => console.log(`Email sent status: ${success}`))
-                .catch(err => console.error("Email send failed promise", err));
+                .then(success => console.log(`[HR Service] Payslip email dispatch status: ${success}`))
+                .catch(err => console.error("[HR Service] Email send failed promise:", err));
         } catch (syncErr) {
-            console.error("Email send trigger failed", syncErr);
+            console.error("[HR Service] Email send trigger failed:", syncErr);
         }
     } else {
-        console.warn("User not found or no email, skipping email notification.");
+        console.warn(`[HR Service] User ${userId} has no valid email address, skipping email notification.`);
     }
 
     res.status(201).json({ success: true, data: payroll, message: 'Payroll generated and email sent.' });

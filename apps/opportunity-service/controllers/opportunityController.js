@@ -107,32 +107,68 @@ exports.createOpportunity = async (req, res) => {
 // @access  Public
 exports.updateOpportunity = async (req, res) => {
   try {
-    let opportunity = await Opportunity.findById(req.params.id);
+    const originalOpportunity = await Opportunity.findById(req.params.id);
 
-    if (!opportunity) {
+    if (!originalOpportunity) {
       return formatResponse(res, 404, 'Opportunity not found');
     }
 
-    // Manual update to ensure array handling is correct
-    if (req.body.modules) {
-        opportunity.modules = req.body.modules;
+    const updateData = { ...req.body };
+    if (req.body.employeeTaskStatus === 'Completed') {
+        updateData.stage = 'Completed';
+    } else if (req.body.employeeTaskStatus === 'Review') {
+        updateData.stage = 'Review';
+    } else if (req.body.employeeTaskStatus === 'In Progress') {
+        updateData.stage = 'In Execution';
+    } else if (req.body.employeeTaskStatus === 'Pending') {
+        updateData.stage = 'Pending';
     }
-    // Update other fields
-    const allowedUpdates = ['title', 'amount', 'stage', 'employeeTaskStatus', 'priority', 'contactId', 'assignedTo', 'expectedCloseDate', 'description', 'preferredContactTime'];
-    allowedUpdates.forEach(update => {
-        if (req.body[update] !== undefined) {
-            opportunity[update] = req.body[update];
-        }
+
+    const opportunity = await Opportunity.findByIdAndUpdate(req.params.id, updateData, {
+      new: true
     });
 
-    if (req.body.employeeTaskStatus === 'Completed') {
-        opportunity.stage = 'Completed';
-    } else if (req.body.employeeTaskStatus === 'In Progress' && (opportunity.stage === 'New' || !opportunity.stage)) {
-        opportunity.stage = 'In Execution';
-    }
-
-    await opportunity.save();
     await delCachePattern('opp:*');
+
+    // Notify assigned person if stage/status changed
+    const newStageOrStatus = opportunity.employeeTaskStatus || opportunity.stage;
+    const oldStatus = originalOpportunity.employeeTaskStatus;
+    const oldStage = originalOpportunity.stage;
+
+    if (opportunity.assignedTo && (oldStatus !== opportunity.employeeTaskStatus || oldStage !== opportunity.stage)) {
+        try {
+            const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
+            const userRes = await axios.get(`${authUrl}/api/auth/users/${opportunity.assignedTo}`);
+            const assignedUser = userRes.data?.data;
+
+            if (assignedUser && assignedUser.email) {
+                const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5005';
+                const emailPayload = {
+                    to: assignedUser.email,
+                    subject: `📌 Project Stage Updated: ${opportunity.title}`,
+                    message: `
+                        <div style="font-family: Arial, sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                            <h2 style="color: #0f172a; margin-top: 0;">Project Stage Updated</h2>
+                            <p style="color: #475569; font-size: 14px;">Hello <strong>${assignedUser.name}</strong>,</p>
+                            <p style="color: #475569; font-size: 14px;">The project <strong>"${opportunity.title}"</strong> assigned to you has been moved to a new stage:</p>
+                            <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                                <p style="margin: 4px 0;"><strong>Project Title:</strong> ${opportunity.title}</p>
+                                <p style="margin: 4px 0;"><strong>New Stage:</strong> <span style="color: #0284c7; font-weight: bold;">${newStageOrStatus}</span></p>
+                                <p style="margin: 4px 0;"><strong>Estimated Amount:</strong> ₹${(opportunity.amount || 0).toLocaleString()}</p>
+                            </div>
+                            <p style="color: #64748b; font-size: 12px;">Log in to Velora CRM Tasks & Projects to view updated details.</p>
+                        </div>
+                    `
+                };
+
+                const fallbackSend = () => axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/email`, emailPayload);
+                await publishToQueue('email_notifications', emailPayload, fallbackSend);
+                console.log(`[Opportunity Service] Stage update notification dispatched to ${assignedUser.email}`);
+            }
+        } catch (noteErr) {
+            console.error('[Opportunity Service] Failed to send stage update notification:', noteErr.message);
+        }
+    }
 
     res.status(200).json({
         success: true,
@@ -140,6 +176,7 @@ exports.updateOpportunity = async (req, res) => {
     });
 
   } catch (err) {
+    console.error('[Opportunity Service] Update Error:', err);
     formatResponse(res, 500, 'Server Error', err.message);
   }
 };

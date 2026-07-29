@@ -20,6 +20,7 @@ const Payroll = () => {
     const [generatingId, setGeneratingId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [notification, setNotification] = useState(null); // { type: 'success' | 'error', message: '' }
+    const [modalError, setModalError] = useState('');
     
     // Modal states
     const [adjustEmployee, setAdjustEmployee] = useState(null);
@@ -107,6 +108,7 @@ const Payroll = () => {
 
     const openAdjustModal = async (emp) => {
         setAdjustEmployee(emp);
+        setModalError('');
         setBaseSalaryInput(String(emp.salary?.base || 0));
         setUseAutoAttendance(true);
         setAllowancesInput('0');
@@ -121,15 +123,25 @@ const Payroll = () => {
         setPresentDaysInput('0'); // Default to 0 present days if database is empty
 
         try {
-            const res = await axios.get(`/api/attendance?userId=${emp._id}`);
+            const empId = emp._id || emp.id;
+            if (!empId) {
+                setPresentDaysInput('0');
+                return;
+            }
+            const res = await axios.get(`/api/attendance?userId=${empId}`);
             const logs = res.data.data || [];
             
             const monthlyLogs = logs.filter(log => {
+                const logUserId = typeof log.userId === 'object' && log.userId !== null ? (log.userId._id || log.userId.id) : log.userId;
+                if (String(logUserId) !== String(empId)) return false;
+
                 const logDate = new Date(log.date);
                 return logDate.getMonth() === currentMonthIndex && logDate.getFullYear() === currentYear;
             });
 
-            if (monthlyLogs.length > 0) {
+            if (monthlyLogs.length === 0) {
+                setPresentDaysInput('0');
+            } else {
                 const todayDate = new Date();
                 todayDate.setHours(0, 0, 0, 0);
 
@@ -187,7 +199,8 @@ const Payroll = () => {
         if (!adjustEmployee) return;
 
         try {
-            setGeneratingId(adjustEmployee._id);
+            const targetUserId = adjustEmployee._id || adjustEmployee.id;
+            setGeneratingId(targetUserId);
             const today = new Date();
             const month = today.toLocaleString('default', { month: 'long' });
             const year = today.getFullYear();
@@ -200,7 +213,7 @@ const Payroll = () => {
             }
 
             const payload = {
-                userId: adjustEmployee._id,
+                userId: targetUserId,
                 month,
                 year,
                 baseSalary: baseSalary,
@@ -217,16 +230,19 @@ const Payroll = () => {
             await axios.post('/api/payroll/generate', payload);
             
             setNotification({ type: 'success', message: `Payroll generated for ${adjustEmployee.name}` });
+            setModalError('');
             setAdjustEmployee(null);
             setGeneratingId(null);
             fetchAllPayrolls(); // Refresh status list
             
-            if (user.id === adjustEmployee._id) {
+            if ((user.id || user._id) === targetUserId) {
                 fetchMyPayroll(); 
             }
         } catch (err) {
             console.error("Generate Payroll Error:", err);
-            setNotification({ type: 'error', message: err.response?.data?.message || 'Generation failed' });
+            const errMsg = err.response?.data?.message || 'Generation failed';
+            setModalError(errMsg);
+            setNotification({ type: 'error', message: errMsg });
             setGeneratingId(null);
         }
     };
@@ -626,12 +642,21 @@ const Payroll = () => {
     let awaitingProcessValue = '';
     if (isPayrollManager) {
         const staffMembers = employees.filter(emp => emp.role !== 'Client' && emp.role !== 'Admin');
-        const staffProcessed = allPayrolls.filter(p => p.month === currentMonth && p.year === currentYear);
-        const processedUserIds = new Set(staffProcessed.map(p => typeof p.userId === 'object' ? p.userId?._id : p.userId));
-        const awaitingCount = staffMembers.filter(emp => !processedUserIds.has(emp._id)).length;
+        const staffProcessed = allPayrolls.filter(p => 
+            String(p.month).toLowerCase() === String(currentMonth).toLowerCase() && 
+            Number(p.year) === Number(currentYear)
+        );
+        const processedUserIds = new Set(staffProcessed.map(p => {
+            const id = typeof p.userId === 'object' && p.userId !== null ? p.userId._id : p.userId;
+            return String(id);
+        }));
+        const awaitingCount = staffMembers.filter(emp => !processedUserIds.has(String(emp._id || emp.id))).length;
         awaitingProcessValue = `${awaitingCount > 0 ? awaitingCount : 0} Staff`;
     } else {
-        const hasCurrentPayroll = payrolls.some(p => p.month === currentMonth && p.year === currentYear);
+        const hasCurrentPayroll = payrolls.some(p => 
+            String(p.month).toLowerCase() === String(currentMonth).toLowerCase() && 
+            Number(p.year) === Number(currentYear)
+        );
         awaitingProcessValue = hasCurrentPayroll ? "Processed" : "Pending Release";
     }
 
@@ -667,7 +692,7 @@ const Payroll = () => {
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className={`fixed top-6 right-6 z-50 px-5 py-3.5 rounded-2xl shadow-xl border flex items-center gap-3 bg-white ${
+                        className={`fixed top-6 right-6 z-[9999] px-5 py-3.5 rounded-2xl shadow-xl border flex items-center gap-3 bg-white ${
                             notification.type === 'success' ? 'border-emerald-100 text-emerald-800' : 'border-red-100 text-red-800'
                         }`}
                     >
@@ -780,84 +805,92 @@ const Payroll = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100 bg-white">
-                                                {filteredEmployees.map((emp) => (
-                                                    <tr key={emp._id} className="hover:bg-slate-50/50 transition-colors group">
-                                                        <td className="p-6 pl-8">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-base shadow-sm group-hover:bg-amber-600 transition-colors">
-                                                                    {emp.name.charAt(0)}
-                                                                </div>
-                                                                <div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <p className="font-bold text-slate-900 text-sm">{emp.name}</p>
-                                                                        {emp.role === 'Admin' && (
-                                                                            <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                                                                Owner
-                                                                            </span>
-                                                                        )}
+                                                {filteredEmployees.map((emp, idx) => {
+                                                    const empId = emp._id || emp.id;
+                                                    return (
+                                                        <tr key={empId || `emp-${idx}`} className="hover:bg-slate-50/50 transition-colors group">
+                                                            <td className="p-6 pl-8">
+                                                                <div className="flex items-center gap-4">
+                                                                    <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-base shadow-sm group-hover:bg-amber-600 transition-colors">
+                                                                        {emp.name.charAt(0)}
                                                                     </div>
-                                                                    <p className="text-xs text-slate-400 font-medium">{emp.email}</p>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            <div className="space-y-1">
-                                                                <span className="font-bold text-slate-800 text-xs">{emp.role === 'Admin' ? 'Executive Owner' : emp.role}</span>
-                                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{emp.department || 'General'}</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-6">
-                                                            {emp.salary?.base ? (
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className="font-extrabold text-sm text-slate-900">
-                                                                        ₹{emp.salary.base.toLocaleString()}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-slate-400 font-bold uppercase">/Mo</span>
-                                                                </div>
-                                                            ) : (
-                                                                <span className="text-slate-300 font-bold text-xs">Not Set</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="p-6 text-right pr-8">
-                                                            {(() => {
-                                                                const today = new Date();
-                                                                const currentMonth = today.toLocaleString('default', { month: 'long' });
-                                                                const currentYear = today.getFullYear();
-                                                                const existingPayroll = allPayrolls.find(p => (p.userId?._id || p.userId) === emp._id && p.month === currentMonth && p.year === currentYear);
-
-                                                                if (existingPayroll) {
-                                                                    return (
-                                                                        <div className="flex items-center justify-end gap-2.5">
-                                                                            <span className="px-3.5 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-1.5 shadow-sm shadow-emerald-50/50">
-                                                                                <CheckCircle size={14} className="text-emerald-500" /> Released
-                                                                            </span>
-                                                                            <button 
-                                                                                onClick={() => handleDelete(existingPayroll._id)}
-                                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 cursor-pointer bg-transparent"
-                                                                                title="Delete payroll record"
-                                                                            >
-                                                                                <Trash2 size={16} />
-                                                                            </button>
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <p className="font-bold text-slate-900 text-sm">{emp.name}</p>
+                                                                            {emp.role === 'Admin' && (
+                                                                                <span className="bg-amber-100 text-amber-800 border border-amber-200 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                                                    Owner
+                                                                                </span>
+                                                                            )}
                                                                         </div>
-                                                                    );
-                                                                }
+                                                                        <p className="text-xs text-slate-400 font-medium">{emp.email}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                <div className="space-y-1">
+                                                                    <span className="font-bold text-slate-800 text-xs">{emp.role === 'Admin' ? 'Executive Owner' : emp.role}</span>
+                                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{emp.department || 'General'}</p>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-6">
+                                                                {emp.salary?.base ? (
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className="font-extrabold text-sm text-slate-900">
+                                                                            ₹{emp.salary.base.toLocaleString()}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-slate-400 font-bold uppercase">/Mo</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-slate-300 font-bold text-xs">Not Set</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-6 text-right pr-8">
+                                                                {(() => {
+                                                                    const today = new Date();
+                                                                    const currentMonth = today.toLocaleString('default', { month: 'long' });
+                                                                    const currentYear = today.getFullYear();
+                                                                    const existingPayroll = allPayrolls.find(p => {
+                                                                        const pUserId = typeof p.userId === 'object' && p.userId !== null ? (p.userId._id || p.userId.id) : p.userId;
+                                                                        return String(pUserId) === String(empId) &&
+                                                                               String(p.month).toLowerCase() === String(currentMonth).toLowerCase() &&
+                                                                               Number(p.year) === Number(currentYear);
+                                                                    });
 
-                                                                return (
-                                                                    <button 
-                                                                        onClick={() => openAdjustModal(emp)}
-                                                                        disabled={generatingId === emp._id}
-                                                                        className="px-5 py-2.5 bg-slate-950 text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50 active:scale-95 shadow-md shadow-slate-950/10 flex items-center gap-1.5 ml-auto border-none cursor-pointer"
-                                                                    >
-                                                                        <Sliders size={13} />
-                                                                        Process Pay
-                                                                    </button>
-                                                                );
-                                                            })()}
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                                    if (existingPayroll) {
+                                                                        return (
+                                                                            <div className="flex items-center justify-end gap-2.5">
+                                                                                <span className="px-3.5 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-1.5 shadow-sm shadow-emerald-50/50">
+                                                                                    <CheckCircle size={14} className="text-emerald-500" /> Released
+                                                                                </span>
+                                                                                <button 
+                                                                                    onClick={() => handleDelete(existingPayroll._id)}
+                                                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 cursor-pointer bg-transparent"
+                                                                                    title="Delete payroll record"
+                                                                                >
+                                                                                    <Trash2 size={16} />
+                                                                                </button>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <button 
+                                                                            onClick={() => openAdjustModal(emp)}
+                                                                            disabled={generatingId === empId}
+                                                                            className="px-5 py-2.5 bg-slate-950 text-white text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-amber-600 transition-all disabled:opacity-50 active:scale-95 shadow-md shadow-slate-950/10 flex items-center gap-1.5 ml-auto border-none cursor-pointer"
+                                                                        >
+                                                                            <Sliders size={13} />
+                                                                            Process Pay
+                                                                        </button>
+                                                                    );
+                                                                })()}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                                 {filteredEmployees.length === 0 && (
-                                                    <tr>
+                                                    <tr key="no-employees-found">
                                                         <td colSpan="4" className="p-10 text-center text-slate-400 font-medium">
                                                             No personnel matching your criteria.
                                                         </td>
@@ -1156,6 +1189,13 @@ const Payroll = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {modalError && (
+                                    <div className="p-3.5 bg-red-50 border border-red-200/80 rounded-2xl flex items-center gap-2.5 text-xs text-red-800 font-semibold shadow-xs">
+                                        <AlertCircle size={16} className="text-red-600 shrink-0" />
+                                        <span>{modalError}</span>
+                                    </div>
+                                )}
 
                                 {/* Footer & Live Preview */}
                                 <div className="border-t border-slate-100 pt-5 flex justify-between items-center bg-slate-50 -mx-6 -mb-6 p-6 shadow-inner rounded-b-3xl">

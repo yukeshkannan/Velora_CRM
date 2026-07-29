@@ -13,8 +13,8 @@ const opportunitySchema = new mongoose.Schema({
   },
   stage: {
     type: String,
-    enum: ['New', 'In Execution', 'Review', 'Completed', 'Cancelled'],
-    default: 'New'
+    enum: ['New', 'Pending', 'In Progress', 'In Execution', 'Review', 'Completed', 'Cancelled'],
+    default: 'Pending'
   },
   modules: [{
     name: String,
@@ -43,7 +43,7 @@ const opportunitySchema = new mongoose.Schema({
   },
   employeeTaskStatus: {
     type: String,
-    enum: ['Pending', 'In Progress', 'Completed'],
+    enum: ['Pending', 'In Progress', 'Review', 'Completed'],
     default: 'Pending'
   },
   priority: {

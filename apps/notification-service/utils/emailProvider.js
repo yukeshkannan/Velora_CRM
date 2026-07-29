@@ -62,10 +62,12 @@ const sendEmail = async (toEmail, subject, htmlContent) => {
   }
 
   // 2. If Brevo API Key is present, try transactional API sending
-  if (process.env.BREVO_API_KEY && !process.env.BREVO_API_KEY.includes('not enabled')) {
+  const brevoKey = process.env.BREVO_API_KEY;
+
+  if (brevoKey) {
       const defaultClient = SibApiV3Sdk.ApiClient.instance;
       const apiKey = defaultClient.authentications['api-key'];
-      apiKey.apiKey = process.env.BREVO_API_KEY;
+      apiKey.apiKey = brevoKey;
 
       const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
       const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();

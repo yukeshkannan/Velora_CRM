@@ -9,6 +9,7 @@ const { formatResponse } = require('utils');
 const formatUserDTO = (user) => {
   const isClient = user.role === 'Client';
   const dto = {
+    _id: user._id,
     id: user._id,
     name: user.name,
     email: user.email,
@@ -273,6 +274,10 @@ exports.createUser = async (req, res) => {
     };
 
     if (role !== 'Client') {
+      const baseSal = Number(salary?.base) || 0;
+      if (!salary || !baseSal || baseSal <= 0) {
+        return formatResponse(res, 400, 'Base salary is required for staff members and must be greater than 0');
+      }
       userPayload.designation = designation;
       userPayload.department = department;
       userPayload.salary = salary;

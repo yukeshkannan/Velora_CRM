@@ -173,9 +173,12 @@ const Tasks = () => {
             const isProjectTask = rawOpportunities.find(o => o._id === draggableId);
 
             if (task && task.status !== newStatus) {
+                // Find assigned user for email notification
+                const assignedId = typeof task.assignedTo === 'object' ? (task.assignedTo?._id || task.assignedTo?.id) : task.assignedTo;
+                const assignedUser = users.find(u => String(u._id || u.id) === String(assignedId));
+
                 if (isProjectTask) {
                     // Update Opportunity employeeTaskStatus
-                    // NOTE: using /api/opportunities endpoint
                     await axios.put(`/api/opportunities/${draggableId}`, { employeeTaskStatus: newStatus });
                     
                     if (newStatus === 'Completed') {
@@ -195,9 +198,7 @@ const Tasks = () => {
                     // Update Regular Task
                     await axios.put(`/api/tasks/${draggableId}`, { ...task, status: newStatus });
 
-                    // Notifications for regular tasks
                     if (newStatus === 'Completed') {
-                        // ... existing notification logic
                         const contactId = typeof task.contactId === 'object' ? task.contactId?._id : task.contactId;
                         const contact = contacts.find(c => c._id === contactId);
                         
@@ -210,6 +211,27 @@ const Tasks = () => {
                                });
                            } catch(e) { console.error("Email failed", e); }
                        }
+                    }
+                }
+
+                // Notify Assigned User via Email on stage change
+                if (assignedUser && assignedUser.email) {
+                    try {
+                        await axios.post('/api/notifications/email', {
+                            to: assignedUser.email,
+                            subject: `📌 Stage Updated: ${task.title}`,
+                            message: `
+                                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+                                    <h3 style="color: #0f172a; margin-top: 0;">Task / Project Stage Updated</h3>
+                                    <p>Hello <strong>${assignedUser.name}</strong>,</p>
+                                    <p>The stage for <strong>"${task.title}"</strong> assigned to you has been changed to <strong style="color: #0284c7;">${newStatus}</strong>.</p>
+                                    <p style="color: #64748b; font-size: 12px;">Log in to Velora CRM to check details.</p>
+                                </div>
+                            `
+                        });
+                        console.log(`Stage update email sent to assigned user: ${assignedUser.email}`);
+                    } catch (e) {
+                        console.error("Assigned user email notification failed:", e);
                     }
                 }
             }

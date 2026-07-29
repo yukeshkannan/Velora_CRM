@@ -84,15 +84,19 @@ exports.updateTask = async (req, res) => {
             if (assignedUser && assignedUser.email) {
                 const axios = require('axios');
                 const { publishToQueue } = require('../../../packages/utils');
-                const subject = `Task Update: ${task.title}`;
+                const subject = `📋 Task Stage Updated: ${task.title}`;
                 const message = `
-                    <h3>Task Updated</h3>
-                    <p><strong>Title:</strong> ${task.title}</p>
-                    <p><strong>Status:</strong> ${originalTask.status} -> ${task.status}</p>
-                    <p><strong>Priority:</strong> ${task.priority}</p>
-                    <p><strong>Assigned To:</strong> ${assignedUser.name}</p>
-                    <br/>
-                    <p>Please check the CRM for more details.</p>
+                    <div style="font-family: Arial, sans-serif; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+                        <h2 style="color: #0f172a; margin-top: 0;">Task Stage Updated</h2>
+                        <p style="color: #475569; font-size: 14px;">Hello <strong>${assignedUser.name}</strong>,</p>
+                        <p style="color: #475569; font-size: 14px;">The task assigned to you has been updated:</p>
+                        <div style="background-color: #f8fafc; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                            <p style="margin: 4px 0;"><strong>Task Title:</strong> ${task.title}</p>
+                            <p style="margin: 4px 0;"><strong>Stage:</strong> <span style="color: #0284c7; font-weight: bold;">${task.status}</span> (previously ${originalTask.status})</p>
+                            <p style="margin: 4px 0;"><strong>Priority:</strong> ${task.priority || 'Medium'}</p>
+                        </div>
+                        <p style="color: #64748b; font-size: 12px;">Log in to Velora CRM Tasks to view full details.</p>
+                    </div>
                 `;
 
                 const emailPayload = {
@@ -101,7 +105,8 @@ exports.updateTask = async (req, res) => {
                     message
                 };
 
-                const fallbackSend = () => axios.post('http://notification-service:5005/api/notifications/email', emailPayload);
+                const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:5005';
+                const fallbackSend = () => axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/email`, emailPayload);
 
                 publishToQueue('email_notifications', emailPayload, fallbackSend)
                     .then(() => console.log(`[Task Service] Notification handled for ${assignedUser.email}`))

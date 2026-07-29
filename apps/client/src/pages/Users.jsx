@@ -117,9 +117,15 @@ const Users = () => {
     setSuccess('');
     
     try {
+      const baseSalaryNum = Number(formData.baseSalary) || 0;
+      if (formData.role !== 'Client' && (!formData.baseSalary || baseSalaryNum <= 0)) {
+        setError('Base Salary is required for staff members and must be greater than 0');
+        return;
+      }
+
       const payload = {
         ...formData,
-        salary: { base: Number(formData.baseSalary) || 0, allowances: 0 }
+        salary: { base: baseSalaryNum, allowances: 0 }
       };
 
       if (editingUser) {
@@ -395,9 +401,19 @@ const Users = () => {
                           </div>
 
                            <div>
-                              <label className="block mb-2 font-semibold text-slate-700">Base Salary (₹)</label>
-                              <input type="number" name="baseSalary" value={formData.baseSalary} onChange={handleChange}
-                              className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all" placeholder="e.g. 50000" />
+                              <label className="block mb-2 font-semibold text-slate-700">
+                                Base Salary (₹) {formData.role !== 'Client' && <span className="text-rose-500">*</span>}
+                              </label>
+                              <input 
+                                type="number" 
+                                name="baseSalary" 
+                                required={formData.role !== 'Client'}
+                                min="1"
+                                value={formData.baseSalary} 
+                                onChange={handleChange}
+                                className="w-full p-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all" 
+                                placeholder="e.g. 50000" 
+                              />
                           </div>
                       </form>
                   </div>

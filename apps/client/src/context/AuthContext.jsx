@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const rawApiUrl = import.meta.env.VITE_API_URL;
 // Bulletproof fix: If we are on Vercel, force relative path (empty string)
@@ -103,7 +104,9 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('user');
         }
     }
-    setLoading(false);
+    setTimeout(() => {
+        setLoading(false);
+    }, 600);
 
     // Refresh user role from DB in background to avoid stale localStorage roles
     if (token && savedUser && savedUser !== 'undefined') {
@@ -241,10 +244,6 @@ export const AuthProvider = ({ children }) => {
         return newObj;
     });
   };
-
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
-  }
 
   return (
     <AuthContext.Provider value={{ user, login, logout, checkAuth, loginWithUserData, updateUserState }}>
