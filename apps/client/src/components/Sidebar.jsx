@@ -74,14 +74,8 @@ const Sidebar = () => {
       return (
         <aside className="w-64 bg-slate-900 border-r border-slate-800 h-screen fixed left-0 top-0 flex flex-col z-50 shadow-2xl text-white font-sans selection:bg-slate-700 selection:text-white antialiased"
                style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-            <div className="p-6 border-b border-slate-800">
-                <div className="flex items-center gap-3">
-                    <Logo size={32} variant="light" />
-                    <div className="flex flex-col">
-                        <span className="text-base font-extrabold tracking-tight text-white select-none">Velora CRM</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Client Portal</span>
-                    </div>
-                </div>
+            <div className="p-5 border-b border-slate-800 flex items-center justify-center">
+                <Logo size={38} variant="light" />
             </div>
             <nav className="flex-1 p-4 overflow-y-auto">
                 <ul className="flex flex-col gap-2">
@@ -207,14 +201,8 @@ const Sidebar = () => {
            style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
       
       {/* Brand Header */}
-      <div className="px-6 py-6 border-b border-slate-100 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-            <Logo size={32} variant="dark" />
-            <div className="flex flex-col">
-                <span className="text-base font-extrabold tracking-tight text-slate-900 leading-tight">Velora CRM</span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">{role || 'Employee'} Portal</span>
-            </div>
-        </div>
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-center shrink-0">
+          <Logo size={42} variant="dark" />
       </div>
 
       {/* Navigation List */}

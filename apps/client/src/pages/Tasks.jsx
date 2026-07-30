@@ -225,7 +225,7 @@ const Tasks = () => {
                                     <h3 style="color: #0f172a; margin-top: 0;">Task / Project Stage Updated</h3>
                                     <p>Hello <strong>${assignedUser.name}</strong>,</p>
                                     <p>The stage for <strong>"${task.title}"</strong> assigned to you has been changed to <strong style="color: #0284c7;">${newStatus}</strong>.</p>
-                                    <p style="color: #64748b; font-size: 12px;">Log in to Velora CRM to check details.</p>
+                                    <p style="color: #64748b; font-size: 12px;">Log in to Velora to check details.</p>
                                 </div>
                             `
                         });

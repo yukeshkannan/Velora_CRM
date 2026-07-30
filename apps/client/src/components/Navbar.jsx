@@ -63,12 +63,9 @@ const Navbar = () => {
                 }`}
             >
                 
-                {/* Brand Logo "Velora CRM" */}
-                <div onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center gap-3 cursor-pointer group">
-                    <Logo size={26} variant="dark" />
-                    <span className="text-xl md:text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-slate-700 transition-colors select-none">
-                        Velora CRM
-                    </span>
+                {/* Brand Logo */}
+                <div onClick={() => { navigate('/'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex items-center cursor-pointer group">
+                    <Logo size={48} variant="dark" className="hover:scale-105 transition-transform" />
                 </div>
                 
                 {/* Center Navigation Links */}

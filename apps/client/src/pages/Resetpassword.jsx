@@ -55,9 +55,8 @@ const ResetPassword = () => {
             
             {/* --- TOP HEADER --- */}
             <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between shrink-0">
-                <Link to="/" className="flex items-center gap-2.5">
-                  <Logo size={24} variant="dark" />
-                  <span className="text-lg font-bold tracking-tight text-slate-900 select-none">Velora CRM</span>
+                <Link to="/" className="flex items-center">
+                  <Logo size={42} variant="dark" />
                 </Link>
 
                 <Link 
@@ -173,7 +172,7 @@ const ResetPassword = () => {
 
             {/* --- FOOTER --- */}
             <footer className="w-full py-2.5 text-center text-[11px] text-slate-400 font-medium shrink-0">
-                © {new Date().getFullYear()} Velora CRM Inc. All rights reserved.
+                © {new Date().getFullYear()} Velora Inc. All rights reserved.
             </footer>
         </div>
     );

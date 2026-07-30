@@ -946,7 +946,7 @@ const Attendance = () => {
             <div className="bg-white border-b border-slate-200/80 px-6 sm:px-8 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs">
                 <div>
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-0.5">
-                        <span className="text-slate-900 font-bold">Velora CRM</span>
+                        <span className="text-slate-900 font-bold">Velora</span>
                         <span>/</span>
                         <span>Employee Portal</span>
                     </div>

@@ -119,7 +119,7 @@ const Dashboard = () => {
         const reportDate = new Date().toISOString().split('T')[0];
         
         const csvRows = [
-            ['Velora CRM - Executive Control Center Telemetry Report'],
+            ['Velora - Executive Control Center Telemetry Report'],
             [`Generated Date:`, reportDate],
             [],
             ['METRIC CATEGORY', 'INDICATOR', 'VALUE'],
@@ -169,7 +169,7 @@ const Dashboard = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                 <div>
                     <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-0.5">
-                        <span className="text-slate-900 font-extrabold">Velora CRM</span>
+                        <span className="text-slate-900 font-extrabold">Velora</span>
                         <span>/</span>
                         <span>Admin Executive Control</span>
                     </div>

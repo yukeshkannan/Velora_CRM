@@ -118,7 +118,7 @@ const LandingPage = () => {
             name: 'Vikram Malhotra',
             role: 'VP of Sales',
             company: 'HyperScale Tech',
-            quote: 'Velora CRM replaced 4 separate tools for us. Deal velocity increased by 40% in our first 30 days.',
+            quote: 'Velora replaced 4 separate tools for us. Deal velocity increased by 40% in our first 30 days.',
             rating: 5,
             image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
         },
@@ -159,7 +159,7 @@ const LandingPage = () => {
     // FAQ Data (Accurate to real project features)
     const faqs = [
         {
-            question: 'What core modules are included in Velora CRM?',
+            question: 'What core modules are included in Velora?',
             answer: 'Velora unifies four core business operating modules into a single workspace: Visual Sales Kanban Pipelines, HR Workforce & Attendance Sync, Client PDF Invoicing, and Customer Support Helpdesk.'
         },
         {
@@ -195,11 +195,8 @@ const LandingPage = () => {
             {/* Header / Navbar (Fixed Pinned Top) */}
             <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all duration-200 w-full">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between w-full">
-                    <Link to="/" className="flex items-center gap-3 group">
-                        <Logo />
-                        <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-slate-700 transition-colors">
-                            Velora
-                        </span>
+                    <Link to="/" className="flex items-center group">
+                        <Logo size={48} className="hover:scale-105 transition-transform" />
                     </Link>
 
                     {/* Desktop Navigation */}
@@ -632,9 +629,8 @@ const LandingPage = () => {
                         
                         {/* Col 1: Brand */}
                         <div className="col-span-2 space-y-4">
-                            <Link to="/" className="flex items-center gap-3">
-                                <Logo />
-                                <span className="text-xl font-bold tracking-tight text-slate-900">Velora CRM</span>
+                            <Link to="/" className="flex items-center">
+                                <Logo size={44} />
                             </Link>
                             <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
                                 The unified multi-tenant CRM for enterprise sales pipelines, workforce HR, automated invoicing, and helpdesk support.
@@ -675,7 +671,7 @@ const LandingPage = () => {
                     </div>
 
                     <div className="pt-8 text-center text-xs text-slate-500 font-medium">
-                        © {new Date().getFullYear()} Velora CRM Inc. All rights reserved.
+                        © {new Date().getFullYear()} Velora Inc. All rights reserved.
                     </div>
                 </div>
             </footer>

@@ -11,14 +11,17 @@ const wrapWithVeloraTemplate = (htmlContent) => {
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc; border-radius: 16px;">
       <div style="background-color: #ffffff; padding: 40px; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
           <div style="text-align: center; margin-bottom: 25px;">
-              <div style="display: inline-block; width: 60px; height: 60px; line-height: 60px; text-align: center; border-radius: 14px; background: linear-gradient(135deg, #0f172a 0%, #0b132b 100%); position: relative; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15); margin: 0 auto;">
-                  <svg width="28" height="28" viewBox="0 0 100 100" style="vertical-align: middle;">
-                      <polygon points="15,20 45,20 50,75 30,85" fill="#0ea5e9" opacity="0.8"/>
-                      <polygon points="45,20 50,75 65,48" fill="#0284c7" opacity="0.95"/>
-                      <polygon points="65,48 50,75 85,20 75,15" fill="#14b8a6" opacity="0.9"/>
+              <div style="display: inline-block; padding: 10px 20px; border-radius: 12px; background: #ffffff; position: relative; border: 1px solid #e2e8f0; margin: 0 auto;">
+                  <svg width="40" height="40" viewBox="0 0 100 100" style="vertical-align: middle; display: inline-block;">
+                      <path d="M15 20 L40 20 L50 80 L25 80 Z" fill="#0b132b" />
+                      <path d="M40 20 L50 80 L60 48 Z" fill="#0ea5e9" />
+                      <path d="M60 48 L50 80 L85 20 L75 15 Z" fill="#14b8a6" />
+                      <path d="M15 20 L40 20 L50 80 L25 80 Z" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.4" />
+                      <path d="M40 20 L50 80 L60 48 Z" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.4" />
+                      <path d="M60 48 L50 80 L85 20 L75 15 Z" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.4" />
                   </svg>
+                  <span style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 1px; color: #0f172a; vertical-align: middle; margin-left: 10px;">VELORA</span>
               </div>
-              <div style="font-family: 'Georgia', serif; font-size: 16px; font-weight: bold; letter-spacing: 3px; color: #0f172a; margin-top: 10px; text-transform: uppercase;">Velora</div>
           </div>
           
           <div style="border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 20px 0; margin-bottom: 20px; color: #334155; line-height: 1.6;">
@@ -26,7 +29,7 @@ const wrapWithVeloraTemplate = (htmlContent) => {
           </div>
 
           <p style="text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px; margin-bottom: 0;">
-              This is an automated message from Velora CRM. Please do not reply.
+              This is an automated message from Velora. Please do not reply.
           </p>
       </div>
   </div>

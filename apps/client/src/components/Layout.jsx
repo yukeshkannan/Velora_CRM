@@ -54,7 +54,7 @@ const Layout = () => {
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-8 py-3.5 flex items-center justify-between shadow-2xs">
             <div className="flex items-center gap-3">
                 <span className="text-xs font-extrabold text-slate-400 uppercase tracking-widest">
-                    Velora CRM Portal
+                    Velora Portal
                 </span>
                 <span className="text-slate-300">/</span>
                 <span className="text-xs font-bold text-slate-800">
