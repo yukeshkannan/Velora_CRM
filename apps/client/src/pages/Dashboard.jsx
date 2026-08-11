@@ -27,6 +27,12 @@ const Dashboard = () => {
     });
     const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+        if (user && user.role === 'Admin') {
+            fetchLiveAnalytics();
+        }
+    }, [user]);
+
     if (authLoading) {
         return <LoadingSpinner message="Verifying session..." />;
     }
@@ -38,10 +44,6 @@ const Dashboard = () => {
     if (user.role === 'Employee' || user.role === 'Sales' || user.role === 'HR') {
         return <EmployeeDashboard />;
     }
-
-    useEffect(() => {
-        fetchLiveAnalytics();
-    }, []);
 
     const fetchLiveAnalytics = async () => {
         try {

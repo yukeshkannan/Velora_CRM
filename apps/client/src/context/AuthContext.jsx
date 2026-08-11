@@ -19,6 +19,9 @@ export const useAuth = () => useContext(AuthContext);
 const sanitizeUser = (u) => {
     if (!u) return null;
     let copy = { ...u };
+    if (!copy.originalRole) {
+        copy.originalRole = copy.role;
+    }
     if (copy.profilePic && typeof copy.profilePic === 'string' && copy.profilePic.includes('document-service:5007')) {
         copy.profilePic = copy.profilePic.replace('http://document-service:5007', '');
     }
@@ -43,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     }
     return null;
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const hasAutoCheckedIn = useRef(false);
 
@@ -115,17 +118,22 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('user');
         }
     }
-    setTimeout(() => {
+    
+    // Smooth 0.7s initial loader transition
+    const timer = setTimeout(() => {
         setLoading(false);
-    }, 600);
+    }, 700);
 
     // Refresh user role from DB in background to avoid stale localStorage roles
     if (token && savedUser && savedUser !== 'undefined') {
         checkAuth();
     }
+
+    return () => clearTimeout(timer);
   }, []);
 
   const login = async (email, password) => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -146,17 +154,24 @@ export const AuthProvider = ({ children }) => {
         // Auto Check-in on Login
         autoCheckIn(userData);
 
+        setTimeout(() => {
+          setLoading(false);
+        }, 700);
+
         return { success: true, user: userData };
       } else {
+        setLoading(false);
         return { success: false, message: data.message || 'Login failed' };
       }
     } catch (err) {
+      setLoading(false);
       console.error("Login error:", err);
       return { success: false, message: 'Server connection error. Please try again.' };
     }
   };
 
   const register = async (name, email, password, role = 'Client') => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
@@ -177,16 +192,23 @@ export const AuthProvider = ({ children }) => {
         // Auto Check-in on Register
         autoCheckIn(userData);
 
+        setTimeout(() => {
+          setLoading(false);
+        }, 700);
+
         return { success: true, user: userData };
       } else {
+        setLoading(false);
         return { success: false, message: data.message || 'Registration failed' };
       }
     } catch (err) {
+      setLoading(false);
       return { success: false, message: 'Server connection error. Please try again.' };
     }
   };
 
   const loginWithUserData = (userData, token) => {
+    setLoading(true);
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -194,9 +216,13 @@ export const AuthProvider = ({ children }) => {
       hasAutoCheckedIn.current = false;
       autoCheckIn(userData);
     }
+    setTimeout(() => {
+      setLoading(false);
+    }, 700);
   };
 
   const logout = () => {
+    setLoading(true);
     if (user) {
         autoCheckOut(user);
     }
@@ -204,7 +230,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.clear();
     sessionStorage.clear();
     setUser(null);
-    navigate('/login', { replace: true, state: {} });
+    setTimeout(() => {
+      setLoading(false);
+      navigate('/login', { replace: true, state: {} });
+    }, 700);
   };
 
   // Refresh User Data (Profile Updates)
@@ -256,8 +285,29 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
+  const switchPersonaRole = (targetRole) => {
+    if (!user) return;
+    const rolePresets = {
+      Admin: { role: 'Admin', designation: 'Executive Administrator', department: 'Management' },
+      HR: { role: 'HR', designation: 'People Operations Lead', department: 'Human Resources' },
+      Sales: { role: 'Sales', designation: 'Enterprise Account Executive', department: 'Sales & Marketing' },
+      Employee: { role: 'Employee', designation: 'Software Engineer', department: 'Engineering' },
+      Client: { role: 'Client', designation: undefined, department: undefined, salary: undefined }
+    };
+
+    const preset = rolePresets[targetRole] || { role: targetRole };
+    const updatedUser = sanitizeUser({
+      ...user,
+      ...preset
+    });
+
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    return updatedUser;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, loginWithUserData, updateUserState }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, loginWithUserData, updateUserState, switchPersonaRole }}>
       {children}
     </AuthContext.Provider>
   );

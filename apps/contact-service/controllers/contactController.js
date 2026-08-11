@@ -9,16 +9,23 @@ exports.getContacts = async (req, res) => {
     console.log('[Contact Service] Fetching contacts...');
     const { email, search, q } = req.query;
     let query = {};
-    if (email) query.email = email;
+    if (email && String(email).trim() !== '') {
+      query.email = new RegExp('^' + String(email).trim() + '$', 'i');
+    }
 
     const searchTerm = search || q;
     if (searchTerm) {
       const regex = new RegExp(searchTerm, 'i');
-      query.$or = [
+      const searchOr = [
         { name: regex },
         { email: regex },
         { company: regex }
       ];
+      if (query.email) {
+        query = { $and: [{ email: query.email }, { $or: searchOr }] };
+      } else {
+        query.$or = searchOr;
+      }
     }
 
     const contacts = await Contact.find(query).sort({ createdAt: -1 });

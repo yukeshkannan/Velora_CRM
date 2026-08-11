@@ -1,61 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Signup from './pages/Signup'; // New
-
-import LandingPage from './pages/LandingPage'; // New
-import ForgotPassword from './pages/Forgotpassword';
-import ResetPassword from './pages/Resetpassword';
-import Users from './pages/Users';
-import Contacts from './pages/Contacts';
-import Opportunities from './pages/Opportunities';
-import Tickets from './pages/Tickets';
-import Products from './pages/Products';
-import Invoices from './pages/Invoices';
-import Payments from './pages/Payments';
-import Tasks from './pages/Tasks';
-import Calendar from './pages/Calendar';
-import Attendance from './pages/Attendance';
-import Payroll from './pages/Payroll';
-import Settings from './pages/Settings';
-import Explore from './pages/Explore';
-
+import LoadingSpinner from './components/LoadingSpinner';
 import { Toaster } from 'react-hot-toast';
 
-function App() {
+// --- Route-Based Code Splitting (React.lazy for On-Demand Chunk Loading) ---
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const ForgotPassword = lazy(() => import('./pages/Forgotpassword'));
+const ResetPassword = lazy(() => import('./pages/Resetpassword'));
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Explore = lazy(() => import('./pages/Explore'));
+const Tickets = lazy(() => import('./pages/Tickets'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+const Contacts = lazy(() => import('./pages/Contacts'));
+const Opportunities = lazy(() => import('./pages/Opportunities'));
+const Products = lazy(() => import('./pages/Products'));
+const Payments = lazy(() => import('./pages/Payments'));
+const Tasks = lazy(() => import('./pages/Tasks'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Payroll = lazy(() => import('./pages/Payroll'));
+const Invoices = lazy(() => import('./pages/Invoices'));
+const Users = lazy(() => import('./pages/Users'));
+
+function AppContent() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner fullScreen />;
+  }
+
   return (
-    <AuthProvider>
-      <Toaster 
-        position="top-right" 
-        reverseOrder={false}
-        toastOptions={{
-          duration: 3500,
-          style: {
-            background: '#0f172a',
-            color: '#f8fafc',
-            borderRadius: '14px',
-            fontSize: '13px',
-            fontWeight: '600',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
-            padding: '12px 16px'
-          },
-          success: {
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#ffffff',
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#ffffff',
-            },
-          },
-        }} 
-      />
+    <Suspense fallback={<LoadingSpinner fullScreen />}>
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
@@ -99,8 +81,51 @@ function App() {
           </Route>
         </Route>
       </Routes>
+    </Suspense>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Toaster 
+        position="top-right" 
+        reverseOrder={false}
+        gutter={8}
+        containerStyle={{ top: 24, right: 24 }}
+        toastOptions={{
+          duration: 3500,
+          style: {
+            background: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(12px)',
+            color: '#ffffff',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            fontSize: '13px',
+            fontWeight: '700',
+            letterSpacing: '-0.2px',
+            boxShadow: '0 20px 30px -10px rgba(0, 0, 0, 0.35)',
+            padding: '12px 18px',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff',
+            },
+          },
+        }} 
+      />
+      <AppContent />
     </AuthProvider>
   );
 }
 
 export default App;
+

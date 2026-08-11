@@ -163,12 +163,15 @@ const getInvoiceSubject = (invoice) => {
 // @access  Public
 exports.getInvoices = async (req, res) => {
   try {
-    const { email } = req.query;
+    const { email, customerId, clientId } = req.query;
     let query = {};
-    if (email) {
-        query.customerEmail = email;
+    if (email && String(email).trim() !== '') {
+        query.customerEmail = new RegExp('^' + String(email).trim() + '$', 'i');
     }
-    const invoices = await Invoice.find(query);
+    if (customerId || clientId) {
+        query.customerId = customerId || clientId;
+    }
+    const invoices = await Invoice.find(query).sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: invoices.length,

@@ -75,14 +75,22 @@ exports.updateTask = async (req, res) => {
         originalTask.assignedTo?.toString() !== task.assignedTo.toString()
     )) {
         try {
-            // Lazy load User model to avoid circular dependency issues or just path issues
-             // We access the User model from auth-service (Monorepo shortcut)
-             // In a real microservice, we would request user details from Auth Service API
-            const User = require('../../auth-service/models/User'); 
-            const assignedUser = await User.findById(task.assignedTo);
+            const axios = require('axios');
+            const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
+            let assignedUser = null;
+
+            try {
+                const userRes = await axios.get(`${AUTH_SERVICE_URL}/api/auth/users/${task.assignedTo}`);
+                assignedUser = userRes.data?.data;
+            } catch (userFetchErr) {
+                // Fallback to Mongoose registered model if in-memory
+                const { mongoose } = require('../../../packages/database');
+                if (mongoose.models && mongoose.models.User) {
+                    assignedUser = await mongoose.models.User.findById(task.assignedTo);
+                }
+            }
 
             if (assignedUser && assignedUser.email) {
-                const axios = require('axios');
                 const { publishToQueue } = require('../../../packages/utils');
                 const subject = `📋 Task Stage Updated: ${task.title}`;
                 const message = `

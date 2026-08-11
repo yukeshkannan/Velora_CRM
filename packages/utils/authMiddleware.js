@@ -51,6 +51,11 @@ const authMiddleware = (allowedRoles = []) => {
             return res.status(401).json({ success: false, message: 'Access Denied: No Token or Identity Headers Provided' });
         }
 
+        // Support active persona role simulation (e.g. for testing/demo switching)
+        if (req.headers['x-active-role']) {
+            user.role = req.headers['x-active-role'];
+        }
+
         if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
             console.warn(`[Auth Middleware] Blocked request to ${req.originalUrl || req.url}: User role ${user.role} not authorized for roles: [${allowedRoles.join(', ')}]`);
             return res.status(403).json({ success: false, message: 'Access Forbidden: Insufficient Permissions' });

@@ -15,23 +15,29 @@ if (apiUrl && apiUrl !== '/') {
     axios.defaults.baseURL = ''; 
 }
 
-// Configure Axios Request Interceptor to include JWT token
+// Configure Axios Request Interceptor to include JWT token & active simulated role
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
+  const savedUser = localStorage.getItem('user');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (savedUser) {
+    try {
+      const parsed = JSON.parse(savedUser);
+      if (parsed?.role) {
+        config.headers['x-active-role'] = parsed.role;
+      }
+    } catch (e) {}
   }
   return config;
 }, (error) => {
   return Promise.reject(error);
 });
 
-import { Toaster } from 'react-hot-toast';
-
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       <App />
     </BrowserRouter>
   </StrictMode>,

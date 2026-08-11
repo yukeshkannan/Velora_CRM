@@ -132,15 +132,20 @@ const generateTicketEmailHTML = (ticket) => {
 exports.getTickets = async (req, res) => {
   try {
     console.log('[Ticket Service] Fetching tickets...');
-    const { email } = req.query;
+    const { email, customerId, assignedTo } = req.query;
     let query = {};
-    if (email) {
-       query = { $or: [{ guestEmail: email }] }; 
+
+    if (email && String(email).trim() !== '') {
+      const emailRegex = new RegExp('^' + String(email).trim() + '$', 'i');
+      query.$or = [
+        { guestEmail: emailRegex },
+        { email: emailRegex },
+        { userEmail: emailRegex }
+      ];
     }
     
-    if (req.query.email) query.guestEmail = req.query.email;
-    if (req.query.customerId) query.customerId = req.query.customerId;
-    if (req.query.assignedTo) query.assignedTo = req.query.assignedTo;
+    if (customerId) query.customerId = customerId;
+    if (assignedTo) query.assignedTo = assignedTo;
 
     const searchTerm = req.query.search || req.query.q;
     if (searchTerm) {
@@ -149,14 +154,14 @@ exports.getTickets = async (req, res) => {
         { title: regex },
         { description: regex }
       ];
-      if (Object.keys(query).length > 0) {
+      if (query.$or) {
         query = { $and: [query, { $or: searchOr }] };
       } else {
         query.$or = searchOr;
       }
     }
 
-    const tickets = await Ticket.find(query);
+    const tickets = await Ticket.find(query).sort({ createdAt: -1 });
     console.log(`[Ticket Service] Found ${tickets.length} tickets`);
     res.status(200).json({
       success: true,

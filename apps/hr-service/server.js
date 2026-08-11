@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { correlationLogger } = require('../../packages/utils');
 const { connectDB } = require('../../packages/database');
+const startUserEventConsumer = require('./jobs/userEventConsumer');
 require('dotenv').config();
 
 // Register Models
@@ -27,6 +28,7 @@ app.use('/api/leave', require('./routes/leaveRoutes'));
 const startServer = async () => {
     try {
         await connectDB(process.env.HR_MONGO_URI || process.env.MONGO_URI, 'hr-service');
+        startUserEventConsumer();
         app.listen(PORT, () => console.log(`HR Service running on port ${PORT}`));
     } catch (err) {
         console.error('Failed to start HR Service:', err);

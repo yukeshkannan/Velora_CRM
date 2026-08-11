@@ -1,10 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Contact = require('../../contact-service/models/Contact');
-const Leave = require('../../hr-service/models/Leave');
-const Attendance = require('../../hr-service/models/Attendance');
 const { sendOTPEmail } = require('../utils/emailService');
-const { formatResponse } = require('utils'); 
+const { formatResponse, publishToQueue } = require('../../../packages/utils'); 
 
 const formatUserDTO = (user) => {
   const isClient = user.role === 'Client';
@@ -44,19 +41,17 @@ exports.register = async (req, res) => {
 
     const user = await User.create(userPayload);
 
-    // Auto-create CRM Contact profile for Client users
+    // Asynchronous Event: Auto-create CRM Contact profile for Client users (Decoupled EDA)
     if (user.role === 'Client') {
-      try {
-        await Contact.create({
+      await publishToQueue('USER_EVENTS', {
+        event: 'USER_REGISTERED',
+        data: {
+          userId: user._id,
           name: user.name,
           email: user.email,
-          company: 'Independent',
-          status: 'Customer'
-        });
-        console.log(`[Auth Service] Auto-created CRM contact for registered client: ${user.email}`);
-      } catch (contactErr) {
-        console.error("[Auth Service] Failed to auto-create contact on register:", contactErr.message);
-      }
+          role: user.role
+        }
+      });
     }
 
     formatResponse(res, 201, 'User registered successfully', { userId: user._id, email: user.email, role: user.role });
@@ -162,20 +157,16 @@ exports.googleLogin = async (req, res) => {
         role: 'Client',
         profilePic: picture || ''
       });
-      console.log(`[Google Auth] Created new client user: ${email}`);
-
-      // Auto-create CRM Contact profile for new Google registered clients
-      try {
-        await Contact.create({
+      // Asynchronous Event: Auto-create CRM Contact profile for new Google registered clients
+      await publishToQueue('USER_EVENTS', {
+        event: 'USER_REGISTERED',
+        data: {
+          userId: user._id,
           name: user.name,
           email: user.email,
-          company: 'Independent',
-          status: 'Customer'
-        });
-        console.log(`[Google Auth] Auto-created CRM contact for Google client: ${email}`);
-      } catch (contactErr) {
-        console.error("[Google Auth] Failed to auto-create contact on Google login:", contactErr.message);
-      }
+          role: user.role
+        }
+      });
     } else {
       // Link Google account if it exists locally but didn't have googleId linked
       if (user.authProvider === 'local') {
@@ -374,9 +365,11 @@ exports.deleteUser = async (req, res) => {
       return formatResponse(res, 404, 'User not found');
     }
 
-    // Cascade delete user's associated leave applications & attendance records
-    await Leave.deleteMany({ userId });
-    await Attendance.deleteMany({ userId });
+    // Asynchronous Event: Cascade delete user's associated leave/attendance data via RabbitMQ
+    await publishToQueue('USER_EVENTS', {
+      event: 'USER_DELETED',
+      data: { userId }
+    });
 
     await user.deleteOne();
     formatResponse(res, 200, 'User and associated leave/attendance data deleted successfully');
