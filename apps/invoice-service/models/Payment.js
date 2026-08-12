@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const { mongoose } = require('../../../packages/database');
 
 const PaymentSchema = new mongoose.Schema({
   invoiceId: {

@@ -61,6 +61,7 @@ const Attendance = () => {
     const { user } = useAuth();
     const [attendance, setAttendance] = useState([]);
     const [leaves, setLeaves] = useState([]);
+    const [staffUsers, setStaffUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({ present: 0, online: 0, absent: 0, avgHours: '0.0' });
     const [selectedUser, setSelectedUser] = useState(null); // For detail view
@@ -183,8 +184,9 @@ const Attendance = () => {
                 try {
                     const usersRes = await axios.get('/api/auth/users');
                     const allUsers = usersRes.data.data || [];
-                    const totalStaff = allUsers.filter(u => u.role !== 'Client' && u.role !== 'Admin').length;
-                    absentCount = Math.max(0, totalStaff - uniquePresent);
+                    const allStaff = allUsers.filter(u => u.role !== 'Client' && u.role !== 'Admin');
+                    setStaffUsers(allStaff);
+                    absentCount = Math.max(0, allStaff.length - uniquePresent);
                 } catch (userErr) {
                     console.error("Failed to fetch users for stats:", userErr);
                 }
@@ -223,19 +225,49 @@ const Attendance = () => {
     // Helper for Admin/HR View (Grouping)
     const getGroupedAttendance = () => {
         const groups = {};
+
+        // 1. Initialize groups with all staff users (HR, Sales, Employee) from User Management
+        staffUsers.forEach(u => {
+            if (!u || !u.name || u.role === 'Admin' || u.role === 'Client') return;
+            const uId = String(u._id || u.id);
+            groups[uId] = {
+                user: u,
+                records: [],
+                latestSession: null,
+                totalHoursToday: 0
+            };
+        });
+
+        // 2. Attach attendance records to each staff member
         attendance.forEach(record => {
-            const uId = record.userId?._id || record.userId;
-            const uRole = record.userId?.role || '';
-            if (!uId || uRole === 'Admin' || uRole === 'Client') return;
+            const rawUser = record.userId;
+            if (!rawUser) return;
+
+            let userObj = typeof rawUser === 'object' && rawUser.name ? rawUser : null;
+            const uId = String(rawUser._id || rawUser.id || rawUser);
+
+            if (!userObj && groups[uId]) {
+                userObj = groups[uId].user;
+            } else if (!userObj) {
+                userObj = staffUsers.find(s => String(s._id || s.id) === uId);
+            }
+
+            if (!userObj || !userObj.name || userObj.role === 'Admin' || userObj.role === 'Client') return;
+
             if (!groups[uId]) {
                 groups[uId] = {
-                    user: record.userId,
+                    user: userObj,
                     records: [],
                     latestSession: record,
                     totalHoursToday: 0
                 };
             }
+
             groups[uId].records.push(record);
+
+            if (!groups[uId].latestSession || new Date(record.date) > new Date(groups[uId].latestSession.date)) {
+                groups[uId].latestSession = record;
+            }
             
             const todayStr = new Date().toDateString();
             if (new Date(record.date).toDateString() === todayStr) {
@@ -247,7 +279,7 @@ const Attendance = () => {
                 }
             }
         });
-        return Object.values(groups);
+        return Object.values(groups).filter(g => g.user && g.user.name);
     };
 
     if (user.role === 'Client') {
@@ -261,7 +293,9 @@ const Attendance = () => {
     // Admin & HR Register View
     if (isManager) {
         const groupedData = getGroupedAttendance().filter(group => {
-            const u = group.user || {};
+            const u = group.user;
+            if (!u || !u.name || u.role === 'Admin' || u.role === 'Client') return false;
+
             const name = (u.name || '').toLowerCase();
             const email = (u.email || '').toLowerCase();
             const role = (u.role || '').toLowerCase();
@@ -774,7 +808,7 @@ const Attendance = () => {
                                     <table className="w-full text-left">
                                         <thead className="bg-slate-50/80 text-slate-500 text-xs uppercase tracking-wider font-bold border-b border-slate-100">
                                             <tr>
-                                                <th className="p-6 pl-10">Employee Details</th>
+                                                <th className="p-6 pl-10">Staff Member Details</th>
                                                 <th className="p-6">Current Status</th>
                                                 <th className="p-6">Last Login</th>
                                                 <th className="p-6">Today's Work</th>
@@ -785,7 +819,7 @@ const Attendance = () => {
                                             {groupedData.map((group) => {
                                                 const { user: empUser, latestSession, totalHoursToday } = group;
                                                 const isLatestToday = latestSession && new Date(latestSession.date).toDateString() === new Date().toDateString();
-                                                const isOnline = !latestSession.checkOut && isLatestToday;
+                                                const isOnline = latestSession && !latestSession.checkOut && isLatestToday;
                                                 
                                                 return (
                                                     <tr key={empUser?._id} className="hover:bg-amber-50/30 transition-colors group cursor-pointer" onClick={() => setSelectedUser(empUser)}>
@@ -854,10 +888,19 @@ const Attendance = () => {
                                                             )}
                                                         </td>
                                                         <td className="p-6">
-                                                            <p className="font-mono text-sm text-slate-700 font-bold">
-                                                                {new Date(latestSession.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                            </p>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Logged In</p>
+                                                            {latestSession && latestSession.checkIn ? (
+                                                                <>
+                                                                    <p className="font-mono text-sm text-slate-700 font-bold">
+                                                                        {new Date(latestSession.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                                    </p>
+                                                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Logged In</p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <p className="text-xs font-bold text-slate-400">No session</p>
+                                                                    <p className="text-[10px] text-slate-300 font-bold uppercase mt-1">Not Checked In</p>
+                                                                </>
+                                                            )}
                                                         </td>
                                                         <td className="p-6">
                                                             <p className="text-lg font-black text-slate-800">

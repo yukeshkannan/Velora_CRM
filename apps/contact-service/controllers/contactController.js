@@ -1,12 +1,43 @@
 const Contact = require('../models/Contact');
 const { formatResponse } = require('../../../packages/utils');
 
+// Helper to auto-sync Client users from Auth Service into Contact Service
+const syncClientUsers = async () => {
+  try {
+    const authUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
+    const response = await fetch(`${authUrl}/api/auth/users`, { signal: AbortSignal.timeout(3000) });
+    if (response.ok) {
+      const data = await response.json();
+      if (data && Array.isArray(data.data)) {
+        const clientUsers = data.data.filter(u => u.role === 'Client' && u.email);
+        for (const u of clientUsers) {
+          const cleanEmail = String(u.email).toLowerCase().trim();
+          const exists = await Contact.findOne({ email: cleanEmail });
+          if (!exists) {
+            await Contact.create({
+              name: u.name || 'New Client',
+              email: cleanEmail,
+              company: 'Independent',
+              status: 'Customer'
+            });
+            console.log(`[Contact-Service] Auto-synced Client contact from Auth Service: ${cleanEmail}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[Contact-Service] User sync warning: ${err.message}`);
+  }
+};
+
 // @desc    Get all contacts
 // @route   GET /api/contacts
 // @access  Public
 exports.getContacts = async (req, res) => {
   try {
     console.log('[Contact Service] Fetching contacts...');
+    await syncClientUsers();
+
     const { email, search, q } = req.query;
     let query = {};
     if (email && String(email).trim() !== '') {

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const { mongoose } = require('../../../packages/database');
 
 const leaveSchema = new mongoose.Schema({
     userId: {

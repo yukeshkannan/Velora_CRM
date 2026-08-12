@@ -19,6 +19,10 @@ app.use(cors());
 app.use(express.json());
 app.use(correlationLogger('HR-Service'));
 
+// Health Checks
+app.get('/health', (req, res) => res.json({ status: 'UP', service: 'HR-Service', timestamp: new Date() }));
+app.get('/api/hr/health', (req, res) => res.json({ status: 'UP', service: 'HR-Service', timestamp: new Date() }));
+
 // Routes
 app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/payroll', require('./routes/payrollRoutes'));

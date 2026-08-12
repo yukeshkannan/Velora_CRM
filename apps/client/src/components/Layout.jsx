@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from './Sidebar';
+import LoadingSpinner from './LoadingSpinner';
 
 const Layout = () => {
   const { user, switchPersonaRole } = useAuth();
@@ -343,7 +344,9 @@ const Layout = () => {
         </header>
 
         <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-x-hidden">
-          <Outlet />
+          <Suspense fallback={<LoadingSpinner message="Loading section details..." fullScreen={false} />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

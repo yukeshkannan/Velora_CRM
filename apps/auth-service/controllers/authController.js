@@ -276,6 +276,18 @@ exports.createUser = async (req, res) => {
 
     const user = await User.create(userPayload);
 
+    if (user.role === 'Client') {
+      await publishToQueue('USER_EVENTS', {
+        event: 'USER_REGISTERED',
+        data: {
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role
+        }
+      });
+    }
+
     formatResponse(res, 201, 'User created successfully', { userId: user._id, email: user.email, role: user.role });
   } catch (error) {
     formatResponse(res, 500, error.message);
