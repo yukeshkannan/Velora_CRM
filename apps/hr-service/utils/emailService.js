@@ -1,5 +1,10 @@
 const SibApiV3Sdk = require('sib-api-v3-sdk');
-const nodemailer = require('nodemailer');
+let nodemailer;
+try {
+    nodemailer = require('nodemailer');
+} catch (e) {
+    // Loaded lazily on demand
+}
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
@@ -245,6 +250,9 @@ const sendPayslipEmail = async (email, name, month, year, netSalary, baseSalary,
 
     // 2. Fallback: Ethereal Test Account
     try {
+        if (!nodemailer) {
+            nodemailer = require('nodemailer');
+        }
         console.log('[HR Service] Initializing Ethereal SMTP test account fallback for payslip delivery...');
         const testAccount = await nodemailer.createTestAccount();
         const transporter = nodemailer.createTransport({

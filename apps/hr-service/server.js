@@ -1,9 +1,9 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { correlationLogger } = require('../../packages/utils');
 const { connectDB } = require('../../packages/database');
 const startUserEventConsumer = require('./jobs/userEventConsumer');
-require('dotenv').config();
 
 // Register Models
 require('./models/User');

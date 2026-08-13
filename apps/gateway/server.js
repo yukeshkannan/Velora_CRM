@@ -239,9 +239,9 @@ app.use('/api/payroll', authMiddleware(), (req, res, next) => {
     next();
 }, proxy(SERVICES.HR, {
     parseReqBody: false,
-    proxyReqPathResolver: (req) => `/api/payroll${req.url}`,
+    proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR Service Unavailable' })
 }));
 
 // 10. Leave
@@ -254,9 +254,9 @@ app.use('/api/leave', authMiddleware(), (req, res, next) => {
     next();
 }, proxy(SERVICES.HR, {
     parseReqBody: false,
-    proxyReqPathResolver: (req) => `/api/leave${req.url}`,
+    proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR Service Unavailable' })
 }));
 
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'Velora-API-Gateway', timestamp: new Date() }));
