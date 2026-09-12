@@ -1,7 +1,5 @@
 const { mongoose } = require('../../../packages/database');
 
-//comment for git push
-
 const leaveSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
