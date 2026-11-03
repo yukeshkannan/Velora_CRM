@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
+    "start": "node start-production.js",
+    "start:prod": "node start-production.js",
     "start:gateway": "npm run start -w gateway",
     "start:auth": "npm run start -w auth-service",
     "dev:gateway": "npm run dev -w gateway",
