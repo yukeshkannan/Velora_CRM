@@ -1,18 +1,13 @@
-# Build stage
+ # Build stage - Vite Client
 FROM node:20-alpine AS builder
-WORKDIR /app
-
-# Copy monorepo config
-COPY package.json package-lock.json* ./
-COPY packages/ ./packages/
-COPY apps/client/package.json ./apps/client/
-
-# Install dependencies
-RUN npm install
-
-# Copy source and build
-COPY apps/ ./apps/
 WORKDIR /app/apps/client
+
+# Copy client manifest and install client dependencies only
+COPY apps/client/package.json ./
+RUN npm install --no-audit
+
+# Copy client source code
+COPY apps/client/ ./
 
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
