@@ -11,7 +11,13 @@ app.use(cors());
 
 const STAFF_ROLES = ['Admin', 'Employee', 'Sales', 'HR'];
 
+// Sanitize incoming headers to prevent header injection spoofing
 app.use((req, res, next) => {
+    delete req.headers['x-user-id'];
+    delete req.headers['x-user-role'];
+    delete req.headers['x-user-email'];
+    delete req.headers['x-active-role'];
+
     const correlationId = req.headers['x-correlation-id'] || `corr-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     req.correlationId = correlationId;
     req.headers['x-correlation-id'] = correlationId;
@@ -19,7 +25,8 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(rateLimiter(150, 60));
+// Gateway sliding window rate limiter
+app.use(rateLimiter(200, 60));
 
 const SERVICES = {
     AUTH: process.env.AUTH_SERVICE_URL || 'http://localhost:5001',
@@ -38,12 +45,9 @@ const SERVICES = {
 
 const defaultOptDecorator = (proxyReqOpts, srcReq) => {
     proxyReqOpts.headers['x-correlation-id'] = srcReq.correlationId;
-    if (srcReq.headers['x-active-role']) {
-        proxyReqOpts.headers['x-active-role'] = srcReq.headers['x-active-role'];
-    }
     if (srcReq.user) {
         proxyReqOpts.headers['x-user-id'] = srcReq.user.id || srcReq.user._id;
-        proxyReqOpts.headers['x-user-role'] = srcReq.headers['x-active-role'] || srcReq.user.role;
+        proxyReqOpts.headers['x-user-role'] = srcReq.user.role;
         if (srcReq.user.email) {
             proxyReqOpts.headers['x-user-email'] = srcReq.user.email;
         }
@@ -59,13 +63,13 @@ const mountProxy = (path, target, middleware = null) => {
         proxyReqPathResolver: (req) => req.originalUrl,
         proxyReqOptDecorator: defaultOptDecorator,
         proxyErrorHandler: (err, res, next) => {
-            console.error(`[Gateway Exception] Path: ${path} | Error: ${err.message}`);
-            res.status(502).json({ success: false, message: 'Upstream Service Temporarily Unavailable' });
+            console.error(`[Gateway Error] Path: ${path} | Target: ${target} | Error: ${err.message}`);
+            res.status(502).json({ success: false, message: 'Upstream service temporarily unavailable' });
         }
     }));
 };
 
-// 1. Auth Endpoints
+// 1. Authentication Routes
 mountProxy('/api/auth/login', SERVICES.AUTH);
 mountProxy('/api/auth/register', SERVICES.AUTH);
 mountProxy('/api/auth/google-login', SERVICES.AUTH);
@@ -73,26 +77,29 @@ mountProxy('/api/auth/forgot-password', SERVICES.AUTH);
 mountProxy('/api/auth/reset-password', SERVICES.AUTH);
 mountProxy('/api/auth/create-user', SERVICES.AUTH, authMiddleware(['Admin']));
 
-// 2. Tasks
+// 2. Task Management
 app.use('/api/tasks', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    const isClient = effectiveRole === 'Client';
-    if (isClient) {
+    const role = req.user?.role;
+    if (role === 'Client') {
         if (req.method === 'GET') return next();
-        return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    if (!STAFF_ROLES.includes(role)) {
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
+    }
     next();
 }, proxy(SERVICES.TASK, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Task service unavailable' })
 }));
 
+// 3. Notifications & Analytics
 mountProxy('/api/notifications', SERVICES.NOTIFICATION, authMiddleware());
 mountProxy('/api/analytics', SERVICES.ANALYTICS, authMiddleware(STAFF_ROLES));
 
+// 4. Documents & File Storage
 app.use('/api/documents', (req, res, next) => {
     if (req.method === 'GET') {
         return next();
@@ -102,13 +109,12 @@ app.use('/api/documents', (req, res, next) => {
     parseReqBody: false,
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Document Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Document service unavailable' })
 }));
 
-// 3. Tickets - Strict Client Data Isolation
+// 5. Customer Support Tickets
 app.use('/api/tickets', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    if (effectiveRole === 'Client') {
+    if (req.user?.role === 'Client') {
         const clientEmail = req.user.email;
         if (!req.url.includes('email=')) {
             const separator = req.url.includes('?') ? '&' : '?';
@@ -120,16 +126,16 @@ app.use('/api/tickets', authMiddleware(), (req, res, next) => {
     parseReqBody: false,
     proxyReqPathResolver: (req) => `/api/tickets${req.url}`,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Ticket Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Ticket service unavailable' })
 }));
 
+// 6. Search & HR Attendance
 mountProxy('/api/search', SERVICES.SEARCH, authMiddleware(STAFF_ROLES));
 mountProxy('/api/attendance', SERVICES.HR, authMiddleware(STAFF_ROLES));
 mountProxy('/api/invoices/:id/download', SERVICES.INVOICE);
 
-// 4. Users
+// 7. User Administration
 app.use('/api/auth/users', (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
     const isSubPath = req.path !== '/' && req.path !== '';
     if (isSubPath) {
         if (req.method === 'DELETE') return authMiddleware(['Admin'])(req, res, next);
@@ -141,76 +147,78 @@ app.use('/api/auth/users', (req, res, next) => {
     parseReqBody: false,
     proxyReqPathResolver: (req) => `/api/auth/users${req.url}`,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Auth service unavailable' })
 }));
 
-// 5. Contacts
+// 8. Contact Management
 app.use('/api/contacts', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    const isClient = effectiveRole === 'Client';
-    if (isClient) {
+    const role = req.user?.role;
+    if (role === 'Client') {
         if (req.method === 'GET') {
             const hasEmailFilter = req.query.email;
             const isSelfContact = req.path !== '/' && req.path !== '';
             if (hasEmailFilter || isSelfContact) return next();
-            return res.status(403).json({ success: false, message: 'Access Forbidden' });
+            return res.status(403).json({ success: false, message: 'Access forbidden' });
         }
         if (req.method === 'POST') return next();
-        return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    if (!STAFF_ROLES.includes(role)) {
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
+    }
     next();
 }, proxy(SERVICES.CONTACT, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => `/api/contacts${req.url}`,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Contact service unavailable' })
 }));
 
-// 6. Opportunities / Projects
+// 9. Pipeline Opportunities
 app.use('/api/opportunities', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    const isClient = effectiveRole === 'Client';
-    if (isClient) {
+    const role = req.user?.role;
+    if (role === 'Client') {
         if (req.method === 'POST' || req.method === 'GET') return next();
-        return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    if (!STAFF_ROLES.includes(role)) {
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
+    }
     next();
 }, proxy(SERVICES.OPPORTUNITY, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Opportunity service unavailable' })
 }));
 
-// 7. Products
+// 10. Product Catalog
 app.use('/api/products', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    const isClient = effectiveRole === 'Client';
-    if (isClient) {
+    const role = req.user?.role;
+    if (role === 'Client') {
         if (req.method === 'GET') return next();
-        return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    if (!STAFF_ROLES.includes(role)) {
+        return res.status(403).json({ success: false, message: 'Access forbidden' });
+    }
     next();
 }, proxy(SERVICES.PRODUCT, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => `/api/products${req.url}`,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Product service unavailable' })
 }));
 
-// 8. Invoices & Payments - Strict Client Data Isolation
+// 11. Invoices & Billing
 app.use(['/api/invoices', '/api/payments'], authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
+    const role = req.user?.role;
     if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method)) {
-        if (!['Admin', 'Client'].includes(effectiveRole)) {
-            return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        if (!['Admin', 'Client'].includes(role)) {
+            return res.status(403).json({ success: false, message: 'Access forbidden' });
         }
     }
-    // Strict Client Data Security: If logged in as Client, automatically enforce their email!
-    if (effectiveRole === 'Client') {
+    if (role === 'Client') {
         const clientEmail = req.user.email;
         if (!req.url.includes('email=')) {
             const separator = req.url.includes('?') ? '&' : '?';
@@ -226,41 +234,41 @@ app.use(['/api/invoices', '/api/payments'], authMiddleware(), (req, res, next) =
         return `${basePath}${req.url}`;
     },
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Invoice Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'Invoice service unavailable' })
 }));
 
-// 9. Payroll
+// 12. HR Payroll & Leave
 app.use('/api/payroll', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    const role = req.user?.role;
+    if (!STAFF_ROLES.includes(role)) return res.status(403).json({ success: false, message: 'Access forbidden' });
     if (['POST', 'DELETE', 'PUT', 'PATCH'].includes(req.method)) {
-        if (!['Admin', 'HR'].includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        if (!['Admin', 'HR'].includes(role)) return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
     next();
 }, proxy(SERVICES.HR, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR service unavailable' })
 }));
 
-// 10. Leave
 app.use('/api/leave', authMiddleware(), (req, res, next) => {
-    const effectiveRole = req.headers['x-active-role'] || req.user?.role;
-    if (!STAFF_ROLES.includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+    const role = req.user?.role;
+    if (!STAFF_ROLES.includes(role)) return res.status(403).json({ success: false, message: 'Access forbidden' });
     if (req.method === 'PUT' && req.path.includes('/status')) {
-        if (!['Admin', 'HR'].includes(effectiveRole)) return res.status(403).json({ success: false, message: 'Access Forbidden' });
+        if (!['Admin', 'HR'].includes(role)) return res.status(403).json({ success: false, message: 'Access forbidden' });
     }
     next();
 }, proxy(SERVICES.HR, {
     parseReqBody: false,
     proxyReqPathResolver: (req) => req.originalUrl,
     proxyReqOptDecorator: defaultOptDecorator,
-    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR Service Unavailable' })
+    proxyErrorHandler: (err, res, next) => res.status(502).json({ success: false, message: 'HR service unavailable' })
 }));
 
+// Health checks
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'Velora-API-Gateway', timestamp: new Date() }));
 app.get('/api', (req, res) => res.json({ status: 'UP', message: 'Velora API Gateway Operational' }));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`[Gateway] Service running on port ${PORT}`));
+app.listen(PORT, () => console.log(`[Gateway] API Gateway operational on port ${PORT}`));

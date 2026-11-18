@@ -1,9 +1,10 @@
+require('dotenv').config();
 const { fork } = require('child_process');
 const path = require('path');
 
 const GATEWAY_PORT = process.env.PORT || 5000;
 
-// List of internal microservices with their dedicated ports
+// List of internal microservices with dedicated ports
 const services = [
   { name: 'Auth Service', port: 5001, script: path.join(__dirname, 'apps/auth-service/server.js') },
   { name: 'Contact Service', port: 5002, script: path.join(__dirname, 'apps/contact-service/server.js') },
@@ -32,7 +33,7 @@ services.forEach((svc) => {
       ...process.env,
       PORT: svc.port
     },
-    execArgv: ['--max-old-space-size=48'], // Low memory footprint for Render Free Tier (512MB RAM)
+    execArgv: ['--max-old-space-size=256'],
     stdio: 'inherit'
   });
 
@@ -49,16 +50,16 @@ services.forEach((svc) => {
   children.push(child);
 });
 
-// Give microservices 2.5 seconds to establish DB connections and bind ports before gateway starts
+// Allow microservices 2 seconds to establish DB connections and bind ports before gateway starts
 setTimeout(() => {
-  console.log(`\n🌐 [Gateway] Launching API Gateway on public PORT: ${GATEWAY_PORT} ...`);
+  console.log(`\n🌐 [Gateway] Launching API Gateway on public port: ${GATEWAY_PORT} ...`);
   
   const gateway = fork(path.join(__dirname, 'apps/gateway/server.js'), [], {
     env: {
       ...process.env,
       PORT: GATEWAY_PORT
     },
-    execArgv: ['--max-old-space-size=64'],
+    execArgv: ['--max-old-space-size=256'],
     stdio: 'inherit'
   });
 
@@ -71,7 +72,7 @@ setTimeout(() => {
   });
 
   children.push(gateway);
-}, 2500);
+}, 2000);
 
 // Graceful shutdown handling
 const shutdown = () => {
@@ -86,4 +87,3 @@ const shutdown = () => {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-

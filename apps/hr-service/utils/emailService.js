@@ -230,7 +230,7 @@ const sendPayslipEmail = async (email, name, month, year, netSalary, baseSalary,
             const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
             sendSmtpEmail.subject = `Payslip Generated - ${month} ${year}`;
             sendSmtpEmail.htmlContent = htmlContent;
-            sendSmtpEmail.sender = { "name": "Velora CRM", "email": process.env.SENDER_EMAIL || "yukesh785.in@gmail.com" };
+            sendSmtpEmail.sender = { "name": "Velora CRM", "email": process.env.SENDER_EMAIL || "no-reply@companycrm.com" };
             sendSmtpEmail.to = [{ "email": email, "name": name }];
 
             if (pdfBase64) {

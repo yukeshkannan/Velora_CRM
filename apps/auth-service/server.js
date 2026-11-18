@@ -17,10 +17,14 @@ app.use('/api/auth', authRoutes);
 
 const seedAdminUser = async () => {
   try {
-    const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@company.com').toLowerCase().trim();
-    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'Admin@123456';
+    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL ? process.env.DEFAULT_ADMIN_EMAIL.toLowerCase().trim() : null;
+    const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD;
     
-    let admin = await User.findOne({ role: 'Admin' });
+    if (!adminEmail || !adminPassword) {
+      return;
+    }
+    
+    const admin = await User.findOne({ role: 'Admin' });
     if (!admin) {
       await User.create({
         name: 'System Administrator',
@@ -30,12 +34,7 @@ const seedAdminUser = async () => {
         designation: 'Chief Administrator',
         department: 'Management'
       });
-      console.log(`[Auth-Service] Initial Admin account auto-provisioned: ${adminEmail}`);
-    } else {
-      admin.email = adminEmail;
-      admin.password = adminPassword;
-      await admin.save();
-      console.log(`[Auth-Service] Admin credentials synced with .env: ${adminEmail}`);
+      console.log(`[Auth-Service] Initial Admin account provisioned: ${adminEmail}`);
     }
   } catch (err) {
     console.error('[Auth-Service] Failed to seed default admin:', err.message);
@@ -49,12 +48,11 @@ const startServer = async () => {
     await connectDB(process.env.AUTH_MONGO_URI || process.env.MONGO_URI, 'auth-service');
     await seedAdminUser();
     
-    app.listen(PORT, () => console.log(`Auth Service running on port ${PORT}`));
+    app.listen(PORT, () => console.log(`[Auth-Service] Operational on port ${PORT}`));
   } catch (err) {
-    console.error('Failed to connect to DB', err);
+    console.error('[Auth-Service] Startup failed:', err);
     process.exit(1);
   }
 };
 
 startServer();
-

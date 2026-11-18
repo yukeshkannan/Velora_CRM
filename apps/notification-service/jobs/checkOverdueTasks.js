@@ -10,7 +10,8 @@ const initScheduledJobs = () => {
   cron.schedule('0 9 * * 5', async () => {
     console.log('[Notification-Service] Scheduled job triggered: Checking pending tasks...');
     try {
-      const response = await axios.get('http://task-service:5004/api/tasks');
+      const taskServiceUrl = process.env.TASK_SERVICE_URL || 'http://localhost:5004';
+      const response = await axios.get(`${taskServiceUrl}/api/tasks`);
       
       if (!response.data.success) {
         throw new Error('Failed to fetch tasks');

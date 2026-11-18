@@ -23,10 +23,10 @@ exports.globalSearch = async (req, res) => {
   console.log(`Searching for: "${query}"`);
 
   // Service Endpoints
-  const CONTACT_SERVICE = 'http://localhost:5002/api/contacts';
-  const OPPORTUNITY_SERVICE = 'http://localhost:5003/api/opportunities';
-  const TICKET_SERVICE = 'http://localhost:5010/api/tickets';
-  const PRODUCT_SERVICE = 'http://localhost:5008/api/products';
+  const CONTACT_SERVICE = `${process.env.CONTACT_SERVICE_URL || 'http://localhost:5002'}/api/contacts`;
+  const OPPORTUNITY_SERVICE = `${process.env.OPPORTUNITY_SERVICE_URL || 'http://localhost:5003'}/api/opportunities`;
+  const TICKET_SERVICE = `${process.env.TICKET_SERVICE_URL || 'http://localhost:5010'}/api/tickets`;
+  const PRODUCT_SERVICE = `${process.env.PRODUCT_SERVICE_URL || 'http://localhost:5008'}/api/products`;
   // Add other services if they support search
 
   try {

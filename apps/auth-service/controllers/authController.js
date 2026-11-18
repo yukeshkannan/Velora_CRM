@@ -24,35 +24,34 @@ const formatUserDTO = (user) => {
 // Register User
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, designation, department } = req.body;
-    
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      return formatResponse(res, 400, 'User already exists');
+    const { name, email, password } = req.body || {};
+    if (!name || !email || !password) {
+      return formatResponse(res, 400, 'Name, email, and password are required');
     }
 
-    // Public registration default role: Client (RBAC)
-    const userPayload = {
+    const cleanEmail = String(email).toLowerCase().trim();
+    const userExists = await User.findOne({ email: cleanEmail });
+    if (userExists) {
+      return formatResponse(res, 400, 'An account with this email already exists');
+    }
+
+    const user = await User.create({
       name, 
-      email, 
+      email: cleanEmail, 
       password, 
       role: 'Client'
-    };
+    });
 
-    const user = await User.create(userPayload);
-
-    // Asynchronous Event: Auto-create CRM Contact profile for Client users (Decoupled EDA)
-    if (user.role === 'Client') {
-      await publishToQueue('USER_EVENTS', {
-        event: 'USER_REGISTERED',
-        data: {
-          userId: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role
-        }
-      });
-    }
+    // Publish event for downstream services (e.g., Contact Service auto-sync)
+    await publishToQueue('USER_EVENTS', {
+      event: 'USER_REGISTERED',
+      data: {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
 
     formatResponse(res, 201, 'User registered successfully', { userId: user._id, email: user.email, role: user.role });
   } catch (error) {
@@ -68,60 +67,28 @@ exports.login = async (req, res) => {
       return formatResponse(res, 400, 'Please provide email and password');
     }
     const cleanEmail = String(email).toLowerCase().trim();
-    const isOwnerAccount = cleanEmail === 'admin@company.com' || cleanEmail === 'yukeshyukesh785@gmail.com';
 
-    // Developer Offline Fallback: If DB DNS/Atlas is offline, allow bypass using seed credentials
-    const { mongoose } = require('database');
-    if (mongoose.connection.readyState !== 1) {
-      console.log('[Auth Service] Database offline. Using local developer fallback...');
-      if (isOwnerAccount && (password === 'admin123' || password === 'Admin@123456')) {
-        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a111', role: 'Admin', email: cleanEmail }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
-        return formatResponse(res, 200, 'Login successful (Offline Bypass)', { 
-          token, 
-          user: {
-            id: '65beefc1d9b3a5a7d7f7a111',
-            name: 'System Administrator',
-            email: cleanEmail,
-            role: 'Admin',
-            profilePic: ''
-          }
-        });
-      } else if (email === 'employee@company.com' && password === 'employee123') {
-        const token = jwt.sign({ id: '65beefc1d9b3a5a7d7f7a222', role: 'Employee', email: 'employee@company.com' }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
-        return formatResponse(res, 200, 'Login successful (Offline Bypass)', { 
-          token, 
-          user: {
-            id: '65beefc1d9b3a5a7d7f7a222',
-            name: 'Offline Employee User',
-            email: 'employee@company.com',
-            role: 'Employee',
-            profilePic: ''
-          }
-        });
-      } else {
-        return formatResponse(res, 401, 'Invalid email or password (Database is offline)');
-      }
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user || !(await user.matchPassword(password))) {
+      return formatResponse(res, 401, 'Invalid email or password');
     }
 
-    let user = await User.findOne({ email: cleanEmail });
-
-    // Auto-promote owner account to Admin if role was Client
-    if (user && isOwnerAccount && user.role !== 'Admin') {
-      user.role = 'Admin';
-      await user.save();
-      console.log(`[Auth Service] Promoted owner account ${cleanEmail} to Admin role.`);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[Auth Service] JWT_SECRET is not configured');
+      return formatResponse(res, 500, 'Authentication service configuration error');
     }
 
-    // Login User - Update Response
-    if (user && (await user.matchPassword(password))) {
-      const token = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
-      formatResponse(res, 200, 'Login successful', { 
-        token, 
-        user: formatUserDTO(user)
-      });
-    } else {
-      formatResponse(res, 401, 'Invalid email or password');
-    }
+    const token = jwt.sign(
+      { id: user._id, role: user.role, email: user.email },
+      secret,
+      { expiresIn: '1d' }
+    );
+
+    formatResponse(res, 200, 'Login successful', { 
+      token, 
+      user: formatUserDTO(user)
+    });
   } catch (error) {
     formatResponse(res, 500, error.message);
   }
@@ -141,23 +108,21 @@ exports.googleLogin = async (req, res) => {
       return formatResponse(res, 401, 'Invalid Google token');
     }
     const payload = await response.json();
-
     const { email, name, sub: googleId, picture } = payload;
+    const cleanEmail = String(email).toLowerCase().trim();
 
-    // Find or create user (case-insensitive email matching)
-    let user = await User.findOne({ email: { $regex: new RegExp(`^${email}$`, 'i') } });
+    let user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
-      // Create new user with default Client role
       user = await User.create({
         name,
-        email,
+        email: cleanEmail,
         authProvider: 'google',
         googleId,
         role: 'Client',
         profilePic: picture || ''
       });
-      // Asynchronous Event: Auto-create CRM Contact profile for new Google registered clients
+
       await publishToQueue('USER_EVENTS', {
         event: 'USER_REGISTERED',
         data: {
@@ -167,19 +132,19 @@ exports.googleLogin = async (req, res) => {
           role: user.role
         }
       });
-    } else {
-      // Link Google account if it exists locally but didn't have googleId linked
-      if (user.authProvider === 'local') {
-        user.authProvider = 'google';
-        user.googleId = googleId;
-        if (!user.profilePic && picture) user.profilePic = picture;
-        await user.save();
-        console.log(`[Google Auth] Linked existing local user to Google: ${email}`);
-      }
+    } else if (user.authProvider === 'local') {
+      user.authProvider = 'google';
+      user.googleId = googleId;
+      if (!user.profilePic && picture) user.profilePic = picture;
+      await user.save();
     }
 
-    // Generate JWT token
-    const appToken = jwt.sign({ id: user._id, role: user.role, email: user.email }, process.env.JWT_SECRET || 'supersecretkey123', { expiresIn: '1d' });
+    const secret = process.env.JWT_SECRET;
+    const appToken = jwt.sign(
+      { id: user._id, role: user.role, email: user.email },
+      secret,
+      { expiresIn: '1d' }
+    );
 
     formatResponse(res, 200, 'Google Authentication successful', {
       token: appToken,
@@ -191,26 +156,30 @@ exports.googleLogin = async (req, res) => {
   }
 };
 
-
 // Forgot Password
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return formatResponse(res, 404, 'User not found');
+    const { email } = req.body || {};
+    if (!email) {
+      return formatResponse(res, 400, 'Email address is required');
+    }
+    const cleanEmail = String(email).toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      // Return 200 to prevent user enumeration attacks
+      return formatResponse(res, 200, 'If this email is registered, a password reset code has been sent');
+    }
 
-    // Generate 6 digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("DEBUG OTP:", otp); // Log OTP for testing
     user.resetPasswordOtp = otp;
-    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
     await user.save();
 
-    const emailSent = await sendOTPEmail(email, otp);
+    const emailSent = await sendOTPEmail(cleanEmail, otp);
     if (emailSent) {
-      formatResponse(res, 200, 'OTP sent to email');
+      formatResponse(res, 200, 'Password reset code sent to email');
     } else {
-      formatResponse(res, 500, 'Failed to send email');
+      formatResponse(res, 500, 'Failed to deliver reset email. Please try again later.');
     }
   } catch (error) {
     formatResponse(res, 500, error.message);
@@ -220,14 +189,15 @@ exports.forgotPassword = async (req, res) => {
 // Reset Password
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword, confirmPassword } = req.body;
+    const { email, otp, newPassword, confirmPassword } = req.body || {};
 
-    if (newPassword !== confirmPassword) {
+    if (!newPassword || newPassword !== confirmPassword) {
       return formatResponse(res, 400, 'Passwords do not match');
     }
 
+    const cleanEmail = String(email).toLowerCase().trim();
     const user = await User.findOne({ 
-      email, 
+      email: cleanEmail, 
       resetPasswordOtp: otp, 
       resetPasswordExpires: { $gt: Date.now() } 
     });
@@ -236,7 +206,7 @@ exports.resetPassword = async (req, res) => {
       return formatResponse(res, 400, 'Invalid or expired OTP');
     }
 
-    user.password = newPassword; // Will be hashed by pre-save hook
+    user.password = newPassword;
     user.resetPasswordOtp = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
@@ -250,21 +220,27 @@ exports.resetPassword = async (req, res) => {
 // Create User (Admin Only)
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, password, role, designation, department, salary } = req.body;
+    const { name, email, password, role, designation, department, salary } = req.body || {};
     
-    const userExists = await User.findOne({ email });
+    if (!name || !email || !password) {
+      return formatResponse(res, 400, 'Name, email, and password are required');
+    }
+
+    const cleanEmail = String(email).toLowerCase().trim();
+    const userExists = await User.findOne({ email: cleanEmail });
     if (userExists) {
       return formatResponse(res, 400, 'User already exists');
     }
 
+    const targetRole = role || 'Client';
     const userPayload = {
       name, 
-      email, 
+      email: cleanEmail, 
       password, 
-      role: role || 'Client'
+      role: targetRole
     };
 
-    if (role !== 'Client') {
+    if (targetRole !== 'Client') {
       const baseSal = Number(salary?.base) || 0;
       if (!salary || !baseSal || baseSal <= 0) {
         return formatResponse(res, 400, 'Base salary is required for staff members and must be greater than 0');
@@ -297,7 +273,7 @@ exports.createUser = async (req, res) => {
 // Get All Users
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({});
+    const users = await User.find({}).sort({ createdAt: -1 });
     const sanitizedUsers = users.map(u => formatUserDTO(u));
     
     res.status(200).json({
@@ -306,11 +282,10 @@ exports.getAllUsers = async (req, res) => {
         data: sanitizedUsers
     });
   } catch (error) {
-    console.error("Error in getAllUsers [DEBUG]:", error);
+    console.error('[Auth Service] Error in getAllUsers:', error.message);
     res.status(500).json({
         success: false,
-        message: error.message,
-        stack: error.stack
+        message: 'Internal server error'
     });
   }
 };
@@ -331,7 +306,7 @@ exports.getUserById = async (req, res) => {
     }
 };
 
-// Update User (Admin Only or Self if allowed)
+// Update User
 exports.updateUser = async (req, res) => {
   try {
     const { name, email, role, designation, department, salary, profilePic } = req.body;
@@ -342,8 +317,8 @@ exports.updateUser = async (req, res) => {
     }
 
     user.name = name || user.name;
-    user.email = email || user.email;
-    user.role = role || user.role;
+    if (email) user.email = String(email).toLowerCase().trim();
+    if (role) user.role = role;
 
     if (user.role !== 'Client') {
       if (designation !== undefined) user.designation = designation;
@@ -368,7 +343,7 @@ exports.updateUser = async (req, res) => {
   }
 };
 
-// Delete User (Admin Only)
+// Delete User
 exports.deleteUser = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -377,14 +352,13 @@ exports.deleteUser = async (req, res) => {
       return formatResponse(res, 404, 'User not found');
     }
 
-    // Asynchronous Event: Cascade delete user's associated leave/attendance data via RabbitMQ
     await publishToQueue('USER_EVENTS', {
       event: 'USER_DELETED',
       data: { userId }
     });
 
     await user.deleteOne();
-    formatResponse(res, 200, 'User and associated leave/attendance data deleted successfully');
+    formatResponse(res, 200, 'User deleted successfully');
   } catch (error) {
     formatResponse(res, 500, error.message);
   }
