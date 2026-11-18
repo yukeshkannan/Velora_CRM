@@ -18,7 +18,12 @@ services:
     networks: [ crm-network ]
 
   gateway:
-    build: { context: ., dockerfile: apps/gateway/Dockerfile }
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: companycrm-backend:latest
+    working_dir: /app/apps/gateway
+    command: npm start
     ports: [ "5000:5000" ]
     environment:
       - PORT=5000
@@ -42,8 +47,11 @@ services:
     restart: always
 
   auth-service:
-    build: { context: ., dockerfile: apps/auth-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/auth-service
+    command: npm start
     environment:
+      - PORT=5001
       - MONGO_URI=${AUTH_MONGO_URI:-${MONGO_URI}}
       - AUTH_MONGO_URI=${AUTH_MONGO_URI}
       - JWT_SECRET=${JWT_SECRET}
@@ -54,49 +62,67 @@ services:
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
     depends_on:
+      - gateway
       - redis
       - rabbitmq
     networks: [ crm-network ]
     restart: always
 
   contact-service:
-    build: { context: ., dockerfile: apps/contact-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/contact-service
+    command: npm start
     environment:
+      - PORT=5002
       - MONGO_URI=${CONTACT_MONGO_URI:-${MONGO_URI}}
       - CONTACT_MONGO_URI=${CONTACT_MONGO_URI}
       - AUTH_SERVICE_URL=http://auth-service:5001
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
     depends_on:
+      - gateway
       - rabbitmq
     networks: [ crm-network ]
     restart: always
 
   opportunity-service:
-    build: { context: ., dockerfile: apps/opportunity-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/opportunity-service
+    command: npm start
     environment:
+      - PORT=5003
       - MONGO_URI=${OPPORTUNITY_MONGO_URI:-${MONGO_URI}}
       - OPPORTUNITY_MONGO_URI=${OPPORTUNITY_MONGO_URI}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   task-service:
-    build: { context: ., dockerfile: apps/task-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/task-service
+    command: npm start
     environment:
+      - PORT=5004
       - MONGO_URI=${TASK_MONGO_URI:-${MONGO_URI}}
       - TASK_MONGO_URI=${TASK_MONGO_URI}
       - AUTH_SERVICE_URL=http://auth-service:5001
       - NOTIFICATION_SERVICE_URL=http://notification-service:5005
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   notification-service:
-    build: { context: ., dockerfile: apps/notification-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/notification-service
+    command: npm start
     environment:
+      - PORT=5005
       - MONGO_URI=${NOTIFICATION_MONGO_URI:-${MONGO_URI}}
       - NOTIFICATION_MONGO_URI=${NOTIFICATION_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
@@ -105,13 +131,17 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
       - TASK_SERVICE_URL=http://task-service:5004
     depends_on:
+      - gateway
       - rabbitmq
     networks: [ crm-network ]
     restart: always
 
   analytics-service:
-    build: { context: ., dockerfile: apps/analytics-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/analytics-service
+    command: npm start
     environment:
+      - PORT=5006
       - MONGO_URI=${ANALYTICS_MONGO_URI:-${MONGO_URI}}
       - ANALYTICS_MONGO_URI=${ANALYTICS_MONGO_URI}
       - CONTACT_SERVICE_URL=http://contact-service:5002
@@ -121,12 +151,17 @@ services:
       - TICKET_SERVICE_URL=http://ticket-service:5010
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   document-service:
-    build: { context: ., dockerfile: apps/document-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/document-service
+    command: npm start
     environment:
+      - PORT=5007
       - MONGO_URI=${DOCUMENT_MONGO_URI:-${MONGO_URI}}
       - DOCUMENT_MONGO_URI=${DOCUMENT_MONGO_URI}
       - STORAGE_TYPE=${STORAGE_TYPE:-local}
@@ -138,45 +173,65 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
     volumes:
       - document_uploads:/app/apps/document-service/uploads
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   product-service:
-    build: { context: ., dockerfile: apps/product-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/product-service
+    command: npm start
     environment:
+      - PORT=5008
       - MONGO_URI=${PRODUCT_MONGO_URI:-${MONGO_URI}}
       - PRODUCT_MONGO_URI=${PRODUCT_MONGO_URI}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   invoice-service:
-    build: { context: ., dockerfile: apps/invoice-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/invoice-service
+    command: npm start
     environment:
+      - PORT=5009
       - MONGO_URI=${INVOICE_MONGO_URI:-${MONGO_URI}}
       - INVOICE_MONGO_URI=${INVOICE_MONGO_URI}
       - NOTIFICATION_SERVICE_URL=http://notification-service:5005/api/notifications/email
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   ticket-service:
-    build: { context: ., dockerfile: apps/ticket-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/ticket-service
+    command: npm start
     environment:
+      - PORT=5010
       - MONGO_URI=${TICKET_MONGO_URI:-${MONGO_URI}}
       - TICKET_MONGO_URI=${TICKET_MONGO_URI}
       - CONTACT_SERVICE_URL=http://contact-service:5002
       - NOTIFICATION_SERVICE_URL=http://notification-service:5005
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   search-service:
-    build: { context: ., dockerfile: apps/search-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/search-service
+    command: npm start
     environment:
+      - PORT=5011
       - MONGO_URI=${SEARCH_MONGO_URI:-${MONGO_URI}}
       - SEARCH_MONGO_URI=${SEARCH_MONGO_URI}
       - CONTACT_SERVICE_URL=http://contact-service:5002
@@ -185,18 +240,25 @@ services:
       - PRODUCT_SERVICE_URL=http://product-service:5008
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
   hr-service:
-    build: { context: ., dockerfile: apps/hr-service/Dockerfile }
+    image: companycrm-backend:latest
+    working_dir: /app/apps/hr-service
+    command: npm start
     environment:
+      - PORT=5012
       - MONGO_URI=${HR_MONGO_URI:-${MONGO_URI}}
       - HR_MONGO_URI=${HR_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - gateway
     networks: [ crm-network ]
     restart: always
 
