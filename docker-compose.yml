@@ -1,10 +1,28 @@
 services:
-  gateway:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports: [ "6379:6379" ]
+    volumes:
+      - redis_data:/data
+    networks: [ crm-network ]
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks: [ crm-network ]
+
+  gateway:
     build: { context: ., dockerfile: apps/gateway/Dockerfile }
     ports: [ "5000:5000" ]
     environment:
       - PORT=5000
+      - JWT_SECRET=${JWT_SECRET}
       - AUTH_SERVICE_URL=http://auth-service:5001
       - CONTACT_SERVICE_URL=http://contact-service:5002
       - OPPORTUNITY_SERVICE_URL=http://opportunity-service:5003
@@ -17,7 +35,10 @@ services:
       - TICKET_SERVICE_URL=http://ticket-service:5010
       - SEARCH_SERVICE_URL=http://search-service:5011
       - HR_SERVICE_URL=http://hr-service:5012
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - redis
+    networks: [ crm-network ]
     restart: always
 
   auth-service:
@@ -25,14 +46,17 @@ services:
     environment:
       - MONGO_URI=${AUTH_MONGO_URI:-${MONGO_URI}}
       - AUTH_MONGO_URI=${AUTH_MONGO_URI}
-      - JWT_SECRET=${JWT_SECRET:-supersecretkey123}
-      - DEFAULT_ADMIN_EMAIL=${DEFAULT_ADMIN_EMAIL:-admin@company.com}
-      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD:-Admin@123456}
+      - JWT_SECRET=${JWT_SECRET}
+      - DEFAULT_ADMIN_EMAIL=${DEFAULT_ADMIN_EMAIL}
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - redis
+      - rabbitmq
+    networks: [ crm-network ]
     restart: always
 
   contact-service:
@@ -40,9 +64,12 @@ services:
     environment:
       - MONGO_URI=${CONTACT_MONGO_URI:-${MONGO_URI}}
       - CONTACT_MONGO_URI=${CONTACT_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    depends_on:
+      - rabbitmq
+    networks: [ crm-network ]
     restart: always
 
   opportunity-service:
@@ -50,9 +77,9 @@ services:
     environment:
       - MONGO_URI=${OPPORTUNITY_MONGO_URI:-${MONGO_URI}}
       - OPPORTUNITY_MONGO_URI=${OPPORTUNITY_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   task-service:
@@ -60,9 +87,11 @@ services:
     environment:
       - MONGO_URI=${TASK_MONGO_URI:-${MONGO_URI}}
       - TASK_MONGO_URI=${TASK_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5005
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   notification-service:
@@ -72,9 +101,12 @@ services:
       - NOTIFICATION_MONGO_URI=${NOTIFICATION_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+      - TASK_SERVICE_URL=http://task-service:5004
+    depends_on:
+      - rabbitmq
+    networks: [ crm-network ]
     restart: always
 
   analytics-service:
@@ -87,9 +119,9 @@ services:
       - TASK_SERVICE_URL=http://task-service:5004
       - INVOICE_SERVICE_URL=http://invoice-service:5009
       - TICKET_SERVICE_URL=http://ticket-service:5010
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   document-service:
@@ -102,9 +134,11 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=${AWS_REGION:-ap-south-1}
       - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    volumes:
+      - document_uploads:/app/apps/document-service/uploads
+    networks: [ crm-network ]
     restart: always
 
   product-service:
@@ -112,9 +146,9 @@ services:
     environment:
       - MONGO_URI=${PRODUCT_MONGO_URI:-${MONGO_URI}}
       - PRODUCT_MONGO_URI=${PRODUCT_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   invoice-service:
@@ -122,9 +156,10 @@ services:
     environment:
       - MONGO_URI=${INVOICE_MONGO_URI:-${MONGO_URI}}
       - INVOICE_MONGO_URI=${INVOICE_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5005/api/notifications/email
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   ticket-service:
@@ -132,9 +167,11 @@ services:
     environment:
       - MONGO_URI=${TICKET_MONGO_URI:-${MONGO_URI}}
       - TICKET_MONGO_URI=${TICKET_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - CONTACT_SERVICE_URL=http://contact-service:5002
+      - NOTIFICATION_SERVICE_URL=http://notification-service:5005
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   search-service:
@@ -142,9 +179,13 @@ services:
     environment:
       - MONGO_URI=${SEARCH_MONGO_URI:-${MONGO_URI}}
       - SEARCH_MONGO_URI=${SEARCH_MONGO_URI}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - CONTACT_SERVICE_URL=http://contact-service:5002
+      - OPPORTUNITY_SERVICE_URL=http://opportunity-service:5003
+      - TICKET_SERVICE_URL=http://ticket-service:5010
+      - PRODUCT_SERVICE_URL=http://product-service:5008
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   hr-service:
@@ -154,9 +195,9 @@ services:
       - HR_MONGO_URI=${HR_MONGO_URI}
       - BREVO_API_KEY=${BREVO_API_KEY}
       - SENDER_EMAIL=${SENDER_EMAIL}
-      - REDIS_URL=${REDIS_URL}
-      - RABBITMQ_URL=${RABBITMQ_URL}
-    networks: [ aura-network ]
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://rabbitmq:5672}
+    networks: [ crm-network ]
     restart: always
 
   client:
@@ -164,14 +205,17 @@ services:
       context: .
       dockerfile: apps/client/Dockerfile
       args:
-        - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+        - VITE_API_URL=${VITE_API_URL:-}
     ports: [ "3000:80" ]
     depends_on: [ gateway ]
-    networks: [ aura-network ]
+    networks: [ crm-network ]
     restart: always
 
+volumes:
+  document_uploads:
+  redis_data:
+  rabbitmq_data:
 
 networks:
-  aura-network:
+  crm-network:
     driver: bridge
-

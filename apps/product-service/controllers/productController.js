@@ -82,35 +82,19 @@ const defaultITProducts = [
 exports.getProducts = async (req, res) => {
   try {
     const searchTerm = req.query.search || req.query.q || '';
-    const reseed = req.query.reseed === 'true';
 
-    // Purge any legacy hardware products
-    await Product.deleteMany({ 
-      $or: [
-        { category: { $regex: /hardware/i } },
-        { name: { $regex: /hardware/i } }
-      ]
-    });
-
-    // Auto-update any 0-stock products to available stock (99)
-    await Product.updateMany({ stock: { $lte: 0 } }, { $set: { stock: 99 } });
-
-    // Auto-seed if database has no products or reseed requested
-    let count = await Product.countDocuments();
-    if (count === 0 || reseed) {
-      await Product.deleteMany({});
+    // Auto-seed default catalog only if collection is completely empty
+    const count = await Product.countDocuments();
+    if (count === 0) {
       await Product.insertMany(defaultITProducts);
       await delCachePattern('products:*');
-      console.log('✅ Auto-seeded Enterprise IT & Cloud Services Portfolio.');
+      console.log('[Product Service] Initial product catalog seeded.');
     }
 
     const cacheKey = `products:all:${searchTerm}`;
-    
-    if (!reseed) {
-      const cachedData = await getCache(cacheKey);
-      if (cachedData) {
-        return res.status(200).json(cachedData);
-      }
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
     }
 
     let query = {};
@@ -123,20 +107,20 @@ exports.getProducts = async (req, res) => {
         { category: regex }
       ];
     }
-    const products = await Product.find(query);
+    const products = await Product.find(query).sort({ createdAt: -1 });
     const responseData = {
       success: true,
       count: products.length,
       data: products
     };
 
-    await setCache(cacheKey, responseData, 3600); // Cache for 1 hour
+    await setCache(cacheKey, responseData, 300); // Cache for 5 minutes
     res.status(200).json(responseData);
   } catch (err) {
-    console.error("Error in getProducts:", err);
+    console.error('[Product Service] Error in getProducts:', err.message);
     res.status(500).json({
       success: false,
-      error: 'Server Error: ' + err.message
+      error: 'Failed to retrieve products'
     });
   }
 };

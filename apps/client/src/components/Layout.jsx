@@ -12,14 +12,12 @@ import Sidebar from './Sidebar';
 import LoadingSpinner from './LoadingSpinner';
 
 const Layout = () => {
-  const { user, switchPersonaRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const personaRef = useRef(null);
 
   const isClient = !user || user.role === 'Client';
 
@@ -96,32 +94,12 @@ const Layout = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
-      if (personaRef.current && !personaRef.current.contains(e.target)) {
-        setIsPersonaOpen(false);
-      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSwitchPersona = (p) => {
-    if (switchPersonaRole) {
-      switchPersonaRole(p.roleName);
-      toast.success(`Switched to ${p.label} (${p.roleName})`, {
-        style: {
-          background: '#0f172a',
-          color: '#ffffff',
-          fontWeight: '700',
-          borderRadius: '12px'
-        }
-      });
-      setIsPersonaOpen(false);
-      navigate('/app/dashboard');
-    }
-  };
-
   const currentPersona = personas.find(p => p.roleName === user?.role) || personas[0];
-  const isSuperAdminUser = user?.originalRole === 'Admin' || (user?.email && user.email.toLowerCase() === 'admin@company.com');
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans selection:bg-slate-200 selection:text-slate-900 antialiased overflow-x-hidden">
@@ -154,95 +132,15 @@ const Layout = () => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-                {/* Persona Switcher ONLY FOR ADMIN / EVALUATOR */}
-                {isSuperAdminUser ? (
-                    <div className="relative" ref={personaRef}>
-                        <button
-                            type="button"
-                            onClick={() => setIsPersonaOpen(!isPersonaOpen)}
-                            className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-2xs ${currentPersona.badgeColor} hover:shadow-sm active:scale-95`}
-                            title="Role Workspace Simulator (Admin Tool)"
-                        >
-                            {currentPersona.icon}
-                            <span className="hidden sm:inline">{user?.role || 'User'} Workspace</span>
-                            <span className="inline sm:hidden">{user?.role || 'Role'}</span>
-                            <ChevronDown size={13} className={`transition-transform duration-200 text-slate-400 ${isPersonaOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        <AnimatePresence>
-                            {isPersonaOpen && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute right-0 mt-2 w-72 sm:w-84 bg-white rounded-2xl shadow-2xl border border-slate-200/90 overflow-hidden z-50 p-2 space-y-1.5 font-sans"
-                                >
-                                    <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                            Role Workspace Simulator
-                                        </span>
-                                        <span className="flex items-center gap-1 text-[9px] font-extrabold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/60">
-                                            <Sparkles size={11} /> Admin Tool
-                                        </span>
-                                    </div>
-
-                                    <div className="space-y-1 pt-1">
-                                        {personas.map((p) => {
-                                            const isSelected = user?.role === p.roleName;
-                                            return (
-                                                <button
-                                                    key={p.id}
-                                                    type="button"
-                                                    onClick={() => handleSwitchPersona(p)}
-                                                    className={`w-full p-2.5 rounded-xl text-left flex items-center gap-3 transition-all cursor-pointer border-none ${
-                                                        isSelected ? 'bg-slate-900 text-white shadow-sm' : 'hover:bg-slate-50 text-slate-800'
-                                                    }`}
-                                                >
-                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${
-                                                        isSelected ? 'bg-white/10 border-white/20' : 'bg-slate-100/80 border-slate-200/60'
-                                                    }`}>
-                                                        {p.icon}
-                                                    </div>
-
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between">
-                                                            <p className={`text-xs font-black tracking-tight ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                                                                {p.label}
-                                                            </p>
-                                                            <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                                                                isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
-                                                            }`}>
-                                                                {p.roleName}
-                                                            </span>
-                                                        </div>
-                                                        <p className={`text-[10px] truncate mt-0.5 font-medium ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
-                                                            {p.desc}
-                                                        </p>
-                                                    </div>
-
-                                                    {isSelected && (
-                                                        <Check size={14} className="text-emerald-400 shrink-0 ml-1" />
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                ) : (
-                    /* Clean Read-Only Role Badge for Client, Employee, Sales, HR */
-                    <div 
-                        className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${currentPersona.badgeColor} shadow-2xs`}
-                        title={`${user?.role || 'User'} Workspace`}
-                    >
-                        {currentPersona.icon}
-                        <span className="hidden sm:inline">{user?.role || 'User'} Workspace</span>
-                        <span className="inline sm:hidden">{user?.role || 'Role'}</span>
-                    </div>
-                )}
+                {/* User Workspace Role Badge */}
+                <div 
+                    className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${currentPersona.badgeColor} shadow-2xs`}
+                    title={`${user?.role || 'User'} Workspace`}
+                >
+                    {currentPersona.icon}
+                    <span className="hidden sm:inline">{user?.role || 'User'} Workspace</span>
+                    <span className="inline sm:hidden">{user?.role || 'Role'}</span>
+                </div>
 
 
                 {/* Notification Bell (For Admin & Staff) */}

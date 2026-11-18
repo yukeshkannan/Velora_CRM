@@ -35,9 +35,6 @@ const syncClientUsers = async () => {
 // @access  Public
 exports.getContacts = async (req, res) => {
   try {
-    console.log('[Contact Service] Fetching contacts...');
-    await syncClientUsers();
-
     const { email, search, q } = req.query;
     let query = {};
     if (email && String(email).trim() !== '') {
@@ -60,10 +57,8 @@ exports.getContacts = async (req, res) => {
     }
 
     const contacts = await Contact.find(query).sort({ createdAt: -1 });
-    console.log(`[Contact Service] Found ${contacts.length} contacts`);
     formatResponse(res, 200, 'Contacts retrieved successfully', contacts);
   } catch (err) {
-    console.error('[Contact Service] Error fetching contacts:', err);
     formatResponse(res, 500, 'Server Error', err.message);
   }
 };

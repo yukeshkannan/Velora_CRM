@@ -13,31 +13,36 @@ RUN npm install
 # Copy source and build
 COPY apps/ ./apps/
 WORKDIR /app/apps/client
-# Handle Env Vars
+
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
-# Production stage (using Nginx to serve the static files)
+# Production stage - Nginx
 FROM nginx:stable-alpine
 COPY --from=builder /app/apps/client/dist /usr/share/nginx/html
 
-# Add a simple nginx config to handle React Router (SPA)
+# Nginx config for Single Page Application and API Gateway proxying
 RUN echo "server { \
     listen 80; \
     location / { \
-    root /usr/share/nginx/html; \
-    index index.html index.htm; \
-    try_files \$uri \$uri/ /index.html; \
-    } \
-    location /api/opportunities { \
-    proxy_pass http://opportunity-service:5003; \
+        root /usr/share/nginx/html; \
+        index index.html index.htm; \
+        try_files \$uri \$uri/ /index.html; \
     } \
     location /api { \
-    proxy_pass http://gateway:5000; \
+        proxy_pass http://gateway:5000; \
+        proxy_http_version 1.1; \
+        proxy_set_header Upgrade \$http_upgrade; \
+        proxy_set_header Connection 'upgrade'; \
+        proxy_set_header Host \$host; \
+        proxy_cache_bypass \$http_upgrade; \
+        proxy_set_header X-Real-IP \$remote_addr; \
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto \$scheme; \
     } \
-    }" > /etc/nginx/conf.d/default.conf
+}" > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

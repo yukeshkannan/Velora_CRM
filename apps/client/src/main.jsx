@@ -15,20 +15,11 @@ if (apiUrl && apiUrl !== '/') {
     axios.defaults.baseURL = ''; 
 }
 
-// Configure Axios Request Interceptor to include JWT token & active simulated role
+// Configure Axios Request Interceptor to include JWT token
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  const savedUser = localStorage.getItem('user');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-  }
-  if (savedUser) {
-    try {
-      const parsed = JSON.parse(savedUser);
-      if (parsed?.role) {
-        config.headers['x-active-role'] = parsed.role;
-      }
-    } catch (e) {}
   }
   return config;
 }, (error) => {
