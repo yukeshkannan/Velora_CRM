@@ -309,6 +309,15 @@ exports.getUserById = async (req, res) => {
 // Update User
 exports.updateUser = async (req, res) => {
   try {
+    const requesterRole = req.user?.role || req.headers['x-user-role'];
+    const requesterId = String(req.user?.id || req.user?._id || req.headers['x-user-id'] || '');
+    const targetUserId = String(req.params.id);
+
+    // Security Gate: Employees are not authorized to modify user settings or passwords
+    if (requesterRole === 'Employee') {
+      return formatResponse(res, 403, 'Employees are not authorized to modify user settings or passwords. Please contact your administrator.');
+    }
+
     const { name, email, role, designation, department, salary, profilePic } = req.body;
     const user = await User.findById(req.params.id);
 
@@ -318,12 +327,16 @@ exports.updateUser = async (req, res) => {
 
     user.name = name || user.name;
     if (email) user.email = String(email).toLowerCase().trim();
-    if (role) user.role = role;
+    if (role && (requesterRole === 'Admin' || requesterRole === 'HR')) {
+      user.role = role;
+    }
 
     if (user.role !== 'Client') {
       if (designation !== undefined) user.designation = designation;
       if (department !== undefined) user.department = department;
-      if (salary !== undefined) user.salary = salary;
+      if (salary !== undefined && (requesterRole === 'Admin' || requesterRole === 'HR')) {
+        user.salary = salary;
+      }
     } else {
       user.designation = undefined;
       user.department = undefined;
@@ -333,7 +346,12 @@ exports.updateUser = async (req, res) => {
     if (profilePic !== undefined) user.profilePic = profilePic;
 
     if (req.body.password) {
-      user.password = req.body.password;
+      // Only Admin, HR, or non-employee account owners can update password
+      if (requesterRole === 'Admin' || requesterRole === 'HR' || requesterId === targetUserId) {
+        user.password = req.body.password;
+      } else {
+        return formatResponse(res, 403, 'Unauthorized to change user password');
+      }
     }
 
     await user.save();
