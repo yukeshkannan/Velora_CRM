@@ -111,7 +111,6 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
@@ -130,22 +129,18 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
 
         autoCheckIn(userData);
-        setLoading(false);
 
         return { success: true, user: userData };
       } else {
-        setLoading(false);
-        return { success: false, message: data.message || 'Login failed' };
+        return { success: false, message: data.message || 'Incorrect email or password. Please try again.' };
       }
     } catch (err) {
-      setLoading(false);
       console.error("Login error:", err);
       return { success: false, message: 'Server connection error. Please try again.' };
     }
   };
 
   const register = async (name, email, password, role = 'Client') => {
-    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
@@ -168,20 +163,16 @@ export const AuthProvider = ({ children }) => {
             autoCheckIn(userData);
         }
 
-        setLoading(false);
         return { success: true, user: userData };
       } else {
-        setLoading(false);
         return { success: false, message: data.message || 'Registration failed' };
       }
     } catch (err) {
-      setLoading(false);
       return { success: false, message: 'Server connection error. Please try again.' };
     }
   };
 
   const loginWithUserData = (userData, token) => {
-    setLoading(true);
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
@@ -189,7 +180,6 @@ export const AuthProvider = ({ children }) => {
       hasAutoCheckedIn.current = false;
       autoCheckIn(userData);
     }
-    setLoading(false);
   };
 
   const logout = () => {
