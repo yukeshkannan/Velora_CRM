@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
@@ -102,9 +102,12 @@ const Login = () => {
     const result = await login(email, password);
     
     if (result.success) {
+      toast.success('Login successful!');
       navigate('/app/dashboard', { replace: true });
     } else {
-      setError(result.message);
+      const errMsg = result.message || 'Incorrect email or password. Please try again.';
+      setError(errMsg);
+      toast.error(errMsg);
     }
     setIsLoading(false);
   };
@@ -251,12 +254,12 @@ const Login = () => {
 
           {error && (
              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-4 p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-semibold flex items-center gap-2"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 p-3 bg-rose-50 border border-rose-200/80 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2.5 shadow-xs"
              >
-                <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                {error}
+                <AlertCircle size={16} className="text-rose-600 shrink-0" />
+                <span className="leading-snug">{error}</span>
              </motion.div>
           )}
 
