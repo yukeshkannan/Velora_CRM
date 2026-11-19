@@ -7,7 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { 
     Filter, Calendar as CalendarIcon, CheckSquare, DollarSign, 
     ChevronLeft, ChevronRight, Clock, Plus, Receipt, X, LayoutGrid, List,
-    Target, Zap, Briefcase, Trash2, Check
+    Target, Zap, Briefcase, Trash2, Check, Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +24,7 @@ const Calendar = () => {
     const [filter, setFilter] = useState({ tasks: true, opportunities: true, invoices: true });
     const [contacts, setContacts] = useState([]);
     const [users, setUsers] = useState([]);
+    const [selectedMember, setSelectedMember] = useState('mine'); // 'mine' (default - personal schedule) | 'all' | userId
     
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState(null);
@@ -91,8 +92,9 @@ const Calendar = () => {
             }
 
             const taskEvents = rawTasks.map(task => {
+                const assignedId = String(typeof task.assignedTo === 'object' ? (task.assignedTo?._id || task.assignedTo?.id || '') : (task.assignedTo || ''));
                 const contactObj = contactsData.find(c => String(c._id) === String(task.contactId));
-                const userObj = usersData.find(u => String(u._id || u.id) === String(task.assignedTo));
+                const userObj = usersData.find(u => String(u._id || u.id) === assignedId);
                 return {
                     id: task._id,
                     title: task.title,
@@ -106,7 +108,7 @@ const Calendar = () => {
                     contact: contactObj ? contactObj.name : 'N/A',
                     contactId: task.contactId || '',
                     assignedTo: userObj ? userObj.name : 'N/A',
-                    assignedToId: task.assignedTo || ''
+                    assignedToId: assignedId
                 };
             });
 
@@ -304,6 +306,22 @@ const Calendar = () => {
         
         // Final sanity check: Employees shouldn't see invoices on calendar even if filter is on
         if (user?.role === 'Employee' && e.type === 'invoice') return false;
+
+        // User / Assignee Scope Filter (Prevents employee tasks from cluttering Admin's personal calendar by default)
+        if (e.type === 'task') {
+            const currentUserId = String(user?.id || user?._id || '');
+            const taskAssigneeId = String(e.assignedToId || '');
+
+            if (selectedMember === 'mine') {
+                // Show ONLY events assigned to current user (e.g. Admin sees only Admin tasks; Employee sees only their tasks)
+                if (taskAssigneeId !== currentUserId) return false;
+            } else if (selectedMember !== 'all') {
+                // Filter by specific selected team member
+                if (taskAssigneeId !== String(selectedMember)) return false;
+            }
+            // If 'all', show all team tasks
+        }
+
         return true;
     });
 
@@ -456,6 +474,31 @@ const Calendar = () => {
                             {moment(date).format('MMMM YYYY')}
                         </h2>
                     </div>
+
+                    {/* Assignee / Scope Filter for Admin & Managers */}
+                    {user?.role !== 'Employee' && (
+                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-2xl px-3.5 py-1.5 shadow-2xs">
+                            <Users size={15} className="text-slate-500" />
+                            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Calendar:</span>
+                            <select 
+                                value={selectedMember} 
+                                onChange={(e) => setSelectedMember(e.target.value)}
+                                className="bg-transparent text-slate-800 text-xs font-bold border-none outline-none cursor-pointer pr-1"
+                            >
+                                <option value="mine">👤 My Schedule ({user?.name || 'Admin'})</option>
+                                <option value="all">👥 All Team Members</option>
+                                {users.length > 0 && (
+                                    <optgroup label="View Specific Staff">
+                                        {users.map(u => (
+                                            <option key={u._id || u.id} value={String(u._id || u.id)}>
+                                                {u.name} ({u.role})
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                )}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="flex border border-slate-200 rounded-full overflow-hidden p-0.5 bg-white">
                         {[
