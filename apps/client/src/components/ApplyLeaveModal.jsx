@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { X, Calendar, Sun, Moon, Clock, AlertCircle, Check } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
@@ -53,6 +54,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess }) => {
             };
             await axios.post('/api/leave', payload);
             setLoading(false);
+            toast.success('Leave request submitted successfully');
             if (onSuccess) onSuccess();
             onClose();
         } catch (err) {

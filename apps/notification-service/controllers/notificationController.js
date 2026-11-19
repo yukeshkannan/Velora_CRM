@@ -10,7 +10,8 @@ exports.sendNotification = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Please provide to, subject, and message' });
   }
 
-  const result = await sendEmail(to, subject, `<p>${message}</p>`);
+  const htmlContent = String(message).trim().startsWith('<') ? message : `<p>${message}</p>`;
+  const result = await sendEmail(to, subject, htmlContent);
 
   if (result) {
     res.status(200).json({ success: true, message: 'Email sent successfully' });
