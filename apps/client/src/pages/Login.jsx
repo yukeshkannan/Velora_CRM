@@ -42,49 +42,54 @@ const Login = () => {
     }
   };
 
-  const googleInitializedRef = useRef(false);
-
   useEffect(() => {
+    let interval = null;
+
     const renderGoogleButton = () => {
-      if (window.google?.accounts?.id && !googleInitializedRef.current) {
-        googleInitializedRef.current = true;
+      const targetDiv = document.getElementById("googleSignInDiv");
+      if (!window.google?.accounts?.id || !targetDiv) return;
+
+      if (!window.__googleLoginInitialized) {
+        window.__googleLoginInitialized = true;
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "301285732578-k89hrdj36qar35g0ddgmc5e0sgluuejs.apps.googleusercontent.com";
         window.google.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleSuccess,
           auto_select: false
         });
+      }
 
-        const targetDiv = document.getElementById("googleSignInDiv");
-        if (targetDiv) {
-          targetDiv.innerHTML = "";
-          window.google.accounts.id.renderButton(
-            targetDiv,
-            { 
-              theme: "outline", 
-              size: "large", 
-              width: 320, 
-              text: "continue_with", 
-              shape: "rectangular"
-            }
-          );
+      targetDiv.innerHTML = "";
+      window.google.accounts.id.renderButton(
+        targetDiv,
+        { 
+          theme: "outline", 
+          size: "large", 
+          width: 320, 
+          text: "continue_with", 
+          shape: "rectangular"
         }
+      );
+
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
       }
     };
 
     renderGoogleButton();
-    const interval = setInterval(() => {
+    interval = setInterval(() => {
       if (window.google?.accounts?.id) {
         renderGoogleButton();
       }
     }, 500);
 
     const timeout = setTimeout(() => {
-      clearInterval(interval);
-    }, 3000);
+      if (interval) clearInterval(interval);
+    }, 4000);
 
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       clearTimeout(timeout);
     };
   }, []);
