@@ -83,13 +83,30 @@ const Attendance = () => {
         fetchLeaves();
         
         let interval;
-        if (isManager) {
-            interval = setInterval(() => {
+        const handleVisibilityChange = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
                 fetchAttendance();
                 fetchLeaves();
-            }, 5000);
+            }
+        };
+
+        if (isManager) {
+            interval = setInterval(() => {
+                if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                    fetchAttendance();
+                    fetchLeaves();
+                }
+            }, 15000);
+            if (typeof document !== 'undefined') {
+                document.addEventListener('visibilitychange', handleVisibilityChange);
+            }
         }
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) clearInterval(interval);
+            if (typeof document !== 'undefined') {
+                document.removeEventListener('visibilitychange', handleVisibilityChange);
+            }
+        };
     }, [user?.id, user?._id, user?.role]);
 
     const fetchLeaves = async () => {

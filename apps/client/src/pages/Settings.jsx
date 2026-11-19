@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { User, Lock, Save, LogOut, Shield, ChevronRight, Camera, AlertCircle, Loader2, Eye, EyeOff, CheckCircle2, Building2, Briefcase, Mail, X, ExternalLink } from 'lucide-react';
@@ -6,6 +7,29 @@ import { useAuth } from '../context/AuthContext';
 
 const Settings = () => {
     const { user, logout, checkAuth, updateUserState } = useAuth();
+    const navigate = useNavigate();
+
+    // Security Gate: Employees cannot access settings or modify credentials without Admin
+    if (user?.role === 'Employee') {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center font-sans">
+                <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4 border border-rose-200 shadow-sm">
+                    <Shield size={32} />
+                </div>
+                <h2 className="text-xl font-black text-slate-900 mb-2">Access Restricted</h2>
+                <p className="text-slate-500 text-sm max-w-md mb-6 leading-relaxed">
+                    Employee profile and security credentials are administrator-managed. Contact your CRM administrator for credential changes.
+                </p>
+                <button 
+                    onClick={() => navigate('/app')}
+                    className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all cursor-pointer border-none shadow-sm"
+                >
+                    Return to Dashboard
+                </button>
+            </div>
+        );
+    }
+
     const isClient = user?.role === 'Client';
     const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);

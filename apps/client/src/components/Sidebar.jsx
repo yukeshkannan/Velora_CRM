@@ -115,15 +115,17 @@ const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
                   </ul>
               </nav>
               <div className="p-4 space-y-2 border-t border-slate-800">
-                  <NavLink 
-                      to="/app/settings"
-                      className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm w-full ${
-                          isActive ? 'bg-white text-slate-900' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                      }`}
-                      >
-                      <Settings size={20} />
-                      Settings
-                  </NavLink>
+                  {user?.role !== 'Employee' && (
+                      <NavLink 
+                          to="/app/settings"
+                          className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm w-full ${
+                              isActive ? 'bg-white text-slate-900' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          }`}
+                          >
+                          <Settings size={20} />
+                          Settings
+                      </NavLink>
+                  )}
                   <button 
                   type="button"
                   className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm w-full text-rose-400 hover:bg-rose-500/10 cursor-pointer border-none bg-transparent" 
@@ -341,15 +343,17 @@ const Sidebar = ({ mobileOpen = false, onClose = () => {} }) => {
 
         {/* Footer actions */}
         <div className="p-3 border-t border-slate-100 space-y-1 shrink-0">
-          <NavLink 
-              to="/app/settings"
-              className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs w-full ${
-                  isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-          >
-              <Settings size={16} />
-              Settings
-          </NavLink>
+          {user?.role !== 'Employee' && (
+              <NavLink 
+                  to="/app/settings"
+                  className={({ isActive }) => `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all font-bold text-xs w-full ${
+                      isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+              >
+                  <Settings size={16} />
+                  Settings
+              </NavLink>
+          )}
           
           <button 
               type="button"
