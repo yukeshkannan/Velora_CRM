@@ -606,9 +606,18 @@ const Attendance = () => {
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs">
                                             {leaves.map((leave) => {
-                                                const empName = (typeof leave.userId === 'object' && leave.userId?.name) ? leave.userId.name : (typeof leave.userId === 'string' ? `Employee (${leave.userId.slice(-6)})` : 'Staff Member');
-                                                const empEmail = (typeof leave.userId === 'object' && leave.userId?.email) ? leave.userId.email : '';
-                                                const empRole = (typeof leave.userId === 'object' && leave.userId?.role) ? leave.userId.role : 'Staff';
+                                                const leaveUserId = typeof leave.userId === 'object' ? (leave.userId?._id || leave.userId?.id) : leave.userId;
+                                                const matchedStaff = staffUsers.find(s => String(s._id || s.id) === String(leaveUserId));
+
+                                                const empName = (typeof leave.userId === 'object' && leave.userId?.name) 
+                                                    ? leave.userId.name 
+                                                    : (matchedStaff?.name || (leaveUserId ? `Staff (${String(leaveUserId).slice(-6)})` : 'Staff Member'));
+                                                const empEmail = (typeof leave.userId === 'object' && leave.userId?.email) 
+                                                    ? leave.userId.email 
+                                                    : (matchedStaff?.email || '');
+                                                const empRole = (typeof leave.userId === 'object' && leave.userId?.role) 
+                                                    ? leave.userId.role 
+                                                    : (matchedStaff?.role || 'Staff');
                                                 const isHrApplicant = empRole === 'HR' || (typeof leave.userId === 'object' && (leave.userId?.department || '').toLowerCase().includes('hr'));
                                                 const isCurrentUserHrNotAdmin = user?.role === 'HR' && user?.role !== 'Admin';
 
@@ -694,23 +703,49 @@ const Attendance = () => {
                                                                 </div>
                                                             ) : (
                                                                 <div className="flex items-center justify-end gap-2">
-                                                                    {leave.status !== 'Approved' && (
-                                                                        <button 
-                                                                            onClick={() => handleUpdateLeaveStatus(leave._id, 'Approved')}
-                                                                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-colors border-none cursor-pointer flex items-center gap-1 shadow-sm"
-                                                                            title={leave.status === 'Rejected' ? 'Re-Approve Leave' : 'Approve Leave'}
-                                                                        >
-                                                                            <Check size={14} /> {leave.status === 'Rejected' ? 'Re-Approve' : 'Approve'}
-                                                                        </button>
-                                                                    )}
-                                                                    {leave.status !== 'Rejected' && (
-                                                                        <button 
-                                                                            onClick={() => handleUpdateLeaveStatus(leave._id, 'Rejected')}
-                                                                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors border-none cursor-pointer flex items-center gap-1 shadow-sm"
-                                                                            title={leave.status === 'Approved' ? 'Change to Rejected' : 'Reject Leave'}
-                                                                        >
-                                                                            <X size={14} /> {leave.status === 'Approved' ? 'Reject' : 'Reject'}
-                                                                        </button>
+                                                                    {leave.status === 'Pending' ? (
+                                                                        <>
+                                                                            <button 
+                                                                                onClick={() => handleUpdateLeaveStatus(leave._id, 'Approved')}
+                                                                                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                                                                title="Approve Leave Request"
+                                                                            >
+                                                                                <Check size={14} /> Approve
+                                                                            </button>
+                                                                            <button 
+                                                                                onClick={() => handleUpdateLeaveStatus(leave._id, 'Rejected')}
+                                                                                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all border-none cursor-pointer flex items-center gap-1.5 shadow-xs"
+                                                                                title="Reject Leave Request"
+                                                                            >
+                                                                                <X size={14} /> Reject
+                                                                            </button>
+                                                                        </>
+                                                                    ) : leave.status === 'Approved' ? (
+                                                                        <>
+                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                                <CheckCircle size={13} className="text-emerald-600" /> Settled
+                                                                            </span>
+                                                                            <button 
+                                                                                onClick={() => handleUpdateLeaveStatus(leave._id, 'Pending')}
+                                                                                className="p-1 text-slate-400 hover:text-slate-600 text-[11px] font-semibold underline bg-transparent border-none cursor-pointer"
+                                                                                title="Reset to Pending"
+                                                                            >
+                                                                                Reset
+                                                                            </button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                                                                <XCircle size={13} className="text-rose-600" /> Closed
+                                                                            </span>
+                                                                            <button 
+                                                                                onClick={() => handleUpdateLeaveStatus(leave._id, 'Pending')}
+                                                                                className="p-1 text-slate-400 hover:text-slate-600 text-[11px] font-semibold underline bg-transparent border-none cursor-pointer"
+                                                                                title="Reset to Pending"
+                                                                            >
+                                                                                Reset
+                                                                            </button>
+                                                                        </>
                                                                     )}
                                                                     <button 
                                                                         onClick={() => handleDeleteLeave(leave._id)}
