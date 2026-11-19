@@ -43,7 +43,7 @@ function AppContent() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* Protected Routes (The "App") */}

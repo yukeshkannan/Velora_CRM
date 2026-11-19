@@ -280,11 +280,8 @@ const Login = () => {
             </div>
             
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="mb-1">
                 <label className="text-[11px] font-semibold text-slate-700">Password</label>
-                <Link to="/forgot-password" className="text-[11px] font-semibold text-slate-900 hover:underline">
-                  Forgot?
-                </Link>
               </div>
               <div className="relative">
                 <input 
