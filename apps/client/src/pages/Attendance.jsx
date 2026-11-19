@@ -90,15 +90,16 @@ const Attendance = () => {
             }, 5000);
         }
         return () => clearInterval(interval);
-    }, [user?.id, user?.role]);
+    }, [user?.id, user?._id, user?.role]);
 
     const fetchLeaves = async () => {
         try {
-            const endpoint = isManager ? '/api/leave' : `/api/leave?userId=${user.id}`;
+            const currentUserId = user?.id || user?._id;
+            const endpoint = isManager ? '/api/leave' : (currentUserId ? `/api/leave?userId=${currentUserId}` : '/api/leave');
             const res = await axios.get(endpoint);
             const data = res.data.data || [];
             // Filter out orphan leave requests where user was deleted
-            const validLeaves = data.filter(l => l.userId != null && (typeof l.userId === 'object' ? l.userId._id : true));
+            const validLeaves = data.filter(l => l && (l._id || l.id));
             setLeaves(validLeaves);
         } catch (err) {
             console.error("Fetch leaves error:", err);
@@ -152,7 +153,8 @@ const Attendance = () => {
     const fetchAttendance = async () => {
         try {
             // Admin and HR fetch ALL records, other staff fetch their OWN
-            const endpoint = isManager ? '/api/attendance?limit=100' : `/api/attendance?userId=${user.id}`;
+            const currentUserId = user?.id || user?._id;
+            const endpoint = isManager ? '/api/attendance?limit=100' : (currentUserId ? `/api/attendance?userId=${currentUserId}` : '/api/attendance');
             const res = await axios.get(endpoint);
             const data = res.data.data || [];
             setAttendance(data);
@@ -604,9 +606,9 @@ const Attendance = () => {
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 text-xs">
                                             {leaves.map((leave) => {
-                                                const empName = typeof leave.userId === 'object' ? leave.userId?.name : 'Staff Member';
-                                                const empEmail = typeof leave.userId === 'object' ? leave.userId?.email : '';
-                                                const empRole = typeof leave.userId === 'object' ? leave.userId?.role : '';
+                                                const empName = (typeof leave.userId === 'object' && leave.userId?.name) ? leave.userId.name : (typeof leave.userId === 'string' ? `Employee (${leave.userId.slice(-6)})` : 'Staff Member');
+                                                const empEmail = (typeof leave.userId === 'object' && leave.userId?.email) ? leave.userId.email : '';
+                                                const empRole = (typeof leave.userId === 'object' && leave.userId?.role) ? leave.userId.role : 'Staff';
                                                 const isHrApplicant = empRole === 'HR' || (typeof leave.userId === 'object' && (leave.userId?.department || '').toLowerCase().includes('hr'));
                                                 const isCurrentUserHrNotAdmin = user?.role === 'HR' && user?.role !== 'Admin';
 

@@ -21,7 +21,8 @@ const startEmailConsumer = async () => {
           console.log(`[Notification Service] Received message for: ${to}`);
           
           // Send Email
-          const result = await sendEmail(to, subject, `<p>${message}</p>`);
+          const htmlContent = String(message).trim().startsWith('<') ? message : `<p>${message}</p>`;
+          const result = await sendEmail(to, subject, htmlContent);
           
           if (result) {
             channel.ack(msg);

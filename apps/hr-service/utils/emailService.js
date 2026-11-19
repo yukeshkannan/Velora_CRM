@@ -288,4 +288,275 @@ const sendPayslipEmail = async (email, name, month, year, netSalary, baseSalary,
     }
 };
 
-module.exports = { sendPayslipEmail };
+// Generic email dispatcher via Brevo API with Ethereal/Nodemailer fallback
+const dispatchEmail = async ({ to, toName, subject, htmlContent, attachments = [] }) => {
+    const brevoKey = process.env.BREVO_API_KEY;
+    if (brevoKey) {
+        try {
+            const defaultClient = SibApiV3Sdk.ApiClient.instance;
+            const apiKey = defaultClient.authentications['api-key'];
+            apiKey.apiKey = brevoKey;
+
+            const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+            const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+            sendSmtpEmail.subject = subject;
+            sendSmtpEmail.htmlContent = htmlContent;
+            sendSmtpEmail.sender = {
+                name: "Velora CRM",
+                email: process.env.SENDER_EMAIL || "yukesh785.in@gmail.com"
+            };
+            sendSmtpEmail.to = [{ email: to, name: toName || to }];
+            if (attachments.length > 0) {
+                sendSmtpEmail.attachment = attachments;
+            }
+
+            await apiInstance.sendTransacEmail(sendSmtpEmail);
+            console.log(`[HR Service] [Brevo API] Email dispatched successfully to ${to} (${subject})`);
+            return true;
+        } catch (brevoErr) {
+            console.error('[HR Service] Brevo API Email error:', brevoErr.message);
+            if (brevoErr.response && brevoErr.response.text) {
+                console.error('  Brevo Response:', brevoErr.response.text);
+            }
+        }
+    }
+
+    // Fallback: Nodemailer
+    try {
+        if (!nodemailer) nodemailer = require('nodemailer');
+        console.log('[HR Service] Initializing SMTP/Ethereal fallback for:', to);
+        let transporter;
+        if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+            transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT) || 587,
+                secure: process.env.SMTP_SECURE === 'true',
+                auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+            });
+        } else {
+            const testAccount = await nodemailer.createTestAccount();
+            transporter = nodemailer.createTransport({
+                host: 'smtp.ethereal.email',
+                port: 587,
+                secure: false,
+                auth: { user: testAccount.user, pass: testAccount.pass }
+            });
+        }
+
+        const mailAttachments = attachments.map(a => ({
+            filename: a.name,
+            content: Buffer.from(a.content, 'base64'),
+            contentType: 'application/pdf'
+        }));
+
+        const info = await transporter.sendMail({
+            from: `"Velora CRM" <${process.env.SENDER_EMAIL || 'no-reply@veloracrm.com'}>`,
+            to,
+            subject,
+            html: htmlContent,
+            attachments: mailAttachments
+        });
+
+        console.log(`[HR Service] [Fallback SMTP] Sent email to ${to}: ${info.messageId}`);
+        if (nodemailer.getTestMessageUrl(info)) {
+            console.log(`[HR Service] Ethereal Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
+        }
+        return true;
+    } catch (fallbackErr) {
+        console.error('[HR Service] Fallback email delivery failed:', fallbackErr.message);
+        return false;
+    }
+};
+
+const sendLeaveApplicationEmail = async ({
+    adminEmail,
+    employeeName,
+    employeeEmail,
+    leaveType,
+    startDate,
+    endDate,
+    durationType,
+    halfDaySession,
+    shortLeaveHours,
+    reason
+}) => {
+    const formattedStart = new Date(startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const formattedEnd = endDate ? new Date(endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : formattedStart;
+    
+    let durationDisplay = durationType || 'Full Day';
+    if (durationType === 'Half Day') {
+        durationDisplay = `Half Day (${halfDaySession || 'Morning'})`;
+    } else if (durationType === 'Short Leave') {
+        durationDisplay = `Short Leave (${shortLeaveHours || '2 Hours'})`;
+    } else if (formattedStart !== formattedEnd) {
+        durationDisplay = `${formattedStart} to ${formattedEnd}`;
+    }
+
+    const htmlContent = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; background-color: #f8fafc; border-radius: 16px;">
+        <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0;">
+            <!-- Header Bar -->
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 26px 32px; color: #ffffff;">
+                <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #38bdf8; margin-bottom: 4px;">Velora CRM • Workforce Management</div>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">New Leave Request Submitted</h2>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 28px 32px; color: #334155;">
+                <p style="font-size: 14px; margin-top: 0; margin-bottom: 20px; line-height: 1.6;">
+                    Hello Admin,<br/>
+                    A new leave / PTO application has been submitted by <strong>${employeeName}</strong> and requires your review.
+                </p>
+
+                <!-- Status Banner -->
+                <div style="background-color: #fef3c7; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 16px; margin-bottom: 24px;">
+                    <span style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #92400e;">● Status: Pending Admin Review</span>
+                </div>
+
+                <!-- Details Table -->
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; font-size: 13px;">
+                    <tbody>
+                        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b; width: 38%;">Employee</td>
+                            <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">${employeeName} (${employeeEmail || 'No email'})</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b;">Leave Type</td>
+                            <td style="padding: 12px 16px; font-weight: 700; color: #0369a1;">${leaveType || 'Casual Leave'}</td>
+                        </tr>
+                        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b;">Duration</td>
+                            <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">${durationDisplay}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b;">Dates</td>
+                            <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">${formattedStart}${formattedStart !== formattedEnd ? ' to ' + formattedEnd : ''}</td>
+                        </tr>
+                        <tr style="background-color: #f8fafc;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b; vertical-align: top;">Reason</td>
+                            <td style="padding: 12px 16px; font-style: italic; color: #334155; line-height: 1.5;">"${reason || 'No reason specified'}"</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- Action Button -->
+                <div style="text-align: center; margin: 30px 0 10px 0;">
+                    <a href="https://velora-crm-entreprise.vercel.app/attendance" style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none;">
+                        Review & Approve in CRM →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background-color: #f8fafc; padding: 18px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                This automated notification was generated by Velora CRM Workforce Engine.
+            </div>
+        </div>
+    </div>
+    `;
+
+    return dispatchEmail({
+        to: adminEmail,
+        toName: "Velora Administrator",
+        subject: `📅 New Leave Request: ${employeeName} - ${leaveType}`,
+        htmlContent
+    });
+};
+
+const sendLeaveDecisionEmail = async ({
+    employeeEmail,
+    employeeName,
+    leaveType,
+    startDate,
+    endDate,
+    durationType,
+    status,
+    adminComment
+}) => {
+    const isApproved = status === 'Approved';
+    const accentColor = isApproved ? '#059669' : '#e11d48';
+    const bgLight = isApproved ? '#ecfdf5' : '#fff1f2';
+    const borderLight = isApproved ? '#a7f3d0' : '#fecdd3';
+    const formattedStart = new Date(startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const formattedEnd = endDate ? new Date(endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : formattedStart;
+
+    const htmlContent = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; background-color: #f8fafc; border-radius: 16px;">
+        <div style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08); border: 1px solid #e2e8f0;">
+            <!-- Header Bar -->
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 26px 32px; color: #ffffff;">
+                <div style="font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #38bdf8; margin-bottom: 4px;">Velora CRM • Workforce Management</div>
+                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #ffffff;">Leave Request ${status}</h2>
+            </div>
+
+            <!-- Body -->
+            <div style="padding: 28px 32px; color: #334155;">
+                <p style="font-size: 14px; margin-top: 0; margin-bottom: 20px; line-height: 1.6;">
+                    Hello <strong>${employeeName}</strong>,<br/>
+                    Your leave application has been reviewed by the HR / Management team. Here is the decision:
+                </p>
+
+                <!-- Decision Badge Box -->
+                <div style="background-color: ${bgLight}; border: 1px solid ${borderLight}; border-radius: 12px; padding: 16px 20px; text-align: center; margin-bottom: 24px;">
+                    <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #64748b; margin-bottom: 4px;">Application Status</div>
+                    <div style="font-size: 24px; font-weight: 900; color: ${accentColor}; letter-spacing: -0.5px;">${status.toUpperCase()}</div>
+                </div>
+
+                <!-- Details Table -->
+                <table style="width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin-bottom: 24px; font-size: 13px;">
+                    <tbody>
+                        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b; width: 38%;">Leave Type</td>
+                            <td style="padding: 12px 16px; font-weight: 700; color: #0f172a;">${leaveType || 'Leave'}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b;">Schedule</td>
+                            <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">${formattedStart}${formattedStart !== formattedEnd ? ' to ' + formattedEnd : ''}</td>
+                        </tr>
+                        <tr style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b;">Duration Type</td>
+                            <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">${durationType || 'Full Day'}</td>
+                        </tr>
+                        ${adminComment ? `
+                        <tr>
+                            <td style="padding: 12px 16px; font-weight: 700; color: #64748b; vertical-align: top;">Management Remarks</td>
+                            <td style="padding: 12px 16px; font-style: italic; color: #0f172a; line-height: 1.5;">"${adminComment}"</td>
+                        </tr>` : ''}
+                    </tbody>
+                </table>
+
+                ${isApproved ? `
+                <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px 16px; margin-bottom: 24px; font-size: 12px; color: #166534; line-height: 1.5;">
+                    💡 <strong>Note:</strong> Your attendance registry for these dates has been updated automatically so that salary calculations remain accurate and complete.
+                </div>
+                ` : `
+                <div style="background-color: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 12px 16px; margin-bottom: 24px; font-size: 12px; color: #9f1239; line-height: 1.5;">
+                    ℹ️ If you have any questions regarding this decision, please reach out to your HR supervisor or line manager.
+                </div>
+                `}
+
+                <!-- Action Button -->
+                <div style="text-align: center; margin: 26px 0 10px 0;">
+                    <a href="https://velora-crm-entreprise.vercel.app/attendance" style="display: inline-block; background-color: #0f172a; color: #ffffff; padding: 14px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none;">
+                        View Attendance Portal →
+                    </a>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background-color: #f8fafc; padding: 18px 32px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                This automated message was generated by Velora CRM Workforce Engine.
+            </div>
+        </div>
+    </div>
+    `;
+
+    return dispatchEmail({
+        to: employeeEmail,
+        toName: employeeName,
+        subject: `Leave Request ${status}: ${leaveType} (${formattedStart})`,
+        htmlContent
+    });
+};
+
+module.exports = { sendPayslipEmail, sendLeaveApplicationEmail, sendLeaveDecisionEmail };

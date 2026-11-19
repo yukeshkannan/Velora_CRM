@@ -1,17 +1,20 @@
 const Leave = require('../models/Leave');
 const User = require('../models/User');
+const Attendance = require('../models/Attendance');
+const { sendLeaveApplicationEmail, sendLeaveDecisionEmail } = require('../utils/emailService');
 
 // Apply for leave (Staff / Employee)
 exports.applyLeave = async (req, res) => {
     try {
         const { userId, leaveType, startDate, endDate, durationType, halfDaySession, shortLeaveHours, reason } = req.body;
+        const effectiveUserId = userId || req.headers['x-user-id'] || req.user?.id || req.user?._id;
 
-        if (!userId || !startDate || !reason) {
-            return res.status(400).json({ success: false, message: 'Please provide all required fields' });
+        if (!effectiveUserId || !startDate || !reason) {
+            return res.status(400).json({ success: false, message: 'Please provide user ID, start date, and reason' });
         }
 
         const leave = await Leave.create({
-            userId,
+            userId: effectiveUserId,
             leaveType: leaveType || 'Casual Leave',
             startDate,
             endDate: endDate || startDate,
@@ -29,6 +32,32 @@ exports.applyLeave = async (req, res) => {
             console.warn("[HR Service] Populate user in Leave failed:", popErr.message);
         }
 
+        // Send automated notification email to Admin / HR
+        try {
+            const adminEmail = process.env.HR_ADMIN_EMAIL || process.env.SENDER_EMAIL || 'yukesh785.in@gmail.com';
+            let applicantUser = populatedLeave?.userId;
+            if (!applicantUser || typeof applicantUser !== 'object') {
+                applicantUser = await User.findById(effectiveUserId).select('name email department role').lean().catch(() => null);
+            }
+            const employeeName = applicantUser?.name || 'Employee';
+            const employeeEmail = applicantUser?.email || '';
+
+            await sendLeaveApplicationEmail({
+                adminEmail,
+                employeeName,
+                employeeEmail,
+                leaveType: leave.leaveType,
+                startDate: leave.startDate,
+                endDate: leave.endDate,
+                durationType: leave.durationType,
+                halfDaySession: leave.halfDaySession,
+                shortLeaveHours: leave.shortLeaveHours,
+                reason: leave.reason
+            });
+        } catch (mailErr) {
+            console.error("[HR Service] Failed to send leave application notification:", mailErr.message);
+        }
+
         res.status(201).json({ success: true, data: populatedLeave || leave, message: 'Leave request submitted successfully' });
     } catch (error) {
         console.error("Apply Leave Error:", error);
@@ -41,7 +70,9 @@ exports.getLeaves = async (req, res) => {
     try {
         const { userId } = req.query;
         let query = {};
-        if (userId) query.userId = userId;
+        if (userId && userId !== 'undefined' && userId !== 'null' && String(userId).trim() !== '') {
+            query.userId = String(userId).trim();
+        }
 
         const leaves = await Leave.find(query)
             .populate('userId', 'name email department role')
@@ -56,8 +87,6 @@ exports.getLeaves = async (req, res) => {
 };
 
 // Update Leave Status (Approve / Reject by Admin or HR)
-const Attendance = require('../models/Attendance');
-
 exports.updateLeaveStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -119,6 +148,28 @@ exports.updateLeaveStatus = async (req, res) => {
 
                 curr.setDate(curr.getDate() + 1);
             }
+        }
+
+        // Send decision notification email to Employee
+        try {
+            let applicantUser = leave.userId;
+            if (applicantUser && typeof applicantUser !== 'object') {
+                applicantUser = await User.findById(applicantUser).select('name email').lean().catch(() => null);
+            }
+            if (applicantUser && applicantUser.email) {
+                await sendLeaveDecisionEmail({
+                    employeeEmail: applicantUser.email,
+                    employeeName: applicantUser.name || 'Employee',
+                    leaveType: leave.leaveType,
+                    startDate: leave.startDate,
+                    endDate: leave.endDate,
+                    durationType: leave.durationType,
+                    status: leave.status,
+                    adminComment: leave.adminComment
+                });
+            }
+        } catch (mailErr) {
+            console.error("[HR Service] Failed to send leave decision notification:", mailErr.message);
         }
 
         res.json({ success: true, data: leave, message: `Leave request ${status.toLowerCase()} successfully.` });

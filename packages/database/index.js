@@ -10,26 +10,17 @@ const mongoose = require('mongoose');
 const connectDB = async (uri, serviceName = 'Service') => {
   let targetUri = uri;
 
-  if (targetUri && serviceName) {
-    const formattedName = serviceName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_service$/, '');
-    const dbName = `crm_${formattedName}_db`;
+  // If URI is provided, ensure a clean database is targeted.
+  // Preserves specified database (e.g. /companycrm) across all services so cross-collection references
+  // (such as Leave -> User, Attendance -> User, Ticket -> User/Contact) resolve seamlessly without orphan records.
+  if (targetUri) {
+    const urlParts = targetUri.split('?');
+    const basePart = urlParts[0];
+    const queryPart = urlParts[1] ? `?${urlParts[1]}` : '';
     
-    if (targetUri.includes('/companycrm')) {
-      targetUri = targetUri.replace('/companycrm', `/${dbName}`);
-    } else {
-      const urlParts = targetUri.split('?');
-      const basePart = urlParts[0];
-      const queryPart = urlParts[1] ? `?${urlParts[1]}` : '';
-      
-      const lastSlash = basePart.lastIndexOf('/');
-      if (lastSlash > 8) {
-        const existingDb = basePart.substring(lastSlash + 1);
-        if (!existingDb || existingDb === 'test' || existingDb === 'admin') {
-          targetUri = basePart.substring(0, lastSlash + 1) + dbName + queryPart;
-        }
-      } else {
-        targetUri = `${basePart}/${dbName}${queryPart}`;
-      }
+    const lastSlash = basePart.lastIndexOf('/');
+    if (lastSlash <= 8) {
+      targetUri = `${basePart}/companycrm${queryPart}`;
     }
   }
 
