@@ -94,6 +94,86 @@ exports.login = async (req, res) => {
   }
 };
 
+// Demo Login (For Portfolio & Recruiter Showcase)
+exports.demoLogin = async (req, res) => {
+  try {
+    const { role = 'Admin' } = req.body || {};
+    const validRoles = ['Admin', 'Employee', 'Sales', 'HR', 'Client'];
+    const targetRole = validRoles.includes(role) ? role : 'Admin';
+
+    // Try to find a representative user for this role
+    let user;
+    if (targetRole === 'Admin') {
+      user = await User.findOne({ email: 'admin@company.com' }) || await User.findOne({ role: 'Admin' });
+    } else if (targetRole === 'Employee') {
+      user = await User.findOne({ email: 'yukesh785.in@gmail.com' }) || await User.findOne({ role: 'Employee' });
+    } else {
+      user = await User.findOne({ role: targetRole });
+    }
+
+    // If not found, create a demo user with realistic enterprise metadata
+    if (!user) {
+      const demoEmails = {
+        Admin: 'admin@company.com',
+        Employee: 'yukesh785.in@gmail.com',
+        HR: 'hr.demo@company.com',
+        Sales: 'sales.demo@company.com',
+        Client: 'client.demo@company.com'
+      };
+      const demoNames = {
+        Admin: 'System Administrator Yukesh',
+        Employee: 'Yukesh Staff Member',
+        HR: 'People Ops Lead',
+        Sales: 'Account Executive',
+        Client: 'Corporate Client Partner'
+      };
+      const demoDesignations = {
+        Admin: 'Chief Administrator',
+        Employee: 'Senior Software Engineer',
+        HR: 'People Operations Lead',
+        Sales: 'Account Executive',
+        Client: 'Corporate Client'
+      };
+      const demoDepartments = {
+        Admin: 'Executive Board',
+        Employee: 'Engineering',
+        HR: 'Human Resources',
+        Sales: 'Sales & Revenue',
+        Client: 'Operations'
+      };
+
+      user = await User.create({
+        name: demoNames[targetRole] || `Demo ${targetRole}`,
+        email: demoEmails[targetRole] || `demo.${targetRole.toLowerCase()}@company.com`,
+        password: 'DemoUser@123456',
+        role: targetRole,
+        designation: demoDesignations[targetRole] || targetRole,
+        department: demoDepartments[targetRole] || 'General',
+        salary: targetRole === 'Client' ? undefined : { base: 85000, allowances: 15000 }
+      });
+    }
+
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[Auth Service] JWT_SECRET is not configured');
+      return formatResponse(res, 500, 'Authentication service configuration error');
+    }
+
+    const token = jwt.sign(
+      { id: user._id, role: user.role, email: user.email },
+      secret,
+      { expiresIn: '7d' }
+    );
+
+    formatResponse(res, 200, `Demo login as ${user.role} successful`, {
+      token,
+      user: formatUserDTO(user)
+    });
+  } catch (error) {
+    formatResponse(res, 500, error.message);
+  }
+};
+
 // Google Login / Signup
 exports.googleLogin = async (req, res) => {
   try {

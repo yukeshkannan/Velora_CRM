@@ -71,6 +71,7 @@ const mountProxy = (path, target, middleware = null) => {
 
 // 1. Authentication Routes
 mountProxy('/api/auth/login', SERVICES.AUTH);
+mountProxy('/api/auth/demo-login', SERVICES.AUTH);
 mountProxy('/api/auth/register', SERVICES.AUTH);
 mountProxy('/api/auth/google-login', SERVICES.AUTH);
 mountProxy('/api/auth/forgot-password', SERVICES.AUTH);

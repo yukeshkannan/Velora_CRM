@@ -12,12 +12,14 @@ import Sidebar from './Sidebar';
 import LoadingSpinner from './LoadingSpinner';
 
 const Layout = () => {
-  const { user } = useAuth();
+  const { user, demoLogin } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const personaDropdownRef = useRef(null);
 
   const isClient = !user || user.role === 'Client';
 
@@ -94,6 +96,9 @@ const Layout = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsOpen(false);
       }
+      if (personaDropdownRef.current && !personaDropdownRef.current.contains(e.target)) {
+        setIsPersonaOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -132,14 +137,80 @@ const Layout = () => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-                {/* User Workspace Role Badge */}
-                <div 
-                    className={`flex items-center gap-1.5 sm:gap-2.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${currentPersona.badgeColor} shadow-2xs`}
-                    title={`${user?.role || 'User'} Workspace`}
-                >
-                    {currentPersona.icon}
-                    <span className="hidden sm:inline">{user?.role || 'User'} Workspace</span>
-                    <span className="inline sm:hidden">{user?.role || 'Role'}</span>
+                {/* Recruiter Persona Switcher Dropdown */}
+                <div className="relative" ref={personaDropdownRef}>
+                    <button 
+                        type="button"
+                        onClick={() => setIsPersonaOpen(!isPersonaOpen)}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-black uppercase tracking-wider ${currentPersona.badgeColor} shadow-2xs hover:opacity-95 transition-all cursor-pointer`}
+                        title="Click to Switch Persona (Live Recruiter Evaluation)"
+                    >
+                        {currentPersona.icon}
+                        <span className="hidden sm:inline">{user?.role || 'User'} Workspace</span>
+                        <span className="inline sm:hidden">{user?.role || 'Role'}</span>
+                        <ChevronDown size={13} className={`transition-transform duration-200 text-slate-500 ${isPersonaOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                        {isPersonaOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-left"
+                            >
+                                <div className="p-3 bg-slate-900 text-white flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <Sparkles size={14} className="text-amber-400" />
+                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200">
+                                            Role Evaluator
+                                        </span>
+                                    </div>
+                                    <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 text-slate-300 px-1.5 py-0.5 rounded">
+                                        Recruiter Demo
+                                    </span>
+                                </div>
+
+                                <div className="p-2 space-y-1">
+                                    {personas.map((p) => {
+                                        const isActive = (user?.role || '').toLowerCase() === p.roleName.toLowerCase();
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                onClick={async () => {
+                                                    setIsPersonaOpen(false);
+                                                    if (isActive) return;
+                                                    toast.loading(`Switching view to ${p.label}...`, { id: 'switch-role' });
+                                                    const res = await demoLogin(p.roleName);
+                                                    toast.dismiss('switch-role');
+                                                    if (res.success) {
+                                                        toast.success(`Switched to ${p.label} View!`);
+                                                        navigate('/app/dashboard');
+                                                    }
+                                                }}
+                                                className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                                                    isActive 
+                                                        ? 'bg-slate-100/90 border-slate-300 font-bold' 
+                                                        : 'bg-transparent hover:bg-slate-50 border-transparent'
+                                                }`}
+                                            >
+                                                <div className="mt-0.5">{p.icon}</div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold text-slate-900">{p.label}</span>
+                                                        {isActive && <Check size={14} className="text-emerald-600 font-bold" />}
+                                                    </div>
+                                                    <p className="text-[10px] text-slate-500 font-medium line-clamp-1">{p.desc}</p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
 
