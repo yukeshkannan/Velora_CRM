@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones, AlertCircle, Sparkles, ShieldCheck, Briefcase } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
@@ -283,17 +283,14 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Recruiter / Fast Demo Access Showcase */}
-          <div className="mb-4 p-3 bg-slate-900 text-white rounded-xl shadow-md border border-slate-800">
+          {/* Demo Accounts Bar */}
+          <div className="mb-4 p-3 bg-slate-50 border border-slate-200/80 rounded-xl">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <Sparkles size={14} className="text-amber-400" />
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200">
-                  Recruiter & Demo Mode
-                </span>
-              </div>
-              <span className="text-[9px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded-md">
-                1-Click Test
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                Demo Accounts
+              </span>
+              <span className="text-[10px] font-semibold text-slate-400">
+                1-click auto fill
               </span>
             </div>
 
@@ -302,32 +299,42 @@ const Login = () => {
                 type="button"
                 disabled={isLoading || isDemoLoading}
                 onClick={() => handleQuickDemo('Admin')}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-left flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                title="Sign in with Full Administrator Privileges"
+                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50/50 transition-all text-left cursor-pointer group disabled:opacity-50 shadow-2xs"
+                title="Sign in with Administrator Privileges"
               >
-                <div className="w-6 h-6 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-                  <ShieldCheck size={14} />
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span className="text-xs font-extrabold text-slate-900 group-hover:text-slate-950">
+                      Admin
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.5 rounded">
+                    Full
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-black text-white leading-tight">👑 Demo Admin</div>
-                  <div className="text-[9px] text-slate-300 truncate">HR, Payroll & CRM</div>
-                </div>
+                <p className="text-[10px] text-slate-500 font-medium truncate pl-3">HR, Payroll & CRM</p>
               </button>
 
               <button
                 type="button"
                 disabled={isLoading || isDemoLoading}
                 onClick={() => handleQuickDemo('Employee')}
-                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-left flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-400 hover:bg-slate-50/50 transition-all text-left cursor-pointer group disabled:opacity-50 shadow-2xs"
                 title="Sign in as Staff Member"
               >
-                <div className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
-                  <Briefcase size={14} />
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    <span className="text-xs font-extrabold text-slate-900 group-hover:text-slate-950">
+                      Employee
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200/80 px-1.5 py-0.5 rounded">
+                    Staff
+                  </span>
                 </div>
-                <div className="min-w-0">
-                  <div className="text-[11px] font-black text-white leading-tight">💼 Demo Staff</div>
-                  <div className="text-[9px] text-slate-300 truncate">Clock-in & Tasks</div>
-                </div>
+                <p className="text-[10px] text-slate-500 font-medium truncate pl-3">Clock-in & Tasks</p>
               </button>
             </div>
           </div>

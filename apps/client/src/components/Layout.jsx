@@ -160,15 +160,12 @@ const Layout = () => {
                                 transition={{ duration: 0.15 }}
                                 className="absolute right-0 sm:right-auto sm:left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden z-50 text-left"
                             >
-                                <div className="p-3 bg-slate-900 text-white flex items-center justify-between">
-                                    <div className="flex items-center gap-1.5">
-                                        <Sparkles size={14} className="text-amber-400" />
-                                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-200">
-                                            Role Evaluator
-                                        </span>
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-wider bg-white/10 text-slate-300 px-1.5 py-0.5 rounded">
-                                        Recruiter Demo
+                                <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                                        Switch Workspace View
+                                    </span>
+                                    <span className="text-[9px] font-black uppercase tracking-wider bg-slate-200/80 text-slate-600 px-1.5 py-0.5 rounded">
+                                        Live RBAC
                                     </span>
                                 </div>
 
