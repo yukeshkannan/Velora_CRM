@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones, AlertCircle } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, X, CheckCircle2, Headphones, AlertCircle, Sparkles, ShieldCheck, Briefcase } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Logo from '../components/Logo';
@@ -13,13 +13,14 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   
   const [showSupport, setShowSupport] = useState(false);
   const [supportForm, setSupportForm] = useState({ name: '', email: '', desc: '' });
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportSuccess, setSupportSuccess] = useState(false);
 
-  const { login, loginWithUserData } = useAuth();
+  const { login, demoLogin, loginWithUserData } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -110,6 +111,36 @@ const Login = () => {
       toast.error(errMsg);
     }
     setIsLoading(false);
+  };
+
+  const handleQuickDemo = async (role) => {
+    setError('');
+    setIsDemoLoading(true);
+
+    if (role === 'Admin') {
+      setEmail('admin@company.com');
+      setPassword('Admin@123456');
+    } else if (role === 'Employee') {
+      setEmail('yukesh785.in@gmail.com');
+      setPassword('Employee@123456');
+    } else if (role === 'Client') {
+      setEmail('client.demo@company.com');
+      setPassword('Client@123456');
+    }
+
+    toast.loading(`Authenticating as Demo ${role}...`, { id: 'demo-login' });
+    const result = await demoLogin(role);
+    toast.dismiss('demo-login');
+
+    if (result.success) {
+      toast.success(`Signed in as ${role}!`);
+      navigate('/app/dashboard', { replace: true });
+    } else {
+      const errMsg = result.message || 'Demo authentication failed';
+      setError(errMsg);
+      toast.error(errMsg);
+    }
+    setIsDemoLoading(false);
   };
 
   const handleSupportSubmit = async (e) => {
@@ -250,6 +281,55 @@ const Login = () => {
             <p className="text-xs text-slate-600 font-normal leading-relaxed">
               Enter your credentials to access your workspace.
             </p>
+          </div>
+
+          {/* Recruiter / Fast Demo Access Showcase */}
+          <div className="mb-4 p-3 bg-slate-900 text-white rounded-xl shadow-md border border-slate-800">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-amber-400" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200">
+                  Recruiter & Demo Mode
+                </span>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-1.5 py-0.5 rounded-md">
+                1-Click Test
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={isLoading || isDemoLoading}
+                onClick={() => handleQuickDemo('Admin')}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-left flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                title="Sign in with Full Administrator Privileges"
+              >
+                <div className="w-6 h-6 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
+                  <ShieldCheck size={14} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black text-white leading-tight">👑 Demo Admin</div>
+                  <div className="text-[9px] text-slate-300 truncate">HR, Payroll & CRM</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                disabled={isLoading || isDemoLoading}
+                onClick={() => handleQuickDemo('Employee')}
+                className="p-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-left flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                title="Sign in as Staff Member"
+              >
+                <div className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/30">
+                  <Briefcase size={14} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-black text-white leading-tight">💼 Demo Staff</div>
+                  <div className="text-[9px] text-slate-300 truncate">Clock-in & Tasks</div>
+                </div>
+              </button>
+            </div>
           </div>
 
           {error && (

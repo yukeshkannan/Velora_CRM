@@ -172,6 +172,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const demoLogin = async (role = 'Admin') => {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/demo-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const rawUser = data.data?.user || data.data;
+        const token = data.data?.token || data.token;
+        const userData = sanitizeUser(rawUser);
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        hasAutoCheckedIn.current = false;
+        autoCheckIn(userData);
+
+        return { success: true, user: userData };
+      }
+    } catch (err) {
+      console.warn("Backend demo-login endpoint not reachable, falling back to credential login:", err);
+    }
+
+    // Direct fallback to verified credentials if endpoint is unreachable
+    const seedCredentials = {
+      Admin: { email: 'admin@company.com', pass: 'Admin@123456' },
+      Employee: { email: 'yukesh785.in@gmail.com', pass: 'Employee@123456' },
+      HR: { email: 'admin@company.com', pass: 'Admin@123456' },
+      Sales: { email: 'admin@company.com', pass: 'Admin@123456' },
+      Client: { email: 'harishragunathan758@gmail.com', pass: 'Client@123456' }
+    };
+    const target = seedCredentials[role] || seedCredentials.Admin;
+    return await login(target.email, target.pass);
+  };
+
   const loginWithUserData = (userData, token) => {
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(userData));
@@ -237,7 +274,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, checkAuth, loginWithUserData, updateUserState }}>
+    <AuthContext.Provider value={{ user, loading, login, demoLogin, logout, checkAuth, loginWithUserData, updateUserState }}>
       {children}
     </AuthContext.Provider>
   );
